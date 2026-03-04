@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FEED — Culture & Style</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e8ff00;
+      --text: #f0f0f0;
+      --muted: #555;
+      --tag-hype: #ff3c3c;
+      --tag-high: #3caaff;
+      --tag-complex: #ff8c00;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      height: 64px;
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+    }
+
+    .logo span {
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.3em;
+      display: block;
+      margin-top: -6px;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.4rem 1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .refresh-btn.spinning { animation: spin 1s linear infinite; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Controls */
+    .controls {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-wrap {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+    }
+
+    input[type="search"] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.6rem 1rem 0.6rem 2.5rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input[type="search"]:focus { border-color: var(--accent); }
+    input[type="search"]::placeholder { color: var(--muted); }
+
+    .filters {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.5rem 1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover { border-color: var(--text); color: var(--text); }
+    .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+    .filter-btn[data-source="hypebeast"].active { background: var(--tag-hype); border-color: var(--tag-hype); color: #fff; }
+    .filter-btn[data-source="highsnobiety"].active { background: var(--tag-high); border-color: var(--tag-high); color: #fff; }
+    .filter-btn[data-source="complex"].active { background: var(--tag-complex); border-color: var(--tag-complex); color: #fff; }
+
+    /* Stats bar */
+    .stats-bar {
+      padding: 0.75rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 2rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .stats-bar strong { color: var(--text); }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      padding-top: 1px;
+    }
+
+    .card {
+      background: var(--bg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: background 0.2s;
+      animation: fadeUp 0.4s ease both;
+      cursor: pointer;
+    }
+    .card:hover { background: var(--surface); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .source-tag {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-weight: 500;
+      padding: 0.2rem 0.5rem;
+      border: 1px solid;
+    }
+    .source-tag.hypebeast { color: var(--tag-hype); border-color: var(--tag-hype); }
+    .source-tag.highsnobiety { color: var(--tag-high); border-color: var(--tag-high); }
+    .source-tag.complex { color: var(--tag-complex); border-color: var(--tag-complex); }
+
+    .card-date {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .card-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      background: var(--surface);
+      display: block;
+    }
+
+    .card-img-placeholder.card-img-loading {
+      animation: pulse 1.5s ease-in-out infinite;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+    .card-img-placeholder {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--border);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.2em;
+    }
+
+    .card-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.2;
+      letter-spacing: 0.03em;
+      color: var(--text);
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: auto;
+      width: fit-content;
+    }
+    .card-link:hover { text-decoration: underline; }
+
+    /* Empty / loading states */
+    .state-msg {
+      grid-column: 1/-1;
+      padding: 5rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 5rem 2rem;
+      grid-column: 1/-1;
+    }
+
+    .loader-bars {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 32px;
+    }
+    .loader-bars span {
+      display: block;
+      width: 4px;
+      background: var(--accent);
+      animation: bar 1s ease-in-out infinite;
+    }
+    .loader-bars span:nth-child(1) { animation-delay: 0s; }
+    .loader-bars span:nth-child(2) { animation-delay: 0.15s; }
+    .loader-bars span:nth-child(3) { animation-delay: 0.3s; }
+    .loader-bars span:nth-child(4) { animation-delay: 0.45s; }
+    .loader-bars span:nth-child(5) { animation-delay: 0.6s; }
+
+    @keyframes bar {
+      0%, 100% { height: 8px; opacity: 0.3; }
+      50% { height: 32px; opacity: 1; }
+    }
+
+    .loader-text {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .error-banner {
+      background: #1a0a0a;
+      border: 1px solid #3a1a1a;
+      color: #ff6b6b;
+      padding: 0.75rem 2rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* Ticker */
+    .ticker {
+      background: var(--accent);
+      color: #000;
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 0.4rem 0;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+    }
+    .ticker-inner {
+      display: inline-block;
+      animation: ticker 30s linear infinite;
+    }
+    @keyframes ticker {
+      from { transform: translateX(100vw); }
+      to { transform: translateX(-100%); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    FEED
+    <span>Culture &amp; Style Aggregator</span>
+  </div>
+  <div class="header-right">
+    <button class="refresh-btn" id="refreshBtn" onclick="loadAllFeeds()">↻ Refresh</button>
+  </div>
+</header>
+
+<div class="ticker">
+  <div class="ticker-inner" id="tickerText">LOADING LATEST DROPS &nbsp;·&nbsp; HYPEBEAST &nbsp;·&nbsp; HIGHSNOBIETY &nbsp;·&nbsp; COMPLEX &nbsp;·&nbsp; STAY TUNED &nbsp;·&nbsp;&nbsp;</div>
+</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="searchInput" placeholder="Search articles..." oninput="filterArticles()"/>
+  </div>
+  <div class="filters">
+    <button class="filter-btn active" data-source="all" onclick="setFilter('all', this)">All</button>
+    <button class="filter-btn" data-source="hypebeast" onclick="setFilter('hypebeast', this)">Hypebeast</button>
+    <button class="filter-btn" data-source="highsnobiety" onclick="setFilter('highsnobiety', this)">Highsnobiety</button>
+    <button class="filter-btn" data-source="complex" onclick="setFilter('complex', this)">Complex</button>
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <span>Loading feeds…</span>
+</div>
+
+<div id="errorBanner" style="display:none" class="error-banner"></div>
+
+<div class="grid" id="grid">
+  <div class="loader">
+    <div class="loader-bars">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="loader-text">Fetching latest articles</div>
+  </div>
+</div>
+
+<script>
+  const FEEDS = [
+    { id: 'hypebeast',    name: 'Hypebeast',    rssUrl: 'https://hypebeast.com/feed', useRaw: true },
+    { id: 'highsnobiety', name: 'Highsnobiety', rssUrl: 'https://www.highsnobiety.com/feed/' },
+    { id: 'complex',      name: 'Complex',      useGoogleNews: true, googleNewsFeeds: [
+      'https://news.google.com/rss/search?q=site:complex.com+sneakers&hl=en-US&gl=US&ceid=US:en',
+      'https://news.google.com/rss/search?q=site:complex.com+style&hl=en-US&gl=US&ceid=US:en'
+    ]}
+  ];
+
+  const PROXY = url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+
+
+  let allArticles = [];
+  let activeFilter = 'all';
+
+  function timeAgo(dateStr) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  function stripHtml(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.textContent || div.innerText || '';
+  }
+
+  function extractImage(item) {
+    // 1. rss2json thumbnail field
+    if (item.thumbnail && item.thumbnail.startsWith('http')) return item.thumbnail;
+
+    // 2. enclosure
+    if (item.enclosure) {
+      if (item.enclosure.link && item.enclosure.link.startsWith('http')) return item.enclosure.link;
+      if (item.enclosure.url && item.enclosure.url.startsWith('http')) return item.enclosure.url;
+    }
+
+    // 3. Search description HTML first (Highsnobiety stores image here)
+    const desc = item.description || '';
+    if (desc) {
+      const m = desc.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (m && m[1].startsWith('http')) return m[1];
+      // also check for src without quotes
+      const m2 = desc.match(/src=(https?:\/\/[^\s>]+)/i);
+      if (m2 && m2[1].startsWith('http')) return m2[1];
+    }
+
+    // 4. Search content HTML
+    const cont = item.content || '';
+    if (cont) {
+      const m = cont.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (m && m[1].startsWith('http')) return m[1];
+    }
+
+    // 5. Any image URL anywhere in description or content
+    const fullHtml = desc + cont;
+    const urlMatch = fullHtml.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
+    if (urlMatch) return urlMatch[0];
+
+    return null;
+  }
+
+  // Fetch og:image from article page via corsproxy
+  // Also resolves Google News redirect URLs to real article URLs
+  async function fetchOgImage(articleUrl) {
+    try {
+      // For Google News URLs, extract the real URL first
+      let targetUrl = articleUrl;
+      if (articleUrl.includes('news.google.com')) {
+        // Fetch the Google News redirect page and follow to real URL
+        const gnRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(articleUrl), {
+          signal: AbortSignal.timeout(8000)
+        });
+        const gnHtml = await gnRes.text();
+        // Google News embeds the real URL in a meta refresh or og:url
+        const urlMatch = gnHtml.match(/og:url[^>]+content=["']([^"']+)["']/i)
+                      || gnHtml.match(/canonical[^>]+href=["']([^"']+)["']/i)
+                      || gnHtml.match(/url=["']?(https:\/\/[^"'\s]+complex\.com[^"'\s]+)/i);
+        if (urlMatch?.[1]?.includes('complex.com')) {
+          targetUrl = urlMatch[1];
+        } else {
+          // Try following the redirect URL from the page
+          const refreshMatch = gnHtml.match(/url=(https?:\/\/[^\s"'&]+)/i);
+          if (refreshMatch) targetUrl = decodeURIComponent(refreshMatch[1]);
+        }
+      }
+
+      const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl), {
+        signal: AbortSignal.timeout(8000)
+      });
+      const html = await res.text();
+      const m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+               || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+      return (m && m[1].startsWith('http')) ? m[1] : null;
+    } catch(e) {
+      return null;
+    }
+  }
+
+  // Parse raw RSS/XML for feeds that rss2json can't handle (e.g. Hypebeast)
+  function parseRawXML(xmlText, feed) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
+    const items = Array.from(doc.querySelectorAll('item')).slice(0, 20);
+    return items.map(item => {
+      const get = tag => item.querySelector(tag)?.textContent?.trim() || '';
+
+      // Try multiple image sources in the XML
+      const contentEncoded = item.querySelector('encoded')?.textContent || '';
+      const description = item.querySelector('description')?.textContent || '';
+      const combined = contentEncoded + description;
+
+      // 1. <img src="..."> tag
+      const imgMatch = combined.match(/<img[^>]+src=["']([^"']+)["']/i);
+      // 2. Any CDN image URL (Hypebeast uses image-cdn.hypb.st)
+      const cdnMatch = combined.match(/https?:\/\/image-cdn\.hypb\.st\/[^\s"'<>]+/i)
+                    || combined.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
+
+      const image = (imgMatch?.[1]) || (cdnMatch?.[0]) || null;
+
+      // Clean CDATA from title
+      const rawTitle = item.querySelector('title')?.textContent || '';
+      const title = rawTitle.replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+
+      // Link: <link> in XML is tricky, try guid too
+      const link = item.querySelector('link')?.textContent?.trim()
+               || item.querySelector('guid')?.textContent?.trim() || '#';
+
+      return {
+        source: feed.id,
+        sourceName: feed.name,
+        title,
+        description: stripHtml(description).slice(0, 200),
+        link,
+        date: get('pubDate'),
+        image
+      };
+    });
+  }
+
+  async function fetchFeedRaw(feed) {
+    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(feed.rssUrl), {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    return parseRawXML(text, feed);
+  }
+
+  async function fetchFeedJSON(feed) {
+    const res = await fetch(PROXY(feed.rssUrl), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Feed error');
+    return (data.items || []).slice(0, 20).map(item => ({
+      source: feed.id,
+      sourceName: feed.name,
+      title: item.title || '',
+      description: stripHtml(item.description || item.content || '').slice(0, 200),
+      link: item.link || item.guid || '#',
+      date: item.pubDate || '',
+      image: extractImage(item)
+    }));
+  }
+
+
+  async function scrapeComplex(feed) {
+    const seen = new Set();
+    const articles = [];
+
+    for (const feedUrl of feed.googleNewsFeeds) {
+      try {
+        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+        const data = await res.json();
+        if (!data.items?.length) continue;
+
+        for (const item of data.items) {
+          // Clean title — remove " - Complex" suffix
+          const title = (item.title || '').replace(/\s*[-|]\s*Complex\s*$/i, '').trim();
+          if (!title || seen.has(title)) continue;
+          seen.add(title);
+
+          // Google News links are redirect URLs — we'll resolve og:image lazily
+          // Try to extract the real URL from the Google News link
+          let link = item.link || '';
+
+          articles.push({
+            source: feed.id,
+            sourceName: feed.name,
+            title,
+            description: '',
+            link,
+            date: item.pubDate || '',
+            image: null // fetched lazily via og:image
+          });
+        }
+      } catch(e) {
+        console.warn('Google News fetch failed:', e);
+      }
+    }
+
+    return articles.slice(0, 20);
+  }
+
+  async function fetchFeedRaw(feed) {
+    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(feed.rssUrl), {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    return parseRawXML(text, feed);
+  }
+
+  async function fetchFeedJSON(feed) {
+    const res = await fetch(PROXY(feed.rssUrl), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Feed error');
+    return (data.items || []).slice(0, 20).map(item => ({
+      source: feed.id,
+      sourceName: feed.name,
+      title: item.title || '',
+      description: stripHtml(item.description || item.content || '').slice(0, 200),
+      link: item.link || item.guid || '#',
+      date: item.pubDate || '',
+      image: extractImage(item)
+    }));
+  }
+
+
+  async function scrapeComplex(feed) {
+    const seen = new Set();
+    const articles = [];
+
+    for (const pageUrl of feed.scraperUrls) {
+      try {
+        const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(pageUrl), {
+          signal: AbortSignal.timeout(10000)
+        });
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        // Exclude known non-latest-stories containers:
+        // - div with "md:-order-1" class = hero/cover article
+        // - div.grid-container that contains "Highlights" text = highlights section
+        // - footer links
+        // Everything else with /a/ in href = Latest Stories
+
+        // Remove hero container
+        doc.querySelectorAll('div').forEach(div => {
+          if (div.className && div.className.includes('md:-order-1')) {
+            div.remove();
+          }
+        });
+
+        // Remove Highlights grid-container
+        doc.querySelectorAll('div.grid-container').forEach(div => {
+          if (div.textContent.includes('Highlights')) {
+            div.remove();
+          }
+        });
+
+        // Remove footer
+        doc.querySelectorAll('footer, [class*="Footer"], [class*="footer"]').forEach(el => el.remove());
+
+        // Now grab all remaining /a/ article links
+        const articleAnchors = [...doc.querySelectorAll('a[href*="/a/"]')]
+          .filter(a => {
+            const href = a.getAttribute('href') || '';
+            return !href.startsWith('http') // relative only
+              && !href.includes('/v/')       // skip videos
+              && !href.includes('/sports/'); // skip sports (not in sneakers/style)
+          });
+
+        for (const a of articleAnchors) {
+          const href = 'https://www.complex.com' + a.getAttribute('href');
+          if (seen.has(href)) continue;
+          seen.add(href);
+
+          // Find closest image — check inside anchor and up to 5 parent levels
+          let img = a.querySelector('img');
+          if (!img) {
+            let parent = a.parentElement;
+            for (let i = 0; i < 5 && parent; i++) {
+              img = parent.querySelector('img');
+              if (img) break;
+              parent = parent.parentElement;
+            }
+          }
+
+          // Get title, strip leading section name (e.g. "Sneakers")
+          const rawTitle = (a.querySelector('h1,h2,h3,h4,p,span')?.textContent || a.textContent || '').trim();
+          const title = rawTitle.replace(/^(Sneakers|Style|Pop Culture|Music|Sports|Life|Rides|Tech)+/i, '').trim();
+          if (title.length < 15) continue;
+
+          // Get image src, prefer data-src, upgrade to high quality
+          let imgSrc = img?.getAttribute('src') || img?.getAttribute('data-src') || '';
+          // Remove Cloudinary transforms that limit quality/size
+          imgSrc = imgSrc.replace(/\/upload\/[^/]+\//, '/upload/q_auto,f_jpg,w_800,c_fill,ar_1.78,g_center/');
+
+          articles.push({
+            source: feed.id,
+            sourceName: feed.name,
+            title,
+            description: '',
+            link: href,
+            date: new Date().toUTCString(), // Complex doesn't expose date in HTML
+            image: imgSrc || null
+          });
+        }
+      } catch(e) {
+        console.warn('Complex scrape failed for', pageUrl, e);
+      }
+    }
+
+    // Dedupe again by title similarity
+    const finalArticles = [];
+    const titlesSeen = new Set();
+    for (const a of articles) {
+      const key = a.title.slice(0, 40).toLowerCase();
+      if (!titlesSeen.has(key)) {
+        titlesSeen.add(key);
+        finalArticles.push(a);
+      }
+    }
+
+    return finalArticles.slice(0, 20);
+  }
+
+
+  async function fetchComplexGoogleNews(feed) {
+    const seen = new Set();
+    const articles = [];
+
+    for (const feedUrl of feed.googleNewsFeeds) {
+      try {
+        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+        const data = await res.json();
+        if (data.status !== 'ok' || !data.items) continue;
+
+        for (const item of data.items) {
+          // Clean title — remove " - Complex" suffix
+          const title = (item.title || '').replace(/\s*-\s*Complex\s*$/i, '').trim();
+          if (!title || seen.has(title)) continue;
+          seen.add(title);
+
+          // Google News links are redirect URLs — resolve to real URL via corsproxy
+          let realLink = item.link;
+          let image = null;
+          try {
+            const linkRes = await fetch('https://corsproxy.io/?' + encodeURIComponent(item.link), {
+              signal: AbortSignal.timeout(8000),
+              redirect: 'follow'
+            });
+            const html = await linkRes.text();
+            // Extract og:image
+            const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                         || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+            if (ogMatch?.[1]?.startsWith('http')) image = ogMatch[1];
+            // Extract real URL from og:url
+            const urlMatch = html.match(/<meta[^>]+property=["']og:url["'][^>]+content=["']([^"']+)["']/i)
+                          || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:url["']/i);
+            if (urlMatch?.[1]?.startsWith('http')) realLink = urlMatch[1];
+          } catch(e) {}
+
+          articles.push({
+            source: feed.id,
+            sourceName: feed.name,
+            title,
+            description: '',
+            link: realLink,
+            date: item.pubDate || '',
+            image
+          });
+        }
+      } catch(e) {
+        console.warn('Google News fetch failed:', e);
+      }
+    }
+
+    return articles.slice(0, 20);
+  }
+
+  async function fetchFeed(feed) {
+    try {
+      let articles;
+      if (feed.useGoogleNews) {
+        articles = await fetchComplexGoogleNews(feed);
+      } else if (feed.useRaw) {
+        articles = await fetchFeedRaw(feed);
+      } else {
+        try {
+          articles = await fetchFeedJSON(feed);
+        } catch(e) {
+          articles = await fetchFeedRaw(feed);
+        }
+      }
+      return articles;
+    } catch (e) {
+      console.warn(`Failed to load ${feed.name}:`, e);
+      return [];
+    }
+  }
+
+  async function loadAllFeeds() {
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('spinning');
+    btn.disabled = true;
+
+    document.getElementById('grid').innerHTML = `
+      <div class="loader">
+        <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="loader-text">Fetching latest articles</div>
+      </div>`;
+    document.getElementById('statsBar').innerHTML = '<span>Loading feeds…</span>';
+
+    const results = await Promise.allSettled(FEEDS.map(fetchFeed));
+    allArticles = [];
+    const errors = [];
+
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') {
+        allArticles.push(...res.value);
+        if (res.value.length === 0) errors.push(FEEDS[i].name);
+      } else {
+        errors.push(FEEDS[i].name);
+      }
+    });
+
+    // Sort by date desc
+    allArticles.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Ticker
+    if (allArticles.length > 0) {
+      const titles = allArticles.slice(0, 10).map(a => a.title).join(' &nbsp;·&nbsp; ');
+      document.getElementById('tickerText').innerHTML = titles + ' &nbsp;·&nbsp; ';
+    }
+
+    if (errors.length) {
+      const eb = document.getElementById('errorBanner');
+      eb.style.display = 'block';
+      eb.textContent = `Could not load: ${errors.join(', ')} — feeds may be temporarily unavailable.`;
+    } else {
+      document.getElementById('errorBanner').style.display = 'none';
+    }
+
+    btn.classList.remove('spinning');
+    btn.disabled = false;
+
+    filterArticles();
+  }
+
+  function setFilter(source, btn) {
+    activeFilter = source;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterArticles();
+  }
+
+  function filterArticles() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    let filtered = allArticles;
+
+    if (activeFilter !== 'all') {
+      filtered = filtered.filter(a => a.source === activeFilter);
+    }
+
+    if (query) {
+      filtered = filtered.filter(a =>
+        a.title.toLowerCase().includes(query) ||
+        a.description.toLowerCase().includes(query)
+      );
+    }
+
+    renderGrid(filtered);
+
+    // Stats
+    const counts = {};
+    FEEDS.forEach(f => counts[f.id] = allArticles.filter(a => a.source === f.id).length);
+    document.getElementById('statsBar').innerHTML = `
+      <span><strong>${filtered.length}</strong> articles shown</span>
+      <span>Hypebeast <strong>${counts.hypebeast || 0}</strong></span>
+      <span>Highsnobiety <strong>${counts.highsnobiety || 0}</strong></span>
+      <span>Complex <strong>${counts.complex || 0}</strong></span>
+    `;
+  }
+
+  function renderGrid(articles) {
+    const grid = document.getElementById('grid');
+    if (articles.length === 0) {
+      grid.innerHTML = `<div class="state-msg">No articles found</div>`;
+      return;
+    }
+    grid.innerHTML = articles.map((a, i) => {
+      const imgHtml = a.image
+        ? `<img class="card-img" src="${a.image}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        : `<div class="card-img-placeholder card-img-loading" id="imgslot-${i}"><span>loading…</span></div>`;
+      return `
+        <div class="card" style="animation-delay:${Math.min(i * 0.03, 0.5)}s" onclick="window.open('${a.link}','_blank')">
+          <div class="card-meta">
+            <span class="source-tag ${a.source}">${a.sourceName}</span>
+            <span class="card-date">${a.date ? timeAgo(a.date) : ''}</span>
+          </div>
+          ${imgHtml}
+          <div class="card-title">${a.title}</div>
+          ${a.description ? `<div class="card-desc">${a.description}</div>` : ''}
+          <a class="card-link" href="${a.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+            Read full article →
+          </a>
+        </div>`;
+    }).join('');
+
+    // Swap in images as og:image fetches resolve
+    articles.forEach((a, i) => {
+      if (!a.image) {
+        fetchOgImage(a.link).then(url => {
+          const slot = document.getElementById('imgslot-' + i);
+          if (!slot) return;
+          if (url) {
+            const img = document.createElement('img');
+            img.className = 'card-img';
+            img.src = url;
+            img.alt = '';
+            img.loading = 'lazy';
+            img.onerror = () => img.style.display = 'none';
+            slot.replaceWith(img);
+          } else {
+            slot.querySelector('span').textContent = a.sourceName;
+            slot.classList.remove('card-img-loading');
+          }
+        });
+      }
+    });
+  }
+
+  loadAllFeeds();
+</script>
+</body>
+</html>
