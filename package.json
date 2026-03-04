@@ -2,10 +2,10 @@
   "name": "feed-aggregator",
   "version": "2.0.0",
   "description": "Culture & style news aggregator",
-  "main": "server.js", 
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npx playwright install chromium --with-deps"
+    "postinstall": "npx playwright install-deps chromium && npx playwright install chromium"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -13,7 +13,7 @@
     "rss-parser": "^3.13.0",
     "playwright": "^1.41.0",
     "cheerio": "^1.0.0-rc.12"
-  },
+  }, 
   "engines": {
     "node": ">=18.0.0"
   }
