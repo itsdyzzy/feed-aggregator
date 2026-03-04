@@ -2,7 +2,7 @@
   "name": "feed-aggregator",
   "version": "2.0.0",
   "description": "Culture & style news aggregator",
-  "main": "server.js",
+  "main": "server.js", 
   "scripts": {
     "start": "node server.js",
     "postinstall": "npx playwright install chromium --with-deps"
