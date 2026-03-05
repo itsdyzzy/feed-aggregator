@@ -133,11 +133,11 @@ async function fetchSneakerNews() {
   return direct || [];
 }
 
-async function fetchHNHH() {
+async function fetchHipHopDX() {
   // Use their direct site feed
-  const direct = await fetchDirectFeed('https://www.hotnewhiphop.com/rss.html', 'hnhh', 'HotNewHipHop');
+  const direct = await fetchDirectFeed('https://hiphopdx.com/rss/news.xml', 'hiphopdx', 'HipHopDX');
   if (direct) return direct;
-  const r2j = await fetchViaRss2json('https://www.hotnewhiphop.com/rss.html', 'hnhh', 'HotNewHipHop');
+  const r2j = await fetchViaRss2json('https://hiphopdx.com/rss/news.xml', 'hiphopdx', 'HipHopDX');
   if (r2j) return r2j;
   return [];
 }
@@ -145,14 +145,14 @@ async function fetchHNHH() {
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, sneakernews, hnhh] = await Promise.allSettled([
-      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHNHH()
+    const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await Promise.allSettled([
+      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
     ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
       ...(sneakernews.status === 'fulfilled' ? sneakernews.value : []),
-      ...(hnhh.status === 'fulfilled' ? hnhh.value : [])
+      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
