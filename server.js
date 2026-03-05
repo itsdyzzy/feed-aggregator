@@ -1,4 +1,5 @@
 const express = require('express');
+const { chromium } = require('playwright');
 const Parser = require('rss-parser');
 const fetch = require('node-fetch');
 const path = require('path');
@@ -176,17 +177,101 @@ async function fetchHipHopDX() {
 }
 
 
+// Generic Playwright scraper for JS-rendered sites
+async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
+  let browser;
+  try {
+    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
+    const articles = await scrapeLogic(page);
+    console.log(sourceName + ' scraped: ' + articles.length + ' items');
+    return articles;
+  } catch (e) {
+    console.error(sourceName + ' scrape error:', e.message);
+    return [];
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+async function fetchComplex() {
+  return scrapeWithPlaywright('https://www.complex.com/sneakers', 'complex', 'Complex', async (page) => {
+    return page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('a[href*="/sneakers/"]')).filter(a => a.querySelector('img') || a.closest('[class*="card"]'));
+      return cards.slice(0, 20).map(card => {
+        const img = card.querySelector('img');
+        const title = card.querySelector('h2,h3,[class*="title"],[class*="headline"]');
+        return {
+          source: 'complex', sourceName: 'Complex',
+          title: title ? title.innerText.trim() : card.innerText.trim().split('\n')[0],
+          description: '',
+          link: card.href.startsWith('http') ? card.href : 'https://complex.com' + card.getAttribute('href'),
+          date: new Date().toISOString(),
+          image: img ? (img.src || img.dataset.src) : null
+        };
+      }).filter(a => a.title && a.title.length > 10);
+    });
+  });
+}
+
+async function fetchSoleRetriever() {
+  return scrapeWithPlaywright('https://www.soleretriever.com/news', 'soleretriever', 'Sole Retriever', async (page) => {
+    return page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('a[href*="/news/"]')).filter(a => a.querySelector('img') || a.querySelector('h2,h3,[class*="title"]'));
+      return cards.slice(0, 20).map(card => {
+        const img = card.querySelector('img');
+        const title = card.querySelector('h2,h3,[class*="title"],[class*="headline"]');
+        return {
+          source: 'soleretriever', sourceName: 'Sole Retriever',
+          title: title ? title.innerText.trim() : '',
+          description: '',
+          link: card.href.startsWith('http') ? card.href : 'https://www.soleretriever.com' + card.getAttribute('href'),
+          date: new Date().toISOString(),
+          image: img ? (img.src || img.dataset.src) : null
+        };
+      }).filter(a => a.title && a.title.length > 10);
+    });
+  });
+}
+
+async function fetchHNHH() {
+  return scrapeWithPlaywright('https://www.hotnewhiphop.com/articles/news', 'hnhh', 'HotNewHipHop', async (page) => {
+    return page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('a[href*="/news/"]')).filter(a => a.querySelector('img') || a.querySelector('h2,h3,[class*="title"]'));
+      return cards.slice(0, 20).map(card => {
+        const img = card.querySelector('img');
+        const title = card.querySelector('h2,h3,[class*="title"],[class*="headline"]');
+        return {
+          source: 'hnhh', sourceName: 'HotNewHipHop',
+          title: title ? title.innerText.trim() : '',
+          description: '',
+          link: card.href.startsWith('http') ? card.href : 'https://www.hotnewhiphop.com' + card.getAttribute('href'),
+          date: new Date().toISOString(),
+          image: img ? (img.src || img.dataset.src) : null
+        };
+      }).filter(a => a.title && a.title.length > 10);
+    });
+  });
+}
+
+
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await Promise.allSettled([
-      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
+    const [hypebeast, highsnobiety, sneakernews, hiphopdx, complex, soleretriever, hnhh] = await Promise.allSettled([
+      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchComplex(), fetchSoleRetriever(), fetchHNHH()
     ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
       ...(sneakernews.status === 'fulfilled' ? sneakernews.value : []),
-      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : [])
+      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : []),
+      ...(complex.status === 'fulfilled' ? complex.value : []),
+      ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
+      ...(hnhh.status === 'fulfilled' ? hnhh.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
