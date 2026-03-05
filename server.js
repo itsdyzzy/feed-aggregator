@@ -21,7 +21,7 @@ const parser = new Parser({
   }
 });
 
-let cachedArticles = []; 
+let cachedArticles = [];
 let lastFetch = 0;
 const CACHE_TTL = 15 * 60 * 1000;
 
@@ -127,10 +127,28 @@ async function fetchHighsnobiety() {
 }
 
 async function fetchSneakerNews() {
-  const r2j = await fetchViaRss2json('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
-  if (r2j) return r2j;
-  const direct = await fetchDirectFeed('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
-  return direct || [];
+  try {
+    const res = await fetch('https://sneakernews.com/feed/', {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    let xml = await res.text();
+    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+    const feed = await parser.parseString(xml);
+    const articles = [];
+    for (const item of feed.items.slice(0, 20)) {
+      let image = extractImage(item);
+      if (!image && item.link) image = await fetchOgImage(item.link);
+      articles.push({ source: 'sneakernews', sourceName: 'Sneaker News', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
+    }
+    console.log('Sneaker News: ' + articles.length + ' items');
+    return articles;
+  } catch (e) {
+    console.error('Sneaker News direct:', e.message);
+    const r2j = await fetchViaRss2json('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
+    return r2j || [];
+  }
 }
 
 async function fetchHipHopDX() {
