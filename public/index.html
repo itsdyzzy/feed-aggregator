@@ -18,6 +18,7 @@
       --tag-hype: #ff3c3c;
       --tag-high: #3caaff;
       --tag-complex: #ff8c00;
+      --tag-mn: #00cc88;
     }
 
     html { scroll-behavior: smooth; }
@@ -161,6 +162,7 @@
     .filter-btn[data-source="hypebeast"].active { background: var(--tag-hype); border-color: var(--tag-hype); color: #fff; }
     .filter-btn[data-source="highsnobiety"].active { background: var(--tag-high); border-color: var(--tag-high); color: #fff; }
     .filter-btn[data-source="complex"].active { background: var(--tag-complex); border-color: var(--tag-complex); color: #fff; }
+    .filter-btn[data-source="modernnotoriety"].active { background: var(--tag-mn); border-color: var(--tag-mn); color: #000; }
 
     .stats-bar {
       padding: 0.75rem 2rem;
@@ -221,6 +223,7 @@
     .source-tag.hypebeast { color: var(--tag-hype); border-color: var(--tag-hype); }
     .source-tag.highsnobiety { color: var(--tag-high); border-color: var(--tag-high); }
     .source-tag.complex { color: var(--tag-complex); border-color: var(--tag-complex); }
+    .source-tag.modernnotoriety { color: var(--tag-mn); border-color: var(--tag-mn); }
 
     .card-date { font-size: 0.7rem; color: var(--muted); }
 
@@ -340,6 +343,7 @@
     <button class="filter-btn" data-source="hypebeast" onclick="setFilter('hypebeast', this)">Hypebeast</button>
     <button class="filter-btn" data-source="highsnobiety" onclick="setFilter('highsnobiety', this)">Highsnobiety</button>
     <button class="filter-btn" data-source="complex" onclick="setFilter('complex', this)">Complex</button>
+    <button class="filter-btn" data-source="modernnotoriety" onclick="setFilter('modernnotoriety', this)">Modern Notoriety</button>
   </div>
 </div>
 
@@ -385,13 +389,14 @@
     );
 
     // Update stats
-    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0 };
+    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, modernnotoriety: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
     document.getElementById('statsBar').innerHTML = `
       <span><strong>${filtered.length}</strong> Articles Shown</span>
       <span>Hypebeast <strong>${counts.hypebeast}</strong></span>
       <span>Highsnobiety <strong>${counts.highsnobiety}</strong></span>
       <span>Complex <strong>${counts.complex}</strong></span>
+      <span>Modern Notoriety <strong>${counts.modernnotoriety}</strong></span>
     `;
 
     if (filtered.length === 0) {
