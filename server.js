@@ -47,16 +47,17 @@ async function fetchOgImage(url) {
   } catch { return null; }
 }
 
-async function fetchHypebeast() {
+// Generic rss2json fetcher - handles malformed XML gracefully
+async function fetchViaRss2json(feedUrl, source, sourceName) {
   try {
-    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://hypebeast.com/feed')}`;
+    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
     const res = await fetch(apiUrl, { timeout: 15000 });
     const data = await res.json();
     if (data.status === 'ok' && data.items?.length) {
-      console.log(`Hypebeast via rss2json: ${data.items.length} items`);
+      console.log(`${sourceName} via rss2json: ${data.items.length} items`);
       return data.items.slice(0, 20).map(item => ({
-        source: 'hypebeast',
-        sourceName: 'Hypebeast',
+        source,
+        sourceName,
         title: item.title || '',
         description: item.description ? item.description.replace(/<[^>]+>/g, '').slice(0, 200) : '',
         link: item.link || '',
@@ -64,8 +65,17 @@ async function fetchHypebeast() {
         image: item.thumbnail || item.enclosure?.link || null
       }));
     }
-  } catch (e) { console.error('Hypebeast rss2json:', e.message); }
+    console.error(`${sourceName} rss2json bad status:`, data.status, data.message);
+  } catch (e) { console.error(`${sourceName} rss2json:`, e.message); }
+  return null;
+}
 
+async function fetchHypebeast() {
+  // Try rss2json first
+  const result = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
+  if (result) return result;
+
+  // Fallback: direct RSS
   try {
     const res = await fetch('https://hypebeast.com/feed', {
       timeout: 15000,
@@ -88,7 +98,6 @@ async function fetchHypebeast() {
       }
     }
   } catch (e) { console.error('Hypebeast direct:', e.message); }
-
   return [];
 }
 
@@ -106,17 +115,12 @@ async function fetchHighsnobiety() {
 }
 
 async function fetchModernNotoriety() {
-  try {
-    const feed = await parser.parseURL('https://modernnotoriety.com/feed/');
-    const articles = [];
-    for (const item of feed.items.slice(0, 20)) {
-      let image = extractImage(item);
-      if (!image && item.link) image = await fetchOgImage(item.link);
-      articles.push({ source: 'modernnotoriety', sourceName: 'Modern Notoriety', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
-    }
-    console.log(`Modern Notoriety: ${articles.length} items`);
-    return articles;
-  } catch (e) { console.error('Modern Notoriety:', e.message); return []; }
+  // Use rss2json to handle their malformed XML
+  const result = await fetchViaRss2json('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
+  if (result) return result;
+
+  console.error('Modern Notoriety: all methods failed');
+  return [];
 }
 
 async function fetchAllFeeds() {
