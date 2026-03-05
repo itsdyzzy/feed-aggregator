@@ -16,7 +16,7 @@ const parser = new Parser({
   customFields: {
     item: [
       ['media:content', 'mediaContent'],
-      ['media:thumbnail', 'mediaThumbnail'], 
+      ['media:thumbnail', 'mediaThumbnail'],
       ['enclosure', 'enclosure']
     ]
   }
@@ -236,20 +236,23 @@ async function fetchComplex() {
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('complex.com')) return;
-        // Accept any complex.com article link
         if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]+\/[a-z0-9-]/)) return;
         const img = a.querySelector('img');
         const allText = a.innerText.trim();
         const lines = allText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
         const title = lines[0] || '';
         if (!title || title.length < 10) return;
+        // Try to find a date in the card
+        const card = a.closest('article, li, [class*="card"], [class*="item"], [class*="post"]') || a;
+        const timeEl = card.querySelector('time');
+        const dateStr = timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText) : null;
         results.push({
           source: 'complex', sourceName: 'Complex',
           title,
           description: '',
           link: href,
-          date: new Date().toISOString(),
-          image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
+          date: dateStr || new Date().toISOString(),
+          image: null  // Will be fetched via og:image after scrape
         });
       });
       const seen = new Set();
@@ -298,13 +301,16 @@ async function fetchHNHH() {
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
         const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
         if (!title || title.length < 10) return;
+        const card = a.closest('article, li, [class*="card"], [class*="item"]') || a;
+        const timeEl = card.querySelector('time');
+        const dateStr = timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText) : null;
         results.push({
           source: 'hnhh', sourceName: 'HotNewHipHop',
           title,
           description: '',
           link: href.startsWith('http') ? href : 'https://www.hotnewhiphop.com' + href,
-          date: new Date().toISOString(),
-          image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
+          date: dateStr || new Date().toISOString(),
+          image: null  // Will be fetched via og:image
         });
       });
       const seen = new Set();
