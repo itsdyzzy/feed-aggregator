@@ -99,16 +99,30 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
 }
 
 async function fetchHypebeast() {
-  // Try direct first, then rss2json as fallback
-  const direct = await fetchDirectFeed('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
-  if (direct) {
-    return direct.map(a => {
-      if (!a.image) {
-        // no-op, image already extracted
+  // Try multiple feed URLs
+  const urls = ['https://hypebeast.com/feed', 'https://hypebeast.com/feed/'];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/rss+xml, text/xml, */*' }
+      });
+      if (!res.ok) continue;
+      let xml = await res.text();
+      xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        console.log('Hypebeast direct: ' + feed.items.length + ' items');
+        return feed.items.slice(0, 20).map(item => ({
+          source: 'hypebeast', sourceName: 'Hypebeast',
+          title: item.title || '', description: item.contentSnippet || '',
+          link: item.link || '', date: item.pubDate || item.isoDate || '',
+          image: extractImage(item)
+        }));
       }
-      return { ...a, sourceName: 'Hypebeast' };
-    });
+    } catch(e) { console.error('Hypebeast direct:', e.message); }
   }
+  // rss2json fallback
   const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
   if (r2j) return r2j;
   return [];
