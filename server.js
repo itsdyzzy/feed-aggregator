@@ -158,40 +158,11 @@ async function fetchHipHopDX() {
 }
 
 
-async function fetchPause() {
-  // Try rss2json first - handles malformed XML better
-  const r2j = await fetchViaRss2json('https://pausemag.co.uk/feed/', 'pause', 'PAUSE');
-  if (r2j) return r2j;
-
-  // Fallback: direct fetch with aggressive sanitization
-  try {
-    const res = await fetch('https://pausemag.co.uk/feed/', {
-      timeout: 15000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    let xml = await res.text();
-    // Strip style attributes which often contain semicolons that break XML tag parsing
-    xml = xml.replace(/\s+style="[^"]*"/gi, '');
-    xml = xml.replace(/\s+style='[^']*'/gi, '');
-    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
-    const feed = await parser.parseString(xml);
-    const articles = [];
-    for (const item of feed.items.slice(0, 20)) {
-      let image = extractImage(item);
-      if (!image && item.link) image = await fetchOgImage(item.link);
-      articles.push({ source: 'pause', sourceName: 'PAUSE', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
-    }
-    console.log('PAUSE sanitized: ' + articles.length + ' items');
-    return articles;
-  } catch (e) { console.error('PAUSE:', e.message); return []; }
-}
-
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, sneakernews, hiphopdx, pause] = await Promise.allSettled([
-      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchPause()
+    const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await Promise.allSettled([
+      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
     ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
