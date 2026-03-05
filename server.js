@@ -306,26 +306,34 @@ async function fetchSoleRetriever() {
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'networkidle', timeout: 45000 });
-    await page.waitForTimeout(4000);
 
-    // Log sample article hrefs
-    const sampleHrefs = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('a[href]'))
+    // Wait for article links to appear - try multiple selectors
+    try {
+      await page.waitForFunction(() => {
+        const links = Array.from(document.querySelectorAll('a[href]'))
+          .filter(a => a.href.includes('soleretriever.com/news/') && !a.href.includes('/tags/'));
+        return links.length > 5;
+      }, { timeout: 15000 });
+    } catch(e) { console.log('SR: waitForFunction timed out, proceeding anyway'); }
+
+    // Log ALL unique news hrefs for debugging
+    const allHrefs = await page.evaluate(() =>
+      [...new Set(Array.from(document.querySelectorAll('a[href]'))
         .map(a => a.href)
-        .filter(h => h.includes('soleretriever.com/news/') && h.split('/').length > 5)
-        .slice(0, 10)
+        .filter(h => h.includes('soleretriever.com/news/'))
+      )].slice(0, 20)
     );
-    console.log('SR sample hrefs:', JSON.stringify(sampleHrefs));
+    console.log('SR all news hrefs:', JSON.stringify(allHrefs));
 
     const results = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('soleretriever.com/news/')) return;
+        if (href.includes('/news/tags/')) return;
         const srPath = new URL(href).pathname;
         const srSegs = srPath.split('/').filter(Boolean);
-        if (srSegs.length < 3) return;
-        if (!srSegs[srSegs.length - 1].includes('-')) return;
+        if (srSegs.length < 2) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
         if (!title || title.length < 10) return;
@@ -342,7 +350,6 @@ async function fetchSoleRetriever() {
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
 
-    // Fetch og:image and date for each article
     await Promise.allSettled(results.map(async (article) => {
       const meta = await fetchOgMeta(article.link);
       if (meta.image) article.image = meta.image;
