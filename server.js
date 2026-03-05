@@ -48,7 +48,6 @@ async function fetchOgImage(url) {
 }
 
 async function fetchHypebeast() {
-  // Try rss2json API as proxy - bypasses any direct fetch issues
   try {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://hypebeast.com/feed')}`;
     const res = await fetch(apiUrl, { timeout: 15000 });
@@ -67,7 +66,6 @@ async function fetchHypebeast() {
     }
   } catch (e) { console.error('Hypebeast rss2json:', e.message); }
 
-  // Fallback: direct RSS fetch
   try {
     const res = await fetch('https://hypebeast.com/feed', {
       timeout: 15000,
@@ -107,13 +105,32 @@ async function fetchHighsnobiety() {
   } catch (e) { console.error('Highsnobiety:', e.message); return []; }
 }
 
+async function fetchModernNotoriety() {
+  try {
+    const feed = await parser.parseURL('https://modernnotoriety.com/feed/');
+    const articles = [];
+    for (const item of feed.items.slice(0, 20)) {
+      let image = extractImage(item);
+      if (!image && item.link) image = await fetchOgImage(item.link);
+      articles.push({ source: 'modernnotoriety', sourceName: 'Modern Notoriety', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
+    }
+    console.log(`Modern Notoriety: ${articles.length} items`);
+    return articles;
+  } catch (e) { console.error('Modern Notoriety:', e.message); return []; }
+}
+
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety] = await Promise.allSettled([fetchHypebeast(), fetchHighsnobiety()]);
+    const [hypebeast, highsnobiety, modernnotoriety] = await Promise.allSettled([
+      fetchHypebeast(),
+      fetchHighsnobiety(),
+      fetchModernNotoriety()
+    ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
-      ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : [])
+      ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
+      ...(modernnotoriety.status === 'fulfilled' ? modernnotoriety.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
