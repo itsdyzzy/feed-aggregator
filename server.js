@@ -166,6 +166,9 @@ async function fetchPause() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     let xml = await res.text();
+    // Wrap CDATA around content:encoded and description to prevent XML parse errors
+    xml = xml.replace(/<content:encoded>(?!<!\[CDATA\[)([\s\S]*?)<\/content:encoded>/gi, (m, inner) => `<content:encoded><![CDATA[${inner}]]></content:encoded>`);
+    xml = xml.replace(/<description>(?!<!\[CDATA\[)([\s\S]*?)<\/description>/gi, (m, inner) => `<description><![CDATA[${inner}]]></description>`);
     xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
     const feed = await parser.parseString(xml);
     const articles = [];
