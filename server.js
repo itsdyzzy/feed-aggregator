@@ -336,15 +336,15 @@ async function fetchHNHH() {
     browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://www.hotnewhiphop.com/articles/news', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(3000);
+    await page.goto('https://www.hotnewhiphop.com/articles/news', { waitUntil: 'networkidle', timeout: 45000 });
+    await page.waitForTimeout(5000);
 
-    // Log sample hrefs for debugging
+    // Log sample hrefs after full load
     const sampleHrefs = await page.evaluate(() =>
       Array.from(document.querySelectorAll('a[href]'))
-        .map(a => a.href).filter(h => h.includes('hotnewhiphop.com')).slice(0, 15)
+        .map(a => a.href).filter(h => h.includes('hotnewhiphop.com') && h.split('/').length > 4).slice(0, 15)
     );
-    console.log('HNHH sample hrefs:', JSON.stringify(sampleHrefs));
+    console.log('HNHH deep hrefs:', JSON.stringify(sampleHrefs));
 
     const results = await page.evaluate(() => {
       const results = [];
@@ -354,7 +354,6 @@ async function fetchHNHH() {
         const path = new URL(href).pathname;
         const segments = path.split('/').filter(Boolean);
         if (segments.length < 2) return;
-        // Last segment must contain a dot (article slug.id format)
         if (!segments[segments.length - 1].includes('.')) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
         const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
@@ -401,7 +400,7 @@ async function fetchAllFeeds() {
     lastFetch = Date.now();
     console.log(`Fetched ${articles.length} articles total`);
     return articles;
-  } catch (e) { console.error('fetchAllFeeds:', e); return cachedArticles; } 
+  } catch (e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
