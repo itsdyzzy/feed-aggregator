@@ -325,38 +325,50 @@ async function fetchSoleRetriever() {
 }
 
 async function fetchHNHH() {
-  return scrapeWithPlaywright('https://www.hotnewhiphop.com/articles/news', 'hnhh', 'HotNewHipHop', async (page) => {
+  let browser;
+  try {
+    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+    await page.goto('https://www.hotnewhiphop.com/articles/news', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
-    return page.evaluate(() => {
+
+    const results = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('hotnewhiphop.com')) return;
-        // Filter out section/nav pages - must have a path with at least 2 segments and a dot
-        if (!href.match(/hotnewhiphop\.com\/[^/]+\/[^/]+\./)) return;
-        // Filter out known non-article paths
-        if (href.match(/\/(tag|category|author|page|articles\/news|articles\/music|articles\/rap)\/?$/)) return;
+        // Must have an article path with a dot (e.g. article-title.12345678)
+        if (!href.match(/hotnewhiphop\.com\/[^/]+\/[^/]+\.[0-9]+\.html/)) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
         if (!title || title.length < 10) return;
-        const card = a.closest('article, li, [class*="card"], [class*="item"]') || a;
-        const timeEl = card.querySelector('time');
-        const dateStr = timeEl ? timeEl.getAttribute('datetime') : null;
         results.push({
           source: 'hnhh', sourceName: 'HotNewHipHop',
-          title,
-          description: '',
-          link: href,
-          date: dateStr || new Date().toISOString(),
-          image: null
+          title, description: '', link: href,
+          date: '', image: null
         });
       });
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
-  });
-}
 
+    // Fetch og:image and publish date for each article
+    await Promise.allSettled(results.map(async (article) => {
+      const meta = await fetchOgMeta(article.link);
+      if (meta.image) article.image = meta.image;
+      if (meta.date) article.date = meta.date;
+    }));
+
+    console.log('HotNewHipHop scraped: ' + results.length + ' items');
+    return results;
+  } catch(e) {
+    console.error('HotNewHipHop scrape error:', e.message);
+    return [];
+  } finally {
+    if (browser) await browser.close();
+  }
+}
 
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
