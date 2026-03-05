@@ -219,28 +219,31 @@ async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
 
 async function fetchComplex() {
   return scrapeWithPlaywright('https://www.complex.com/sneakers', 'complex', 'Complex', async (page) => {
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
+    // Log page content for debugging
+    const html = await page.content();
+    console.log('Complex page length:', html.length);
     return page.evaluate(() => {
       const results = [];
-      // Try all anchor tags that look like articles
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
-        if (!href.includes('complex.com') && !href.startsWith('/')) return;
-        if (!href.includes('/sneakers/') && !href.match(/complex\.com\/[a-z-]+\/20\d\d/)) return;
+        if (!href.includes('complex.com')) return;
+        // Accept any complex.com article link
+        if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]+\/[a-z0-9-]/)) return;
         const img = a.querySelector('img');
-        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="hed"]');
-        const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        const allText = a.innerText.trim();
+        const lines = allText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
+        const title = lines[0] || '';
         if (!title || title.length < 10) return;
         results.push({
           source: 'complex', sourceName: 'Complex',
           title,
           description: '',
-          link: href.startsWith('http') ? href : 'https://www.complex.com' + href,
+          link: href,
           date: new Date().toISOString(),
           image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
         });
       });
-      // Dedupe by title
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
