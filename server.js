@@ -336,7 +336,7 @@ async function fetchHNHH() {
     browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://www.hotnewhiphop.com/articles/news', { waitUntil: 'networkidle', timeout: 45000 });
+    await page.goto('https://www.hotnewhiphop.com/articles/sneakers', { waitUntil: 'networkidle', timeout: 45000 });
     await page.waitForTimeout(5000);
 
     // Log sample hrefs after full load
