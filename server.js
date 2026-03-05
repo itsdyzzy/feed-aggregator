@@ -239,39 +239,62 @@ async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
 }
 
 async function fetchComplex() {
-  return scrapeWithPlaywright('https://www.complex.com/sneakers', 'complex', 'Complex', async (page) => {
-    await page.waitForTimeout(4000);
-    // Log page content for debugging
-    const html = await page.content();
-    console.log('Complex page length:', html.length);
-    return page.evaluate(() => {
-      const results = [];
-      document.querySelectorAll('a[href]').forEach(a => {
-        const href = a.href || '';
-        if (!href.includes('complex.com')) return;
-        if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]+\/[a-z0-9-]/)) return;
-        const img = a.querySelector('img');
-        const allText = a.innerText.trim();
-        const lines = allText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
-        const title = lines[0] || '';
-        if (!title || title.length < 10) return;
-        // Try to find a date in the card
-        const card = a.closest('article, li, [class*="card"], [class*="item"], [class*="post"]') || a;
-        const timeEl = card.querySelector('time');
-        const dateStr = timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText) : null;
-        results.push({
-          source: 'complex', sourceName: 'Complex',
-          title,
-          description: '',
-          link: href,
-          date: dateStr || '',
-          image: null  // Will be fetched via og:image after scrape
+  let browser;
+  try {
+    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+
+    const allResults = [];
+    for (const section of ['https://www.complex.com/sneakers', 'https://www.complex.com/style']) {
+      try {
+        await page.goto(section, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(3000);
+        const results = await page.evaluate(() => {
+          const results = [];
+          document.querySelectorAll('a[href]').forEach(a => {
+            const href = a.href || '';
+            if (!href.includes('complex.com')) return;
+            if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]+\/[a-z0-9-]/)) return;
+            const allText = a.innerText.trim();
+            const lines = allText.split('\n').map(l => l.trim()).filter(l => l.length > 15);
+            const title = lines[0] || '';
+            if (!title || title.length < 10) return;
+            const card = a.closest('article,[class*="card"],[class*="item"],[class*="post"]');
+            const timeEl = card ? card.querySelector('time') : null;
+            results.push({
+              source: 'complex', sourceName: 'Complex',
+              title, description: '', link: href,
+              date: timeEl ? (timeEl.getAttribute('datetime') || '') : '',
+              image: null
+            });
+          });
+          const seen = new Set();
+          return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; });
         });
-      });
-      const seen = new Set();
-      return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
-    });
-  });
+        allResults.push(...results);
+      } catch(e) { console.error('Complex section error:', e.message); }
+    }
+
+    // Dedupe across sections
+    const seen = new Set();
+    const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 30);
+
+    // Fetch og:image and date for all
+    await Promise.allSettled(deduped.map(async (article) => {
+      const meta = await fetchOgMeta(article.link);
+      if (meta.image) article.image = meta.image;
+      if (meta.date && !article.date) article.date = meta.date;
+    }));
+
+    console.log('Complex scraped: ' + deduped.length + ' items');
+    return deduped;
+  } catch(e) {
+    console.error('Complex scrape error:', e.message);
+    return [];
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
 async function fetchSoleRetriever() {
