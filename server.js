@@ -305,10 +305,13 @@ async function fetchSoleRetriever() {
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('soleretriever.com/news/')) return;
+        // Skip category pages - they have short paths like /news/adidas
+        const srPath = new URL(href).pathname;
+        if (srPath.split('/').filter(Boolean).length < 3) return;
         const img = a.querySelector('img');
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
-        if (!title || title.length < 10) return;
+        if (!title || title.length < 15) return;
         results.push({
           source: 'soleretriever', sourceName: 'Sole Retriever',
           title,
@@ -339,10 +342,17 @@ async function fetchHNHH() {
         const href = a.href || '';
         if (!href.includes('hotnewhiphop.com')) return;
         // Must have an article path with a dot (e.g. article-title.12345678)
-        if (!href.match(/hotnewhiphop\.com\/[^/]+\/[^/]+\.[0-9]+\.html/)) return;
-        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
-        const title = textEls.length ? textEls[0].innerText.trim() : '';
-        if (!title || title.length < 10) return;
+        // Articles have paths like /news/title.12345678 or /rap/title.12345678
+        const path = new URL(href).pathname;
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length < 2) return;
+        // Must end in a number-suffixed slug, not a plain category
+        if (!path.match(/\/[a-z0-9-]+(\.[0-9]+)?(\.html)?$/) || path.match(/^\/(tag|category|author|articles|news|rap|rnb|pop)\/?$/)) return;
+        // Skip very short paths that are just categories
+        if (segments.length < 2 || (segments.length === 1)) return;
+        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"],[class*="label"]');
+        const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        if (!title || title.length < 15) return;
         results.push({
           source: 'hnhh', sourceName: 'HotNewHipHop',
           title, description: '', link: href,
