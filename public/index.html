@@ -19,7 +19,7 @@
       --tag-high: #3caaff;
       --tag-complex: #ff8c00;
       --tag-sn: #ff6600;
-      --tag-hnhh: #9b59b6;
+      --tag-hiphopdx: #9b59b6;
     }
 
     html { scroll-behavior: smooth; }
@@ -164,7 +164,7 @@
     .filter-btn[data-source="highsnobiety"].active { background: var(--tag-high); border-color: var(--tag-high); color: #fff; }
     .filter-btn[data-source="complex"].active { background: var(--tag-complex); border-color: var(--tag-complex); color: #fff; }
     .filter-btn[data-source="sneakernews"].active { background: var(--tag-sn); border-color: var(--tag-sn); color: #fff; }
-    .filter-btn[data-source="hnhh"].active { background: var(--tag-hnhh); border-color: var(--tag-hnhh); color: #fff; }
+    .filter-btn[data-source="hiphopdx"].active { background: var(--tag-hiphopdx); border-color: var(--tag-hiphopdx); color: #fff; }
 
     .stats-bar {
       padding: 0.75rem 2rem;
@@ -226,7 +226,7 @@
     .source-tag.highsnobiety { color: var(--tag-high); border-color: var(--tag-high); }
     .source-tag.complex { color: var(--tag-complex); border-color: var(--tag-complex); }
     .source-tag.sneakernews { color: var(--tag-sn); border-color: var(--tag-sn); }
-    .source-tag.hnhh { color: var(--tag-hnhh); border-color: var(--tag-hnhh); }
+    .source-tag.hiphopdx { color: var(--tag-hiphopdx); border-color: var(--tag-hiphopdx); }
 
     .card-date { font-size: 0.7rem; color: var(--muted); }
 
@@ -347,7 +347,7 @@
     <button class="filter-btn" data-source="highsnobiety" onclick="setFilter('highsnobiety', this)">Highsnobiety</button>
     <button class="filter-btn" data-source="complex" onclick="setFilter('complex', this)">Complex</button>
     <button class="filter-btn" data-source="sneakernews" onclick="setFilter('sneakernews', this)">Sneaker News</button>
-    <button class="filter-btn" data-source="hnhh" onclick="setFilter('hnhh', this)">HotNewHipHop</button>
+    <button class="filter-btn" data-source="hiphopdx" onclick="setFilter('hiphopdx', this)">HipHopDX</button>
   </div>
 </div>
 
@@ -393,7 +393,7 @@
     );
 
     // Update stats
-    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hnhh: 0 };
+    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
     document.getElementById('statsBar').innerHTML = `
       <span><strong>${filtered.length}</strong> Articles Shown</span>
@@ -401,7 +401,7 @@
       <span>Highsnobiety <strong>${counts.highsnobiety}</strong></span>
       <span>Complex <strong>${counts.complex}</strong></span>
       <span>Sneaker News <strong>${counts.sneakernews}</strong></span>
-      <span>HotNewHipHop <strong>${counts.hnhh}</strong></span>
+      <span>HipHopDX <strong>${counts.hiphopdx}</strong></span>
     `;
 
     if (filtered.length === 0) {
