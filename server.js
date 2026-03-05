@@ -47,7 +47,6 @@ async function fetchOgImage(url) {
   } catch { return null; }
 }
 
-// Generic rss2json fetcher - handles malformed XML gracefully
 async function fetchViaRss2json(feedUrl, source, sourceName) {
   try {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
@@ -65,17 +64,14 @@ async function fetchViaRss2json(feedUrl, source, sourceName) {
         image: item.thumbnail || item.enclosure?.link || null
       }));
     }
-    console.error(`${sourceName} rss2json bad status:`, data.status, data.message);
+    console.error(`${sourceName} rss2json:`, data.status, data.message);
   } catch (e) { console.error(`${sourceName} rss2json:`, e.message); }
   return null;
 }
 
 async function fetchHypebeast() {
-  // Try rss2json first
   const result = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
   if (result) return result;
-
-  // Fallback: direct RSS
   try {
     const res = await fetch('https://hypebeast.com/feed', {
       timeout: 15000,
@@ -85,7 +81,6 @@ async function fetchHypebeast() {
       const xml = await res.text();
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
-        console.log(`Hypebeast direct: ${feed.items.length} items`);
         return feed.items.slice(0, 20).map(item => {
           let image = extractImage(item);
           if (!image) {
@@ -115,11 +110,36 @@ async function fetchHighsnobiety() {
 }
 
 async function fetchModernNotoriety() {
-  // Use rss2json to handle their malformed XML
+  // First try: fetch and sanitize XML directly
+  try {
+    const res = await fetch('https://modernnotoriety.com/feed/', {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (res.ok) {
+      let xml = await res.text();
+      // Fix invalid XML entities (e.g. &something; that aren't standard)
+      xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        console.log(`Modern Notoriety sanitized: ${feed.items.length} items`);
+        return feed.items.slice(0, 20).map(item => ({
+          source: 'modernnotoriety',
+          sourceName: 'Modern Notoriety',
+          title: item.title || '',
+          description: item.contentSnippet || '',
+          link: item.link || '',
+          date: item.pubDate || item.isoDate || '',
+          image: extractImage(item)
+        }));
+      }
+    }
+  } catch (e) { console.error('Modern Notoriety sanitized:', e.message); }
+
+  // Second try: rss2json
   const result = await fetchViaRss2json('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
   if (result) return result;
 
-  console.error('Modern Notoriety: all methods failed');
   return [];
 }
 
