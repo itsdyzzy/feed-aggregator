@@ -51,7 +51,10 @@ async function fetchViaRss2json(feedUrl, source, sourceName) {
   try {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
     const res = await fetch(apiUrl, { timeout: 15000 });
-    const data = await res.json();
+    const text = await res.text();
+    // Guard against HTML error responses
+    if (!text.startsWith('{')) { console.error(`${sourceName} rss2json: non-JSON response`); return null; }
+    const data = JSON.parse(text);
     if (data.status === 'ok' && data.items?.length) {
       console.log(`${sourceName} via rss2json: ${data.items.length} items`);
       return data.items.slice(0, 20).map(item => ({
@@ -68,23 +71,45 @@ async function fetchViaRss2json(feedUrl, source, sourceName) {
   return null;
 }
 
-async function fetchHypebeast() {
-  const result = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
-  if (result) return result;
+async function fetchDirectFeed(feedUrl, source, sourceName) {
   try {
-    const res = await fetch('https://hypebeast.com/feed', { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' } });
-    if (res.ok) {
-      const xml = await res.text();
-      const feed = await parser.parseString(xml);
-      if (feed.items?.length) {
-        return feed.items.slice(0, 20).map(item => {
-          let image = extractImage(item);
-          if (!image) { const m = (item['content:encoded'] || '').match(/https?:\/\/image-cdn\.hypb\.st[^\s"'<>]+/i); if (m) image = m[0]; }
-          return { source: 'hypebeast', sourceName: 'Hypebeast', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image };
-        });
-      }
+    const res = await fetch(feedUrl, {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (!res.ok) { console.error(`${sourceName} direct: HTTP ${res.status}`); return null; }
+    let xml = await res.text();
+    // Sanitize invalid XML entities
+    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+    const feed = await parser.parseString(xml);
+    if (feed.items?.length) {
+      console.log(`${sourceName} direct: ${feed.items.length} items`);
+      return feed.items.slice(0, 20).map(item => ({
+        source, sourceName,
+        title: item.title || '',
+        description: item.contentSnippet || '',
+        link: item.link || '',
+        date: item.pubDate || item.isoDate || '',
+        image: extractImage(item)
+      }));
     }
-  } catch (e) { console.error('Hypebeast direct:', e.message); }
+  } catch (e) { console.error(`${sourceName} direct:`, e.message); }
+  return null;
+}
+
+async function fetchHypebeast() {
+  // Try direct first, then rss2json as fallback
+  const direct = await fetchDirectFeed('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
+  if (direct) {
+    return direct.map(a => {
+      if (!a.image) {
+        // no-op, image already extracted
+      }
+      return { ...a, sourceName: 'Hypebeast' };
+    });
+  }
+  const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
+  if (r2j) return r2j;
   return [];
 }
 
@@ -102,27 +127,19 @@ async function fetchHighsnobiety() {
 }
 
 async function fetchSneakerNews() {
-  const result = await fetchViaRss2json('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
-  if (result) return result;
-  try {
-    const feed = await parser.parseURL('https://sneakernews.com/feed/');
-    return feed.items.slice(0, 20).map(item => ({ source: 'sneakernews', sourceName: 'Sneaker News', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) }));
-  } catch (e) { console.error('Sneaker News:', e.message); return []; }
+  const r2j = await fetchViaRss2json('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
+  if (r2j) return r2j;
+  const direct = await fetchDirectFeed('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
+  return direct || [];
 }
 
 async function fetchHNHH() {
-  const result = await fetchViaRss2json('https://feeds.feedburner.com/realhotnewhiphop', 'hnhh', 'HotNewHipHop');
-  if (result) return result;
-  try {
-    const feed = await parser.parseURL('https://feeds.feedburner.com/realhotnewhiphop');
-    const articles = [];
-    for (const item of feed.items.slice(0, 20)) {
-      let image = extractImage(item);
-      if (!image && item.link) image = await fetchOgImage(item.link);
-      articles.push({ source: 'hnhh', sourceName: 'HotNewHipHop', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
-    }
-    return articles;
-  } catch (e) { console.error('HNHH:', e.message); return []; }
+  // Use their direct site feed
+  const direct = await fetchDirectFeed('https://www.hotnewhiphop.com/rss.html', 'hnhh', 'HotNewHipHop');
+  if (direct) return direct;
+  const r2j = await fetchViaRss2json('https://www.hotnewhiphop.com/rss.html', 'hnhh', 'HotNewHipHop');
+  if (r2j) return r2j;
+  return [];
 }
 
 async function fetchAllFeeds() {
