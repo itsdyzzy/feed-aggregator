@@ -307,7 +307,10 @@ async function fetchSoleRetriever() {
         if (!href.includes('soleretriever.com/news/')) return;
         // Skip category pages - they have short paths like /news/adidas
         const srPath = new URL(href).pathname;
-        if (srPath.split('/').filter(Boolean).length < 3) return;
+        const srSegs = srPath.split('/').filter(Boolean);
+        if (srSegs.length < 3) return;
+        // Last segment must have a hyphen (real article slug, not a brand name)
+        if (!srSegs[srSegs.length-1].includes('-')) return;
         const img = a.querySelector('img');
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
@@ -336,34 +339,32 @@ async function fetchHNHH() {
     await page.goto('https://www.hotnewhiphop.com/articles/news', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
 
+    // Log sample hrefs for debugging
+    const sampleHrefs = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('a[href]'))
+        .map(a => a.href).filter(h => h.includes('hotnewhiphop.com')).slice(0, 15)
+    );
+    console.log('HNHH sample hrefs:', JSON.stringify(sampleHrefs));
+
     const results = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('hotnewhiphop.com')) return;
-        // Must have an article path with a dot (e.g. article-title.12345678)
-        // Articles have paths like /news/title.12345678 or /rap/title.12345678
         const path = new URL(href).pathname;
         const segments = path.split('/').filter(Boolean);
         if (segments.length < 2) return;
-        // Must end in a number-suffixed slug, not a plain category
-        if (!path.match(/\/[a-z0-9-]+(\.[0-9]+)?(\.html)?$/) || path.match(/^\/(tag|category|author|articles|news|rap|rnb|pop)\/?$/)) return;
-        // Skip very short paths that are just categories
-        if (segments.length < 2 || (segments.length === 1)) return;
-        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"],[class*="label"]');
+        // Last segment must contain a dot (article slug.id format)
+        if (!segments[segments.length - 1].includes('.')) return;
+        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
         const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
         if (!title || title.length < 15) return;
-        results.push({
-          source: 'hnhh', sourceName: 'HotNewHipHop',
-          title, description: '', link: href,
-          date: '', image: null
-        });
+        results.push({ source: 'hnhh', sourceName: 'HotNewHipHop', title, description: '', link: href, date: '', image: null });
       });
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
 
-    // Fetch og:image and publish date for each article
     await Promise.allSettled(results.map(async (article) => {
       const meta = await fetchOgMeta(article.link);
       if (meta.image) article.image = meta.image;
@@ -400,7 +401,7 @@ async function fetchAllFeeds() {
     lastFetch = Date.now();
     console.log(`Fetched ${articles.length} articles total`);
     return articles;
-  } catch (e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
+  } catch (e) { console.error('fetchAllFeeds:', e); return cachedArticles; } 
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
