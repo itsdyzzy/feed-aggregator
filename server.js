@@ -55,8 +55,7 @@ async function fetchViaRss2json(feedUrl, source, sourceName) {
     if (data.status === 'ok' && data.items?.length) {
       console.log(`${sourceName} via rss2json: ${data.items.length} items`);
       return data.items.slice(0, 20).map(item => ({
-        source,
-        sourceName,
+        source, sourceName,
         title: item.title || '',
         description: item.description ? item.description.replace(/<[^>]+>/g, '').slice(0, 200) : '',
         link: item.link || '',
@@ -73,21 +72,14 @@ async function fetchHypebeast() {
   const result = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
   if (result) return result;
   try {
-    const res = await fetch('https://hypebeast.com/feed', {
-      timeout: 15000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-    });
+    const res = await fetch('https://hypebeast.com/feed', { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' } });
     if (res.ok) {
       const xml = await res.text();
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         return feed.items.slice(0, 20).map(item => {
           let image = extractImage(item);
-          if (!image) {
-            const c = item['content:encoded'] || '';
-            const m = c.match(/https?:\/\/image-cdn\.hypb\.st[^\s"'<>]+/i);
-            if (m) image = m[0];
-          }
+          if (!image) { const m = (item['content:encoded'] || '').match(/https?:\/\/image-cdn\.hypb\.st[^\s"'<>]+/i); if (m) image = m[0]; }
           return { source: 'hypebeast', sourceName: 'Hypebeast', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image };
         });
       }
@@ -114,30 +106,36 @@ async function fetchSneakerNews() {
   if (result) return result;
   try {
     const feed = await parser.parseURL('https://sneakernews.com/feed/');
-    return feed.items.slice(0, 20).map(item => ({
-      source: 'sneakernews',
-      sourceName: 'Sneaker News',
-      title: item.title || '',
-      description: item.contentSnippet || '',
-      link: item.link || '',
-      date: item.pubDate || item.isoDate || '',
-      image: extractImage(item)
-    }));
+    return feed.items.slice(0, 20).map(item => ({ source: 'sneakernews', sourceName: 'Sneaker News', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) }));
   } catch (e) { console.error('Sneaker News:', e.message); return []; }
+}
+
+async function fetchHNHH() {
+  const result = await fetchViaRss2json('https://feeds.feedburner.com/realhotnewhiphop', 'hnhh', 'HotNewHipHop');
+  if (result) return result;
+  try {
+    const feed = await parser.parseURL('https://feeds.feedburner.com/realhotnewhiphop');
+    const articles = [];
+    for (const item of feed.items.slice(0, 20)) {
+      let image = extractImage(item);
+      if (!image && item.link) image = await fetchOgImage(item.link);
+      articles.push({ source: 'hnhh', sourceName: 'HotNewHipHop', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
+    }
+    return articles;
+  } catch (e) { console.error('HNHH:', e.message); return []; }
 }
 
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, sneakernews] = await Promise.allSettled([
-      fetchHypebeast(),
-      fetchHighsnobiety(),
-      fetchSneakerNews()
+    const [hypebeast, highsnobiety, sneakernews, hnhh] = await Promise.allSettled([
+      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHNHH()
     ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
-      ...(sneakernews.status === 'fulfilled' ? sneakernews.value : [])
+      ...(sneakernews.status === 'fulfilled' ? sneakernews.value : []),
+      ...(hnhh.status === 'fulfilled' ? hnhh.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
