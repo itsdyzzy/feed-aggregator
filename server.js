@@ -208,7 +208,7 @@ async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
     await page.waitForTimeout(2000);
     let articles = await scrapeLogic(page);
     // Fetch og:image for articles missing images (in parallel, max 10)
-    const needsImage = articles.filter(a => !a.image).slice(0, 10);
+    const needsImage = articles.filter(a => !a.image).slice(0, 20);
     if (needsImage.length > 0) {
       await Promise.allSettled(needsImage.map(async (article) => {
         const img = await fetchOgImage(article.link);
@@ -295,22 +295,22 @@ async function fetchHNHH() {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
-        if (!href.includes('hotnewhiphop.com') && !href.startsWith('/')) return;
-        if (!href.match(/(news|articles)/)) return;
-        const img = a.querySelector('img');
+        if (!href.includes('hotnewhiphop.com')) return;
+        // Must be an actual article (has a slug with numbers or long path)
+        if (!href.match(/hotnewhiphop\.com\/[a-z-]+\/[a-z0-9-]+-[0-9]+\.html/)) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
-        const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        const title = textEls.length ? textEls[0].innerText.trim() : '';
         if (!title || title.length < 10) return;
         const card = a.closest('article, li, [class*="card"], [class*="item"]') || a;
         const timeEl = card.querySelector('time');
-        const dateStr = timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText) : null;
+        const dateStr = timeEl ? timeEl.getAttribute('datetime') : null;
         results.push({
           source: 'hnhh', sourceName: 'HotNewHipHop',
           title,
           description: '',
-          link: href.startsWith('http') ? href : 'https://www.hotnewhiphop.com' + href,
+          link: href,
           date: dateStr || new Date().toISOString(),
-          image: null  // Will be fetched via og:image
+          image: null
         });
       });
       const seen = new Set();
