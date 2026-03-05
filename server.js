@@ -160,7 +160,14 @@ async function fetchHipHopDX() {
 
 async function fetchPause() {
   try {
-    const feed = await parser.parseURL('https://pausemag.co.uk/feed/');
+    const res = await fetch('https://pausemag.co.uk/feed/', {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    let xml = await res.text();
+    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+    const feed = await parser.parseString(xml);
     const articles = [];
     for (const item of feed.items.slice(0, 20)) {
       let image = extractImage(item);
