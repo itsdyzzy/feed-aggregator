@@ -20,6 +20,7 @@
       --tag-complex: #ff8c00;
       --tag-sn: #ff6600;
       --tag-hiphopdx: #9b59b6;
+      --tag-pause: #e91e8c;
     }
 
     html { scroll-behavior: smooth; }
@@ -165,6 +166,7 @@
     .filter-btn[data-source="complex"].active { background: var(--tag-complex); border-color: var(--tag-complex); color: #fff; }
     .filter-btn[data-source="sneakernews"].active { background: var(--tag-sn); border-color: var(--tag-sn); color: #fff; }
     .filter-btn[data-source="hiphopdx"].active { background: var(--tag-hiphopdx); border-color: var(--tag-hiphopdx); color: #fff; }
+    .filter-btn[data-source="pause"].active { background: var(--tag-pause); border-color: var(--tag-pause); color: #fff; }
 
     .stats-bar {
       padding: 0.75rem 2rem;
@@ -227,6 +229,7 @@
     .source-tag.complex { color: var(--tag-complex); border-color: var(--tag-complex); }
     .source-tag.sneakernews { color: var(--tag-sn); border-color: var(--tag-sn); }
     .source-tag.hiphopdx { color: var(--tag-hiphopdx); border-color: var(--tag-hiphopdx); }
+    .source-tag.pause { color: var(--tag-pause); border-color: var(--tag-pause); }
 
     .card-date { font-size: 0.7rem; color: var(--muted); }
 
@@ -348,6 +351,7 @@
     <button class="filter-btn" data-source="complex" onclick="setFilter('complex', this)">Complex</button>
     <button class="filter-btn" data-source="sneakernews" onclick="setFilter('sneakernews', this)">Sneaker News</button>
     <button class="filter-btn" data-source="hiphopdx" onclick="setFilter('hiphopdx', this)">HipHopDX</button>
+    <button class="filter-btn" data-source="pause" onclick="setFilter('pause', this)">PAUSE</button>
   </div>
 </div>
 
@@ -393,7 +397,7 @@
     );
 
     // Update stats
-    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0 };
+    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, pause: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
     document.getElementById('statsBar').innerHTML = `
       <span><strong>${filtered.length}</strong> Articles Shown</span>
@@ -402,6 +406,7 @@
       <span>Complex <strong>${counts.complex}</strong></span>
       <span>Sneaker News <strong>${counts.sneakernews}</strong></span>
       <span>HipHopDX <strong>${counts.hiphopdx}</strong></span>
+      <span>PAUSE <strong>${counts.pause}</strong></span>
     `;
 
     if (filtered.length === 0) {
