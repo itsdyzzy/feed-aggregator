@@ -134,11 +134,26 @@ async function fetchSneakerNews() {
 }
 
 async function fetchHipHopDX() {
-  // Use their direct site feed
-  const direct = await fetchDirectFeed('https://hiphopdx.com/rss/news.xml', 'hiphopdx', 'HipHopDX');
-  if (direct) return direct;
-  const r2j = await fetchViaRss2json('https://hiphopdx.com/rss/news.xml', 'hiphopdx', 'HipHopDX');
-  if (r2j) return r2j;
+  try {
+    const res = await fetch('https://hiphopdx.com/rss/news.xml', {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    let xml = await res.text();
+    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+    const feed = await parser.parseString(xml);
+    if (feed.items?.length) {
+      console.log(`HipHopDX: ${feed.items.length} items`);
+      const articles = [];
+      for (const item of feed.items.slice(0, 20)) {
+        let image = extractImage(item);
+        if (!image && item.link) image = await fetchOgImage(item.link);
+        articles.push({ source: 'hiphopdx', sourceName: 'HipHopDX', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
+      }
+      return articles;
+    }
+  } catch (e) { console.error('HipHopDX:', e.message); }
   return [];
 }
 
