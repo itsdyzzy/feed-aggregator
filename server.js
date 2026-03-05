@@ -168,8 +168,7 @@ async function fetchAllFeeds() {
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
       ...(sneakernews.status === 'fulfilled' ? sneakernews.value : []),
-      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : []),
-      ...(pause.status === 'fulfilled' ? pause.value : [])
+      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
