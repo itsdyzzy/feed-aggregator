@@ -1,5 +1,7 @@
 const express = require('express');
-const { chromium } = require('playwright');
+const { chromium } = require('playwright-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+chromium.use(StealthPlugin());
 const Parser = require('rss-parser');
 const fetch = require('node-fetch');
 const path = require('path');
@@ -335,11 +337,9 @@ async function fetchHNHH() {
   try {
     browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
-    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.hotnewhiphop.com/articles/sneakers', { waitUntil: 'networkidle', timeout: 45000 });
     await page.waitForTimeout(5000);
 
-    // Log sample hrefs after full load
     const sampleHrefs = await page.evaluate(() =>
       Array.from(document.querySelectorAll('a[href]'))
         .map(a => a.href).filter(h => h.includes('hotnewhiphop.com') && h.split('/').length > 4).slice(0, 15)
@@ -379,6 +379,7 @@ async function fetchHNHH() {
     if (browser) await browser.close();
   }
 }
+
 
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
