@@ -16,7 +16,7 @@ const parser = new Parser({
   customFields: {
     item: [
       ['media:content', 'mediaContent'],
-      ['media:thumbnail', 'mediaThumbnail'],
+      ['media:thumbnail', 'mediaThumbnail'], 
       ['enclosure', 'enclosure']
     ]
   }
