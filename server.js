@@ -206,7 +206,15 @@ async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
-    const articles = await scrapeLogic(page);
+    let articles = await scrapeLogic(page);
+    // Fetch og:image for articles missing images (in parallel, max 10)
+    const needsImage = articles.filter(a => !a.image).slice(0, 10);
+    if (needsImage.length > 0) {
+      await Promise.allSettled(needsImage.map(async (article) => {
+        const img = await fetchOgImage(article.link);
+        if (img) article.image = img;
+      }));
+    }
     console.log(sourceName + ' scraped: ' + articles.length + ' items');
     return articles;
   } catch (e) {
@@ -267,7 +275,7 @@ async function fetchSoleRetriever() {
           title,
           description: '',
           link: href.startsWith('http') ? href : 'https://www.soleretriever.com' + href,
-          date: new Date().toISOString(),
+          date: (a.querySelector('time') || a.closest('article,li,[class*="card"]')?.querySelector('time'))?.getAttribute('datetime') || new Date().toISOString(),
           image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
         });
       });
