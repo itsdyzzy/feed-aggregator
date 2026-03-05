@@ -39,13 +39,25 @@ function extractImage(item) {
 }
 
 async function fetchOgImage(url) {
+  const meta = await fetchOgMeta(url);
+  return meta.image;
+}
+
+async function fetchOgMeta(url) {
   try {
     const res = await fetch(url, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' } });
     const html = await res.text();
-    const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    return match?.[1]?.startsWith('http') ? match[1] : null;
-  } catch { return null; }
+    const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                  || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    const image = imgMatch?.[1]?.startsWith('http') ? imgMatch[1] : null;
+    // Try article:published_time, og:updated_time, datePublished in JSON-LD
+    const dateMatch = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i)
+                   || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']article:published_time["']/i)
+                   || html.match(/"datePublished"\s*:\s*"([^"]+)"/i)
+                   || html.match(/"publishedAt"\s*:\s*"([^"]+)"/i);
+    const date = dateMatch?.[1] || null;
+    return { image, date };
+  } catch { return { image: null, date: null }; }
 }
 
 async function fetchViaRss2json(feedUrl, source, sourceName) {
@@ -207,12 +219,13 @@ async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
     let articles = await scrapeLogic(page);
-    // Fetch og:image for articles missing images (in parallel, max 10)
-    const needsImage = articles.filter(a => !a.image).slice(0, 20);
-    if (needsImage.length > 0) {
-      await Promise.allSettled(needsImage.map(async (article) => {
-        const img = await fetchOgImage(article.link);
-        if (img) article.image = img;
+    // Fetch og:image and publish date for articles (in parallel, max 20)
+    const needsMeta = articles.filter(a => !a.image || !a.date).slice(0, 20);
+    if (needsMeta.length > 0) {
+      await Promise.allSettled(needsMeta.map(async (article) => {
+        const meta = await fetchOgMeta(article.link);
+        if (meta.image && !article.image) article.image = meta.image;
+        if (meta.date && !article.date) article.date = meta.date;
       }));
     }
     console.log(sourceName + ' scraped: ' + articles.length + ' items');
@@ -251,7 +264,7 @@ async function fetchComplex() {
           title,
           description: '',
           link: href,
-          date: dateStr || new Date().toISOString(),
+          date: dateStr || '',
           image: null  // Will be fetched via og:image after scrape
         });
       });
@@ -278,7 +291,7 @@ async function fetchSoleRetriever() {
           title,
           description: '',
           link: href.startsWith('http') ? href : 'https://www.soleretriever.com' + href,
-          date: (a.querySelector('time') || a.closest('article,li,[class*="card"]')?.querySelector('time'))?.getAttribute('datetime') || new Date().toISOString(),
+          date: (a.querySelector('time') || a.closest('article,li,[class*="card"]')?.querySelector('time'))?.getAttribute('datetime') || '',
           image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
         });
       });
@@ -296,8 +309,10 @@ async function fetchHNHH() {
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('hotnewhiphop.com')) return;
-        // Must be an actual article (has a slug with numbers or long path)
-        if (!href.match(/hotnewhiphop\.com\/[a-z-]+\/[a-z0-9-]+-[0-9]+\.html/)) return;
+        // Filter out section/nav pages - must have a path with at least 2 segments and a dot
+        if (!href.match(/hotnewhiphop\.com\/[^/]+\/[^/]+\./)) return;
+        // Filter out known non-article paths
+        if (href.match(/\/(tag|category|author|page|articles\/news|articles\/music|articles\/rap)\/?$/)) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
         if (!title || title.length < 10) return;
