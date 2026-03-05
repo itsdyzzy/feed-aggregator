@@ -157,17 +157,33 @@ async function fetchHipHopDX() {
   return [];
 }
 
+
+async function fetchPause() {
+  try {
+    const feed = await parser.parseURL('https://pausemag.co.uk/feed/');
+    const articles = [];
+    for (const item of feed.items.slice(0, 20)) {
+      let image = extractImage(item);
+      if (!image && item.link) image = await fetchOgImage(item.link);
+      articles.push({ source: 'pause', sourceName: 'PAUSE', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
+    }
+    console.log(`PAUSE: ${articles.length} items`);
+    return articles;
+  } catch (e) { console.error('PAUSE:', e.message); return []; }
+}
+
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await Promise.allSettled([
-      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
+    const [hypebeast, highsnobiety, sneakernews, hiphopdx, pause] = await Promise.allSettled([
+      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchPause()
     ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
       ...(sneakernews.status === 'fulfilled' ? sneakernews.value : []),
-      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : [])
+      ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : []),
+      ...(pause.status === 'fulfilled' ? pause.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
