@@ -109,52 +109,35 @@ async function fetchHighsnobiety() {
   } catch (e) { console.error('Highsnobiety:', e.message); return []; }
 }
 
-async function fetchModernNotoriety() {
-  // First try: fetch and sanitize XML directly
-  try {
-    const res = await fetch('https://modernnotoriety.com/feed/', {
-      timeout: 15000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-    });
-    if (res.ok) {
-      let xml = await res.text();
-      // Fix invalid XML entities (e.g. &something; that aren't standard)
-      xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
-      const feed = await parser.parseString(xml);
-      if (feed.items?.length) {
-        console.log(`Modern Notoriety sanitized: ${feed.items.length} items`);
-        return feed.items.slice(0, 20).map(item => ({
-          source: 'modernnotoriety',
-          sourceName: 'Modern Notoriety',
-          title: item.title || '',
-          description: item.contentSnippet || '',
-          link: item.link || '',
-          date: item.pubDate || item.isoDate || '',
-          image: extractImage(item)
-        }));
-      }
-    }
-  } catch (e) { console.error('Modern Notoriety sanitized:', e.message); }
-
-  // Second try: rss2json
-  const result = await fetchViaRss2json('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
+async function fetchSneakerNews() {
+  const result = await fetchViaRss2json('https://sneakernews.com/feed/', 'sneakernews', 'Sneaker News');
   if (result) return result;
-
-  return [];
+  try {
+    const feed = await parser.parseURL('https://sneakernews.com/feed/');
+    return feed.items.slice(0, 20).map(item => ({
+      source: 'sneakernews',
+      sourceName: 'Sneaker News',
+      title: item.title || '',
+      description: item.contentSnippet || '',
+      link: item.link || '',
+      date: item.pubDate || item.isoDate || '',
+      image: extractImage(item)
+    }));
+  } catch (e) { console.error('Sneaker News:', e.message); return []; }
 }
 
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, modernnotoriety] = await Promise.allSettled([
+    const [hypebeast, highsnobiety, sneakernews] = await Promise.allSettled([
       fetchHypebeast(),
       fetchHighsnobiety(),
-      fetchModernNotoriety()
+      fetchSneakerNews()
     ]);
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
-      ...(modernnotoriety.status === 'fulfilled' ? modernnotoriety.value : [])
+      ...(sneakernews.status === 'fulfilled' ? sneakernews.value : [])
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
