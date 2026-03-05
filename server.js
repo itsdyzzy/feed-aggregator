@@ -300,36 +300,63 @@ async function fetchComplex() {
 }
 
 async function fetchSoleRetriever() {
-  return scrapeWithPlaywright('https://www.soleretriever.com/news', 'soleretriever', 'Sole Retriever', async (page) => {
-    await page.waitForTimeout(3000);
-    return page.evaluate(() => {
+  let browser;
+  try {
+    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+    await page.goto('https://www.soleretriever.com/news', { waitUntil: 'networkidle', timeout: 45000 });
+    await page.waitForTimeout(4000);
+
+    // Log sample article hrefs
+    const sampleHrefs = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('a[href]'))
+        .map(a => a.href)
+        .filter(h => h.includes('soleretriever.com/news/') && h.split('/').length > 5)
+        .slice(0, 10)
+    );
+    console.log('SR sample hrefs:', JSON.stringify(sampleHrefs));
+
+    const results = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('soleretriever.com/news/')) return;
-        // Skip category pages - they have short paths like /news/adidas
         const srPath = new URL(href).pathname;
         const srSegs = srPath.split('/').filter(Boolean);
         if (srSegs.length < 3) return;
-        // Last segment must have a hyphen (real article slug, not a brand name)
-        if (!srSegs[srSegs.length-1].includes('-')) return;
-        const img = a.querySelector('img');
+        if (!srSegs[srSegs.length - 1].includes('-')) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
-        if (!title || title.length < 15) return;
+        if (!title || title.length < 10) return;
+        const card = a.closest('article, li, [class*="card"], [class*="item"]') || a;
+        const timeEl = card.querySelector('time');
         results.push({
           source: 'soleretriever', sourceName: 'Sole Retriever',
-          title,
-          description: '',
-          link: href.startsWith('http') ? href : 'https://www.soleretriever.com' + href,
-          date: (a.querySelector('time') || a.closest('article,li,[class*="card"]')?.querySelector('time'))?.getAttribute('datetime') || '',
-          image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
+          title, description: '', link: href,
+          date: timeEl ? (timeEl.getAttribute('datetime') || '') : '',
+          image: null
         });
       });
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
-  });
+
+    // Fetch og:image and date for each article
+    await Promise.allSettled(results.map(async (article) => {
+      const meta = await fetchOgMeta(article.link);
+      if (meta.image) article.image = meta.image;
+      if (meta.date && !article.date) article.date = meta.date;
+    }));
+
+    console.log('Sole Retriever scraped: ' + results.length + ' items');
+    return results;
+  } catch(e) {
+    console.error('Sole Retriever scrape error:', e.message);
+    return [];
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
 async function fetchHNHH() {
