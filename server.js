@@ -99,16 +99,25 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
 }
 
 async function fetchHypebeast() {
-  // Try multiple feed URLs
-  const urls = ['https://hypebeast.com/feed', 'https://hypebeast.com/feed/'];
-  for (const url of urls) {
+  // Try rss2json first as it's more reliable for Hypebeast
+  const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
+  if (r2j && r2j.length > 0) return r2j;
+
+  // Try direct with various user agents
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Googlebot/2.1 (+http://www.google.com/bot.html)',
+    'Mozilla/5.0 (compatible; RSS reader)'
+  ];
+  for (const ua of userAgents) {
     try {
-      const res = await fetch(url, {
+      const res = await fetch('https://hypebeast.com/feed', {
         timeout: 15000,
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/rss+xml, text/xml, */*' }
+        headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, text/xml, */*' }
       });
       if (!res.ok) continue;
       let xml = await res.text();
+      if (!xml.includes('<rss') && !xml.includes('<feed')) continue;
       xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
@@ -122,9 +131,6 @@ async function fetchHypebeast() {
       }
     } catch(e) { console.error('Hypebeast direct:', e.message); }
   }
-  // rss2json fallback
-  const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
-  if (r2j) return r2j;
   return [];
 }
 
@@ -213,60 +219,85 @@ async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
 
 async function fetchComplex() {
   return scrapeWithPlaywright('https://www.complex.com/sneakers', 'complex', 'Complex', async (page) => {
+    await page.waitForTimeout(3000);
     return page.evaluate(() => {
-      const cards = Array.from(document.querySelectorAll('a[href*="/sneakers/"]')).filter(a => a.querySelector('img') || a.closest('[class*="card"]'));
-      return cards.slice(0, 20).map(card => {
-        const img = card.querySelector('img');
-        const title = card.querySelector('h2,h3,[class*="title"],[class*="headline"]');
-        return {
+      const results = [];
+      // Try all anchor tags that look like articles
+      document.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('complex.com') && !href.startsWith('/')) return;
+        if (!href.includes('/sneakers/') && !href.match(/complex\.com\/[a-z-]+\/20\d\d/)) return;
+        const img = a.querySelector('img');
+        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="hed"]');
+        const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        if (!title || title.length < 10) return;
+        results.push({
           source: 'complex', sourceName: 'Complex',
-          title: title ? title.innerText.trim() : card.innerText.trim().split('\n')[0],
+          title,
           description: '',
-          link: card.href.startsWith('http') ? card.href : 'https://complex.com' + card.getAttribute('href'),
+          link: href.startsWith('http') ? href : 'https://www.complex.com' + href,
           date: new Date().toISOString(),
-          image: img ? (img.src || img.dataset.src) : null
-        };
-      }).filter(a => a.title && a.title.length > 10);
+          image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
+        });
+      });
+      // Dedupe by title
+      const seen = new Set();
+      return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
   });
 }
 
 async function fetchSoleRetriever() {
   return scrapeWithPlaywright('https://www.soleretriever.com/news', 'soleretriever', 'Sole Retriever', async (page) => {
+    await page.waitForTimeout(3000);
     return page.evaluate(() => {
-      const cards = Array.from(document.querySelectorAll('a[href*="/news/"]')).filter(a => a.querySelector('img') || a.querySelector('h2,h3,[class*="title"]'));
-      return cards.slice(0, 20).map(card => {
-        const img = card.querySelector('img');
-        const title = card.querySelector('h2,h3,[class*="title"],[class*="headline"]');
-        return {
+      const results = [];
+      document.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('soleretriever.com/news/')) return;
+        const img = a.querySelector('img');
+        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
+        const title = textEls.length ? textEls[0].innerText.trim() : '';
+        if (!title || title.length < 10) return;
+        results.push({
           source: 'soleretriever', sourceName: 'Sole Retriever',
-          title: title ? title.innerText.trim() : '',
+          title,
           description: '',
-          link: card.href.startsWith('http') ? card.href : 'https://www.soleretriever.com' + card.getAttribute('href'),
+          link: href.startsWith('http') ? href : 'https://www.soleretriever.com' + href,
           date: new Date().toISOString(),
-          image: img ? (img.src || img.dataset.src) : null
-        };
-      }).filter(a => a.title && a.title.length > 10);
+          image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
+        });
+      });
+      const seen = new Set();
+      return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
   });
 }
 
 async function fetchHNHH() {
   return scrapeWithPlaywright('https://www.hotnewhiphop.com/articles/news', 'hnhh', 'HotNewHipHop', async (page) => {
+    await page.waitForTimeout(3000);
     return page.evaluate(() => {
-      const cards = Array.from(document.querySelectorAll('a[href*="/news/"]')).filter(a => a.querySelector('img') || a.querySelector('h2,h3,[class*="title"]'));
-      return cards.slice(0, 20).map(card => {
-        const img = card.querySelector('img');
-        const title = card.querySelector('h2,h3,[class*="title"],[class*="headline"]');
-        return {
+      const results = [];
+      document.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('hotnewhiphop.com') && !href.startsWith('/')) return;
+        if (!href.match(/(news|articles)/)) return;
+        const img = a.querySelector('img');
+        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
+        const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        if (!title || title.length < 10) return;
+        results.push({
           source: 'hnhh', sourceName: 'HotNewHipHop',
-          title: title ? title.innerText.trim() : '',
+          title,
           description: '',
-          link: card.href.startsWith('http') ? card.href : 'https://www.hotnewhiphop.com' + card.getAttribute('href'),
+          link: href.startsWith('http') ? href : 'https://www.hotnewhiphop.com' + href,
           date: new Date().toISOString(),
-          image: img ? (img.src || img.dataset.src) : null
-        };
-      }).filter(a => a.title && a.title.length > 10);
+          image: img ? (img.src || img.dataset.src || img.dataset.lazySrc) : null
+        });
+      });
+      const seen = new Set();
+      return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
   });
 }
