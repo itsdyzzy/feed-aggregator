@@ -369,6 +369,10 @@ async function fetchWWD() {
       const xml = sanitizeRssFeed(raw);
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
+        // DEBUG: print raw XML of first item to see image structure
+        const firstItemStart = raw.indexOf('<item');
+        const firstItemEnd = raw.indexOf('</item>') + 7;
+        if (firstItemStart !== -1) console.log('WWD DEBUG first item:', raw.slice(firstItemStart, firstItemEnd).substring(0, 800));
         console.log(`WWD direct: ${feed.items.length} items`);
         return feed.items.slice(0, 20).map((item, i) => ({
           source: 'wwd', sourceName: 'WWD',
