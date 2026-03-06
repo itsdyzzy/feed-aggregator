@@ -125,9 +125,9 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
 }
 
 function sanitizeRssFeed(xml) {
-  // Strip ALL tags known to contain raw HTML in WordPress/CMS feeds
+  // Strip ONLY tags known to contain raw HTML blobs — NOT 'content' alone (breaks media:content)
   const htmlTags = [
-    'content:encoded', 'content', 'excerpt:encoded',
+    'content:encoded', 'excerpt:encoded',
     'media:description', 'slash:comments', 'wfw:commentRss',
     'dc:description', 'atom:content'
   ];
@@ -339,17 +339,49 @@ async function fetchComplex(browser) {
 }
 
 async function fetchWWD() {
-  // WordPress VIP — try standard feed URLs for footwear section
   const feedUrls = [
     'https://wwd.com/footwear-news/feed/',
     'https://wwd.com/footwear-news/sneaker-news/feed/',
-    'https://wwd.com/feed/?cat=footwear',
   ];
   for (const feedUrl of feedUrls) {
-    const direct = await fetchDirectFeed(feedUrl, 'wwd', 'WWD Footwear');
-    if (direct?.length) return direct;
+    try {
+      const res = await fetch(feedUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+      });
+      if (!res.ok) continue;
+      const raw = await res.text();
+
+      // Extract images from raw XML before sanitizing — WWD uses media:content and media:thumbnail
+      // Build a map of item position → image URL by scanning raw XML
+      const imagesByPos = [];
+      const itemBlocks = raw.split(/<item[\s>]/i);
+      for (let i = 1; i < itemBlocks.length; i++) {
+        const block = itemBlocks[i];
+        // Try media:content url, media:thumbnail url, enclosure url
+        const imgMatch = block.match(/media:content[^>]+url=["']([^"']+)["']/i)
+                      || block.match(/media:thumbnail[^>]+url=["']([^"']+)["']/i)
+                      || block.match(/enclosure[^>]+url=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i)
+                      || block.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
+        imagesByPos.push(imgMatch ? imgMatch[1] : null);
+      }
+
+      const xml = sanitizeRssFeed(raw);
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        console.log(`WWD direct: ${feed.items.length} items`);
+        return feed.items.slice(0, 20).map((item, i) => ({
+          source: 'wwd', sourceName: 'WWD',
+          title: item.title || '',
+          description: item.contentSnippet || '',
+          link: item.link || '',
+          date: item.pubDate || item.isoDate || '',
+          image: extractImage(item) || imagesByPos[i] || null
+        }));
+      }
+    } catch(e) { console.error(`WWD feed error: ${e.message}`); }
   }
-  const r2j = await fetchViaRss2json('https://wwd.com/footwear-news/feed/', 'wwd', 'WWD Footwear');
+  const r2j = await fetchViaRss2json('https://wwd.com/footwear-news/feed/', 'wwd', 'WWD');
   if (r2j?.length) return r2j;
   console.error('WWD: all feed attempts failed');
   return [];
