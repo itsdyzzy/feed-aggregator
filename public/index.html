@@ -24,6 +24,7 @@
       --tag-soleretriever: #00aaff;
       --tag-hnhh: #e74c3c;
       --tag-modernnotoriety: #ff6b00;
+      --tag-wwd: #9b59b6;
     }
 
     html { scroll-behavior: smooth; }
@@ -173,6 +174,7 @@
     .filter-btn[data-source="soleretriever"].active { background: var(--tag-soleretriever); border-color: var(--tag-soleretriever); color: #fff; }
     .filter-btn[data-source="hnhh"].active { background: var(--tag-hnhh); border-color: var(--tag-hnhh); color: #fff; }
     .filter-btn[data-source="modernnotoriety"].active { background: var(--tag-modernnotoriety); border-color: var(--tag-modernnotoriety); color: #fff; }
+    .filter-btn[data-source="wwd"].active { background: var(--tag-wwd); border-color: var(--tag-wwd); color: #fff; }
 
     .stats-bar {
       padding: 0.75rem 2rem;
@@ -239,6 +241,7 @@
     .source-tag.soleretriever { color: var(--tag-soleretriever); border-color: var(--tag-soleretriever); }
     .source-tag.hnhh { color: var(--tag-hnhh); border-color: var(--tag-hnhh); }
     .source-tag.modernnotoriety { color: var(--tag-modernnotoriety); border-color: var(--tag-modernnotoriety); }
+    .source-tag.wwd { color: var(--tag-wwd); border-color: var(--tag-wwd); }
 
     .card-date { font-size: 0.7rem; color: var(--muted); }
 
@@ -364,6 +367,7 @@
 
     <button class="filter-btn" data-source="soleretriever" onclick="setFilter('soleretriever', this)">Sole Retriever</button>
     <button class="filter-btn" data-source="modernnotoriety" onclick="setFilter('modernnotoriety', this)">Modern Notoriety</button>
+    <button class="filter-btn" data-source="wwd" onclick="setFilter('wwd', this)">WWD Footwear</button>
     <button class="filter-btn" data-source="hnhh" onclick="setFilter('hnhh', this)">HotNewHipHop</button>
   </div>
 </div>
@@ -413,7 +417,7 @@
     );
 
     // Update stats
-    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, soleretriever: 0, modernnotoriety: 0, hnhh: 0 };
+    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, soleretriever: 0, modernnotoriety: 0, wwd: 0, hnhh: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
     document.getElementById('statsBar').innerHTML = `
       <span><strong>${filtered.length}</strong> Articles Shown</span>
@@ -424,6 +428,7 @@
       <span>HipHopDX <strong>${counts.hiphopdx}</strong></span>
       <span>Sole Retriever <strong>${counts.soleretriever}</strong></span>
       <span>Modern Notoriety <strong>${counts.modernnotoriety}</strong></span>
+      <span>WWD Footwear <strong>${counts.wwd}</strong></span>
       <span>HotNewHipHop <strong>${counts.hnhh}</strong></span>
     `;
 
