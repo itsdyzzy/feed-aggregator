@@ -153,11 +153,7 @@ function sanitizeRssFeed(xml) {
 }
 
 async function fetchHypebeast() {
-  // Try rss2json first as it's more reliable for Hypebeast
-  const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
-  if (r2j && r2j.length > 0) return r2j;
-
-  // Try direct with various user agents
+  // Direct fetch first — rss2json rejects Hypebeast's feed format
   const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Googlebot/2.1 (+http://www.google.com/bot.html)',
@@ -170,9 +166,9 @@ async function fetchHypebeast() {
         headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, text/xml, */*' }
       });
       if (!res.ok) continue;
-      let xml = await res.text();
-      if (!xml.includes('<rss') && !xml.includes('<feed')) continue;
-      xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+      const raw = await res.text();
+      if (!raw.includes('<rss') && !raw.includes('<feed')) continue;
+      const xml = sanitizeRssFeed(raw);
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log('Hypebeast direct: ' + feed.items.length + ' items');
@@ -185,18 +181,26 @@ async function fetchHypebeast() {
       }
     } catch(e) { console.error('Hypebeast direct:', e.message); }
   }
+  // rss2json as last resort
+  const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
+  if (r2j?.length) return r2j;
   return [];
 }
 
 async function fetchHighsnobiety() {
   try {
     const feed = await parser.parseURL('https://www.highsnobiety.com/feed/');
-    const articles = [];
-    for (const item of feed.items.slice(0, 20)) {
-      let image = extractImage(item);
-      if (!image && item.link) image = await fetchOgImage(item.link);
-      articles.push({ source: 'highsnobiety', sourceName: 'Highsnobiety', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
-    }
+    const articles = feed.items.slice(0, 20).map(item => ({
+      source: 'highsnobiety', sourceName: 'Highsnobiety',
+      title: item.title || '', description: item.contentSnippet || '',
+      link: item.link || '', date: item.pubDate || item.isoDate || '',
+      image: extractImage(item)
+    }));
+    const needsImg = articles.filter(a => !a.image);
+    await Promise.allSettled(needsImg.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image) a.image = meta.image;
+    }));
     return articles;
   } catch (e) { console.error('Highsnobiety:', e.message); return []; }
 }
@@ -208,15 +212,22 @@ async function fetchSneakerNews() {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    let xml = await res.text();
-    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+    const raw = await res.text();
+    const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
-    const articles = [];
-    for (const item of feed.items.slice(0, 20)) {
-      let image = extractImage(item);
-      if (!image && item.link) image = await fetchOgImage(item.link);
-      articles.push({ source: 'sneakernews', sourceName: 'Sneaker News', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
-    }
+    const items = feed.items?.slice(0, 20) || [];
+    const articles = items.map(item => ({
+      source: 'sneakernews', sourceName: 'Sneaker News',
+      title: item.title || '', description: item.contentSnippet || '',
+      link: item.link || '', date: item.pubDate || item.isoDate || '',
+      image: extractImage(item)
+    }));
+    // Fetch og:image in parallel only for articles missing an image
+    const needsImg = articles.filter(a => !a.image);
+    await Promise.allSettled(needsImg.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image) a.image = meta.image;
+    }));
     console.log('Sneaker News: ' + articles.length + ' items');
     return articles;
   } catch (e) {
@@ -238,12 +249,17 @@ async function fetchHipHopDX() {
     const feed = await parser.parseString(xml);
     if (feed.items?.length) {
       console.log(`HipHopDX: ${feed.items.length} items`);
-      const articles = [];
-      for (const item of feed.items.slice(0, 20)) {
-        let image = extractImage(item);
-        if (!image && item.link) image = await fetchOgImage(item.link);
-        articles.push({ source: 'hiphopdx', sourceName: 'HipHopDX', title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image });
-      }
+      const articles = feed.items.slice(0, 20).map(item => ({
+        source: 'hiphopdx', sourceName: 'HipHopDX',
+        title: item.title || '', description: item.contentSnippet || '',
+        link: item.link || '', date: item.pubDate || item.isoDate || '',
+        image: extractImage(item)
+      }));
+      const needsImg = articles.filter(a => !a.image);
+      await Promise.allSettled(needsImg.map(async (a) => {
+        const meta = await fetchOgMeta(a.link);
+        if (meta.image) a.image = meta.image;
+      }));
       return articles;
     }
   } catch (e) { console.error('HipHopDX:', e.message); }
