@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const parser = new Parser({
-  timeout: 15000,
+  signal: AbortSignal.timeout(15000),
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'Accept': 'application/rss+xml, application/xml, text/xml, */*'
@@ -47,7 +47,7 @@ async function fetchOgImage(url) {
 
 async function fetchOgMeta(url) {
   try {
-    const res = await fetch(url, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' } });
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' } });
     const html = await res.text();
     const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
                   || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
@@ -65,7 +65,7 @@ async function fetchOgMeta(url) {
 async function fetchViaRss2json(feedUrl, source, sourceName) {
   try {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
-    const res = await fetch(apiUrl, { timeout: 15000 });
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(15000) });
     const text = await res.text();
     // Guard against HTML error responses
     if (!text.startsWith('{')) { console.error(`${sourceName} rss2json: non-JSON response`); return null; }
@@ -89,12 +89,16 @@ async function fetchViaRss2json(feedUrl, source, sourceName) {
 async function fetchDirectFeed(feedUrl, source, sourceName) {
   try {
     const res = await fetch(feedUrl, {
-      timeout: 15000,
+      signal: AbortSignal.timeout(15000),
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
     });
     if (!res.ok) { console.error(`${sourceName} direct: HTTP ${res.status}`); return null; }
     let xml = await res.text();
-    // Sanitize invalid XML entities
+    // Strip content:encoded and similar HTML-blob tags that break XML parsing
+    xml = xml.replace(/<content:encoded>[\s\S]*?<\/content:encoded>/gi, '');
+    xml = xml.replace(/<description><!\[CDATA\[[\s\S]*?\]\]><\/description>/gi, '');
+    xml = xml.replace(/<media:description>[\s\S]*?<\/media:description>/gi, '');
+    // Fix bare & that aren't valid XML entities
     xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
     const feed = await parser.parseString(xml);
     if (feed.items?.length) {
@@ -164,7 +168,7 @@ async function fetchHighsnobiety() {
 async function fetchSneakerNews() {
   try {
     const res = await fetch('https://sneakernews.com/feed/', {
-      timeout: 15000,
+      signal: AbortSignal.timeout(15000),
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -189,7 +193,7 @@ async function fetchSneakerNews() {
 async function fetchHipHopDX() {
   try {
     const res = await fetch('https://hiphopdx.com/rss/news.xml', {
-      timeout: 15000,
+      signal: AbortSignal.timeout(15000),
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -231,13 +235,7 @@ async function fetchComplex(browser) {
     for (const section of ['https://www.complex.com/sneakers', 'https://www.complex.com/style']) {
       try {
         await page.goto(section, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        // Wait for article cards — stop as soon as we have them, max 3s
-        try {
-          await page.waitForFunction(
-            () => document.querySelectorAll('a[href*="/sneakers/"],a[href*="/style/"]').length >= 5,
-            { timeout: 3000 }
-          );
-        } catch(e) { /* proceed with what loaded */ }
+        await page.waitForTimeout(2500);
         const results = await page.evaluate(() => {
           const results = [];
           document.querySelectorAll('a[href]').forEach(a => {
