@@ -314,21 +314,6 @@ async function fetchSoleRetriever() {
       );
     } catch(e) { console.log('SR: timed out waiting for 10+ articles, proceeding'); }
 
-    // Debug: log raw structure of first 5 anchors so we can see what text/elements they contain
-    const debugAnchors = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('a[href*="/news/articles/"]'))
-        .slice(0, 5)
-        .map(a => ({
-          href: a.href,
-          innerText: a.innerText?.trim().slice(0, 200),
-          h: a.querySelector('h1,h2,h3,h4,h5,h6')?.innerText?.trim().slice(0, 100),
-          p: a.querySelector('p')?.innerText?.trim().slice(0, 100),
-          titleCls: a.querySelector('[class*="title"],[class*="headline"]')?.innerText?.trim().slice(0, 100),
-          childCount: a.children.length
-        }));
-    });
-    console.log('SR anchor debug:', JSON.stringify(debugAnchors));
-
     const results = await page.evaluate(() => {
       const extractFromAnchor = (a) => {
         const href = a.href || '';
@@ -460,17 +445,26 @@ async function fetchHNHH() {
 async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   try {
-    const [hypebeast, highsnobiety, sneakernews, hiphopdx, complex, soleretriever, hnhh] = await Promise.allSettled([
-      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchComplex(), fetchSoleRetriever(), fetchHNHH()
+    // RSS/fetch-based sources — run in parallel, lightweight
+    const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await Promise.allSettled([
+      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
     ]);
+
+    // Playwright scrapers — run sequentially to avoid simultaneous Chromium
+    // instances causing SIGSEGV OOM crashes on Railway's container
+    console.log('Running Playwright scrapers sequentially...');
+    const complexArticles = await fetchComplex().catch(e => { console.error('Complex failed:', e.message); return []; });
+    const srArticles = await fetchSoleRetriever().catch(e => { console.error('SR failed:', e.message); return []; });
+    const hnhhArticles = await fetchHNHH().catch(e => { console.error('HNHH failed:', e.message); return []; });
+
     const articles = [
       ...(hypebeast.status === 'fulfilled' ? hypebeast.value : []),
       ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
       ...(sneakernews.status === 'fulfilled' ? sneakernews.value : []),
       ...(hiphopdx.status === 'fulfilled' ? hiphopdx.value : []),
-      ...(complex.status === 'fulfilled' ? complex.value : []),
-      ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
-      ...(hnhh.status === 'fulfilled' ? hnhh.value : [])
+      ...complexArticles,
+      ...srArticles,
+      ...hnhhArticles
     ];
     articles.sort((a, b) => new Date(b.date) - new Date(a.date));
     cachedArticles = articles;
