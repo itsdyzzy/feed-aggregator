@@ -305,69 +305,131 @@ async function fetchSoleRetriever() {
     browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://www.soleretriever.com/news', { waitUntil: 'networkidle', timeout: 45000 });
+    await page.goto('https://www.soleretriever.com/news', { waitUntil: 'domcontentloaded', timeout: 45000 });
 
+    // Wait until at least one article link appears
     try {
       await page.waitForFunction(() =>
         Array.from(document.querySelectorAll('a[href]'))
           .some(a => a.href.includes('/news/articles/')),
-        { timeout: 15000 }
+        { timeout: 20000 }
       );
     } catch(e) { console.log('SR: timed out waiting for articles'); }
+
+    // Scroll the "Just In" sidebar to trigger lazy-loading of all items
+    await page.evaluate(async () => {
+      let justInEl = null;
+      for (const el of document.querySelectorAll('*')) {
+        if (el.children.length === 0 && el.innerText?.trim() === 'Just In') {
+          justInEl = el;
+          break;
+        }
+      }
+      if (!justInEl) return;
+
+      // Walk up to find the scrollable sidebar container
+      let container = justInEl.parentElement;
+      for (let i = 0; i < 6; i++) {
+        if (!container) break;
+        if (container.scrollHeight > container.clientHeight + 50) break;
+        container = container.parentElement;
+      }
+      if (!container) return;
+
+      // Scroll in steps to trigger lazy loading
+      const step = container.clientHeight || 400;
+      for (let pos = 0; pos < container.scrollHeight; pos += step) {
+        container.scrollTop = pos;
+        await new Promise(r => setTimeout(r, 400));
+      }
+      container.scrollTop = container.scrollHeight;
+      await new Promise(r => setTimeout(r, 800));
+    });
 
     const results = await page.evaluate(() => {
       const results = [];
 
-      // Strategy 1: Find the "Just In" sidebar section
-      const allText = Array.from(document.querySelectorAll('*'));
+      // Find the "Just In" heading — target leaf nodes only to avoid matching
+      // parent containers whose innerText also contains "Just In" + all child text
       let justInContainer = null;
-      for (const el of allText) {
-        if (el.innerText && el.innerText.trim() === 'Just In') {
-          justInContainer = el.closest('section, div, aside, nav') || el.parentElement;
+      for (const el of document.querySelectorAll('*')) {
+        if (el.children.length === 0 && el.innerText?.trim() === 'Just In') {
+          // Walk up to find nearest ancestor that actually contains article links
+          let ancestor = el.parentElement;
+          for (let i = 0; i < 8; i++) {
+            if (!ancestor) break;
+            if (ancestor.querySelector('a[href*="/news/articles/"]')) {
+              justInContainer = ancestor;
+              break;
+            }
+            ancestor = ancestor.parentElement;
+          }
           break;
         }
       }
 
+      const extractFromAnchor = (a) => {
+        const href = a.href || '';
+
+        // innerText is structured like: "about 4 hours ago\nNike Continues the Air Force 1..."
+        // Strip out timestamp lines, keep the actual title lines
+        const lines = a.innerText.trim().split('\n')
+          .map(l => l.trim())
+          .filter(l =>
+            l.length > 0 &&
+            !/^about\s+\d+\s+(second|minute|hour|day|week)/i.test(l) &&
+            !/^\d+\s*(s|m|h|d|w)\s*ago$/i.test(l)
+          );
+
+        const title = lines[0] || '';
+        if (!title || title.length < 10) return null;
+
+        // Prefer a <time> element's datetime attr; fall back to "about X ago" text
+        const timeEl = a.querySelector('time');
+        let date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
+        if (!date) {
+          const raw = a.innerText.trim().split('\n').map(l => l.trim());
+          date = raw.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l)) || '';
+        }
+
+        // Grab thumbnail if the anchor contains one
+        const img = a.querySelector('img');
+        const image = img?.src?.startsWith('http') ? img.src : null;
+
+        return { source: 'soleretriever', sourceName: 'Sole Retriever', title, description: '', link: href, date, image };
+      };
+
       if (justInContainer) {
-        console.log('Found Just In container:', justInContainer.tagName, justInContainer.className);
-        justInContainer.querySelectorAll('a[href]').forEach(a => {
-          const href = a.href || '';
-          if (!href.includes('/news/articles/')) return;
-          const title = a.innerText.trim().split('\n')[0].trim();
-          if (!title || title.length < 10) return;
-          const timeEl = a.closest('li, div, article')?.querySelector('time, [class*="time"], [class*="date"], [class*="ago"]');
-          results.push({
-            source: 'soleretriever', sourceName: 'Sole Retriever',
-            title, description: '', link: href,
-            date: timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText.trim()) : '',
-            image: null
-          });
+        justInContainer.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
+          const item = extractFromAnchor(a);
+          if (item) results.push(item);
         });
       }
 
-      // Strategy 2: fallback - grab all /news/articles/ links
+      // Fallback: scan whole page for article links
       if (results.length === 0) {
-        document.querySelectorAll('a[href]').forEach(a => {
-          const href = a.href || '';
-          if (!href.includes('/news/articles/')) return;
-          const title = a.innerText.trim().split('\n')[0].trim();
-          if (!title || title.length < 10) return;
-          results.push({
-            source: 'soleretriever', sourceName: 'Sole Retriever',
-            title, description: '', link: href, date: '', image: null
-          });
+        document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
+          const item = extractFromAnchor(a);
+          if (item) results.push(item);
         });
       }
 
+      // Dedupe by URL (not title — avoids dropping articles with similar names)
       const seen = new Set();
-      return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
+      return results.filter(a => {
+        if (seen.has(a.link)) return false;
+        seen.add(a.link);
+        return true;
+      }).slice(0, 20);
     });
 
     console.log('SR found ' + results.length + ' articles');
 
+    // Only hit og meta for items still missing image or date
     await Promise.allSettled(results.map(async (article) => {
+      if (article.image && article.date) return;
       const meta = await fetchOgMeta(article.link);
-      if (meta.image) article.image = meta.image;
+      if (meta.image && !article.image) article.image = meta.image;
       if (meta.date && !article.date) article.date = meta.date;
     }));
 
