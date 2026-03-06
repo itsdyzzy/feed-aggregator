@@ -546,6 +546,15 @@ async function fetchAllFeeds() {
       // Wait for WWD images (they fetch in parallel while we built the article list)
       await wwdImagePromise;
       articles.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      // Rewrite image URLs through proxy for sources that block hotlinking
+      const proxySourcess = new Set(['hypebeast', 'sneakernews']);
+      for (const a of articles) {
+        if (a.image && proxySourcess.has(a.source)) {
+          a.image = '/api/img?url=' + encodeURIComponent(a.image);
+        }
+      }
+
       cachedArticles = articles;
       lastFetch = Date.now();
       console.log('Fetched ' + articles.length + ' articles total');
@@ -573,6 +582,28 @@ app.get('/api/refresh', async (req, res) => {
   lastFetch = 0;
   await fetchAllFeeds();
   res.json({ articles: cachedArticles, lastFetch });
+});
+
+// ─── Image proxy — bypasses CDN hotlink/referer blocks ───────────────────────
+app.get('/api/img', async (req, res) => {
+  const url = req.query.url;
+  if (!url || !url.startsWith('http')) return res.status(400).end();
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*',
+        'Referer': new URL(url).origin + '/'
+      }
+    });
+    if (!response.ok) return res.status(response.status).end();
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // cache 24h in browser
+    const buffer = await response.arrayBuffer();
+    res.end(Buffer.from(buffer));
+  } catch(e) { res.status(500).end(); }
 });
 
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
