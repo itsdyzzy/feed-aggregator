@@ -351,37 +351,24 @@ async function fetchWWD() {
       });
       if (!res.ok) continue;
       const raw = await res.text();
-
-      // Extract images from raw XML before sanitizing — WWD uses media:content and media:thumbnail
-      // Build a map of item position → image URL by scanning raw XML
-      const imagesByPos = [];
-      const itemBlocks = raw.split(/<item[\s>]/i);
-      for (let i = 1; i < itemBlocks.length; i++) {
-        const block = itemBlocks[i];
-        // Try media:content url, media:thumbnail url, enclosure url
-        const imgMatch = block.match(/media:content[^>]+url=["']([^"']+)["']/i)
-                      || block.match(/media:thumbnail[^>]+url=["']([^"']+)["']/i)
-                      || block.match(/enclosure[^>]+url=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i)
-                      || block.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
-        imagesByPos.push(imgMatch ? imgMatch[1] : null);
-      }
-
       const xml = sanitizeRssFeed(raw);
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
-        // DEBUG: print raw XML of first item to see image structure
-        const firstItemStart = raw.indexOf('<item');
-        const firstItemEnd = raw.indexOf('</item>') + 7;
-        if (firstItemStart !== -1) console.log('WWD DEBUG first item:', raw.slice(firstItemStart, firstItemEnd).substring(0, 800));
         console.log(`WWD direct: ${feed.items.length} items`);
-        return feed.items.slice(0, 20).map((item, i) => ({
+        const articles = feed.items.slice(0, 10).map(item => ({
           source: 'wwd', sourceName: 'WWD',
           title: item.title || '',
           description: item.contentSnippet || '',
           link: item.link || '',
           date: item.pubDate || item.isoDate || '',
-          image: extractImage(item) || imagesByPos[i] || null
+          image: null
         }));
+        // Fetch og:image for all in parallel — WWD article pages are publicly accessible
+        await Promise.allSettled(articles.map(async (a) => {
+          const meta = await fetchOgMeta(a.link);
+          if (meta.image) a.image = meta.image;
+        }));
+        return articles;
       }
     } catch(e) { console.error(`WWD feed error: ${e.message}`); }
   }
