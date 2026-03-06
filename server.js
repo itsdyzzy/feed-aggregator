@@ -294,27 +294,36 @@ async function fetchSoleRetriever(browser) {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-    // Wait for both the sidebar (6 items, overflow:hidden) AND the main grid to load.
-    // The sidebar renders slightly after the grid, so wait for 20+ total links.
+    // Wait for both the main grid AND sidebar to render (34 total on the page)
     try {
       await page.waitForFunction(() =>
-        document.querySelectorAll('a[href*="/news/articles/"]').length >= 20,
+        document.querySelectorAll('a[href*="/news/articles/"]').length >= 25,
         { timeout: 20000 }
       );
     } catch(e) { console.log('SR: proceeding with available articles'); }
 
-    // Small extra wait for any remaining sidebar items to paint
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
 
     const results = await page.evaluate(() => {
+      // Convert "about X hours/minutes/days ago" → approximate timestamp for sorting
+      const relativeToTimestamp = (str) => {
+        if (!str) return 0;
+        const now = Date.now();
+        const m = str.match(/about\s+(\d+)\s+(second|minute|hour|day|week)/i);
+        if (!m) return 0;
+        const n = parseInt(m[1]);
+        const unit = m[2].toLowerCase();
+        const ms = { second: 1000, minute: 60000, hour: 3600000, day: 86400000, week: 604800000 };
+        return now - n * (ms[unit] || 0);
+      };
+
       const extractFromAnchor = (a) => {
         const href = a.href || '';
-        // Try structured child elements first — more reliable than innerText parsing
         const headingEl = a.querySelector('h1,h2,h3,h4,h5,h6');
         const titleClsEl = a.querySelector('[class*="title"],[class*="headline"],[class*="heading"]');
         const pEl = a.querySelector('p');
         let title = headingEl?.innerText?.trim() || titleClsEl?.innerText?.trim() || pEl?.innerText?.trim() || '';
-        // Fall back to innerText, stripping timestamp lines
+
         if (!title || title.length < 5) {
           title = a.innerText.trim().split('\n')
             .map(l => l.trim())
@@ -325,16 +334,28 @@ async function fetchSoleRetriever(browser) {
             )[0] || '';
         }
         if (!title || title.length < 5) return null;
+
+        // Capture the raw relative date string (e.g. "about 3 hours ago")
         const timeEl = a.querySelector('time');
-        let date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
-        if (!date) {
+        let dateStr = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
+        if (!dateStr) {
           const lines = a.innerText.trim().split('\n').map(l => l.trim());
-          date = lines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l))
-              || lines.find(l => /^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d/i.test(l))
-              || '';
+          dateStr = lines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l))
+                 || lines.find(l => /^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d/i.test(l))
+                 || '';
         }
+
         const img = a.querySelector('img');
-        return { source: 'soleretriever', sourceName: 'Sole Retriever', title, description: '', link: href, date, image: img?.src?.startsWith('http') ? img.src : null };
+        // Compute a numeric sort key from the relative string
+        const sortKey = relativeToTimestamp(dateStr) || new Date(dateStr).getTime() || 0;
+
+        return {
+          source: 'soleretriever', sourceName: 'Sole Retriever',
+          title, description: '', link: href,
+          date: dateStr,
+          _sortKey: sortKey,
+          image: img?.src?.startsWith('http') ? img.src : null
+        };
       };
 
       const results = [];
@@ -342,27 +363,27 @@ async function fetchSoleRetriever(browser) {
         const item = extractFromAnchor(a);
         if (item) results.push(item);
       });
+
+      // Dedupe by URL
       const seen = new Set();
-      // Don't slice yet — sort by date first so newest 20 are kept, not first 20 in DOM order
       const deduped = results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; });
 
-      // Sort: items with a parseable date first (newest), undated items last
-      deduped.sort((a, b) => {
-        const da = new Date(a.date), db = new Date(b.date);
-        const va = isNaN(da) ? 0 : da.getTime();
-        const vb = isNaN(db) ? 0 : db.getTime();
-        return vb - va;
-      });
-      return deduped.slice(0, 20);
+      // Sort newest first using the numeric sort key, then take top 20
+      deduped.sort((a, b) => b._sortKey - a._sortKey);
+      return deduped.slice(0, 20).map(({ _sortKey, ...rest }) => rest);
     });
 
     console.log('SR found ' + results.length + ' articles');
+
+    // Only fetch og:meta for articles that are missing both image AND date —
+    // most will have images inline from the page, skipping saves ~5s
     await Promise.allSettled(results.map(async (article) => {
       if (article.image && article.date) return;
       const meta = await fetchOgMeta(article.link);
       if (meta.image && !article.image) article.image = meta.image;
       if (meta.date && !article.date) article.date = meta.date;
     }));
+
     console.log('Sole Retriever scraped: ' + results.length + ' items');
     return results;
   } catch(e) { console.error('Sole Retriever scrape error:', e.message); return []; }
