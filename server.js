@@ -113,11 +113,11 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
 }
 
 async function fetchHypebeast() {
-  // Try rss2json first as it's more reliable for Hypebeast
+  // Try rss2json first
   const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
   if (r2j && r2j.length > 0) return r2j;
 
-  // Try direct with various user agents
+  // Try direct RSS with multiple user agents
   const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Googlebot/2.1 (+http://www.google.com/bot.html)',
@@ -125,10 +125,13 @@ async function fetchHypebeast() {
   ];
   for (const ua of userAgents) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
       const res = await fetch('https://hypebeast.com/feed', {
-        timeout: 15000,
+        signal: controller.signal,
         headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, text/xml, */*' }
       });
+      clearTimeout(timer);
       if (!res.ok) continue;
       let xml = await res.text();
       if (!xml.includes('<rss') && !xml.includes('<feed')) continue;
@@ -340,7 +343,17 @@ async function fetchSoleRetriever(browser) {
         if (item) results.push(item);
       });
       const seen = new Set();
-      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+      // Don't slice yet — sort by date first so newest 20 are kept, not first 20 in DOM order
+      const deduped = results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; });
+
+      // Sort: items with a parseable date first (newest), undated items last
+      deduped.sort((a, b) => {
+        const da = new Date(a.date), db = new Date(b.date);
+        const va = isNaN(da) ? 0 : da.getTime();
+        const vb = isNaN(db) ? 0 : db.getTime();
+        return vb - va;
+      });
+      return deduped.slice(0, 20);
     });
 
     console.log('SR found ' + results.length + ' articles');
@@ -393,17 +406,19 @@ async function fetchAllFeeds() {
   console.log('Fetching all feeds...');
   let browser;
   try {
-    // RSS sources run in parallel while we spin up the shared browser
+    // RSS sources — kick off immediately and run in parallel with Playwright work
     const rssPromise = Promise.allSettled([
       fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
     ]);
 
-    // Single Chromium instance shared across all three Playwright scrapers.
-    // Pages run sequentially within it — low memory, no OOM crashes.
+    // Single Chromium instance shared across all three Playwright scrapers
     browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
-    const complexArticles  = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
-    const srArticles       = await fetchSoleRetriever(browser).catch(e => { console.error('SR failed:', e.message); return []; });
-    const hnhhArticles     = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
+    const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
+    const srArticles      = await fetchSoleRetriever(browser).catch(e => { console.error('SR failed:', e.message); return []; });
+    const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
+
+    // Close browser before awaiting RSS — frees memory while we wait
+    if (browser) { await browser.close(); browser = null; }
 
     const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await rssPromise;
     const articles = [
