@@ -93,13 +93,8 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
     });
     if (!res.ok) { console.error(`${sourceName} direct: HTTP ${res.status}`); return null; }
-    let xml = await res.text();
-    // Strip content:encoded and similar HTML-blob tags that break XML parsing
-    xml = xml.replace(/<content:encoded>[\s\S]*?<\/content:encoded>/gi, '');
-    xml = xml.replace(/<description><!\[CDATA\[[\s\S]*?\]\]><\/description>/gi, '');
-    xml = xml.replace(/<media:description>[\s\S]*?<\/media:description>/gi, '');
-    // Fix bare & that aren't valid XML entities
-    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+    const raw = await res.text();
+    const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
     if (feed.items?.length) {
       console.log(`${sourceName} direct: ${feed.items.length} items`);
@@ -114,6 +109,31 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
     }
   } catch (e) { console.error(`${sourceName} direct:`, e.message); }
   return null;
+}
+
+function sanitizeRssFeed(xml) {
+  // Tags that contain raw HTML and must be emptied to prevent XML parse errors
+  const htmlTags = ['content:encoded', 'content', 'media:description', 'slash:comments', 'wfw:commentRss'];
+  for (const tag of htmlTags) {
+    // Use split/join to avoid regex catastrophic backtracking on large feeds
+    const open = `<${tag}`, close = `</${tag}>`;
+    const parts = xml.split(close);
+    for (let i = 0; i < parts.length - 1; i++) {
+      const start = parts[i].lastIndexOf(open);
+      if (start !== -1) parts[i] = parts[i].slice(0, start) + `<${tag}>`;
+    }
+    xml = parts.join(close);
+  }
+  // Strip item <description> blocks that contain raw HTML (WordPress puts full post HTML here)
+  xml = xml.replace(/<description>([^<]*(?:<(?!\/description>)[^<]*)*)<\/description>/g, (match, inner) => {
+    if (inner.includes('<p') || inner.includes('<div') || inner.includes('<img') || inner.includes('<a ')) {
+      return '<description></description>';
+    }
+    return match;
+  });
+  // Fix bare & not part of a valid XML entity
+  xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+  return xml;
 }
 
 async function fetchHypebeast() {
