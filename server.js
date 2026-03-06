@@ -307,87 +307,20 @@ async function fetchSoleRetriever() {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-    // Wait until we have at least 3 article links (not just 1)
+    // Wait until we have a healthy batch of article links rendered
     try {
       await page.waitForFunction(() =>
-        document.querySelectorAll('a[href*="/news/articles/"]').length >= 3,
+        document.querySelectorAll('a[href*="/news/articles/"]').length >= 10,
         { timeout: 20000 }
       );
-    } catch(e) { console.log('SR: timed out waiting for 3+ articles'); }
-
-    // Log the sidebar structure so we can debug if count is still low
-    const debugInfo = await page.evaluate(() => {
-      // Find "Just In" leaf node
-      let justInEl = null;
-      for (const el of document.querySelectorAll('*')) {
-        if (el.children.length === 0 && el.innerText?.trim() === 'Just In') {
-          justInEl = el;
-          break;
-        }
-      }
-      if (!justInEl) return { found: false, totalArticleLinks: document.querySelectorAll('a[href*="/news/articles/"]').length };
-
-      // Walk up and log each ancestor's scrollHeight vs clientHeight
-      const ancestors = [];
-      let el = justInEl.parentElement;
-      for (let i = 0; i < 10 && el; i++) {
-        ancestors.push({
-          tag: el.tagName,
-          cls: el.className?.toString().slice(0, 60),
-          scrollH: el.scrollHeight,
-          clientH: el.clientHeight,
-          overflow: getComputedStyle(el).overflowY,
-          articleLinks: el.querySelectorAll('a[href*="/news/articles/"]').length
-        });
-        el = el.parentElement;
-      }
-      return { found: true, totalArticleLinks: document.querySelectorAll('a[href*="/news/articles/"]').length, ancestors };
-    });
-    console.log('SR debug:', JSON.stringify(debugInfo));
-
-    // Scroll every ancestor of Just In that could be the sidebar container
-    await page.evaluate(async () => {
-      let justInEl = null;
-      for (const el of document.querySelectorAll('*')) {
-        if (el.children.length === 0 && el.innerText?.trim() === 'Just In') {
-          justInEl = el;
-          break;
-        }
-      }
-      if (!justInEl) return;
-
-      // Scroll ALL ancestors that have a scroll overflow, not just the first one
-      let el = justInEl.parentElement;
-      for (let i = 0; i < 10 && el; i++) {
-        const style = getComputedStyle(el);
-        const isScrollable = (style.overflowY === 'scroll' || style.overflowY === 'auto') && el.scrollHeight > el.clientHeight + 20;
-        if (isScrollable) {
-          // Scroll in small steps with pauses
-          const totalHeight = el.scrollHeight;
-          const step = Math.max(200, el.clientHeight / 2);
-          for (let pos = 0; pos <= totalHeight; pos += step) {
-            el.scrollTop = pos;
-            await new Promise(r => setTimeout(r, 300));
-          }
-          el.scrollTop = el.scrollHeight;
-          await new Promise(r => setTimeout(r, 500));
-        }
-        el = el.parentElement;
-      }
-
-      // Also scroll the window itself in case items are in a sticky sidebar
-      window.scrollTo(0, document.body.scrollHeight / 2);
-      await new Promise(r => setTimeout(r, 500));
-    });
-
-    // Wait a beat for any newly-loaded items to render
-    await page.waitForTimeout(1500);
+    } catch(e) { console.log('SR: timed out waiting for 10+ articles, proceeding with what we have'); }
 
     const results = await page.evaluate(() => {
       const extractFromAnchor = (a) => {
         const href = a.href || '';
+
         // innerText format: "about 4 hours ago\nActual Title Here"
-        // Strip timestamp lines, keep title lines
+        // Filter out timestamp lines, keep the title
         const lines = a.innerText.trim().split('\n')
           .map(l => l.trim())
           .filter(l =>
@@ -398,6 +331,7 @@ async function fetchSoleRetriever() {
         const title = lines[0] || '';
         if (!title || title.length < 10) return null;
 
+        // Grab date from <time> or "about X ago" text
         const timeEl = a.querySelector('time');
         let date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
         if (!date) {
@@ -411,41 +345,13 @@ async function fetchSoleRetriever() {
         return { source: 'soleretriever', sourceName: 'Sole Retriever', title, description: '', link: href, date, image };
       };
 
+      // Grab every article link on the page — the sidebar only shows 6 due to
+      // CSS overflow:hidden, but the full page grid has 30+ articles
       const results = [];
-
-      // Strategy 1: Just In container
-      let justInContainer = null;
-      for (const el of document.querySelectorAll('*')) {
-        if (el.children.length === 0 && el.innerText?.trim() === 'Just In') {
-          let ancestor = el.parentElement;
-          for (let i = 0; i < 10; i++) {
-            if (!ancestor) break;
-            if (ancestor.querySelectorAll('a[href*="/news/articles/"]').length >= 3) {
-              justInContainer = ancestor;
-              break;
-            }
-            ancestor = ancestor.parentElement;
-          }
-          break;
-        }
-      }
-
-      if (justInContainer) {
-        console.log('SR Just In container found, article links:', justInContainer.querySelectorAll('a[href*="/news/articles/"]').length);
-        justInContainer.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
-          const item = extractFromAnchor(a);
-          if (item) results.push(item);
-        });
-      }
-
-      // Strategy 2: fallback — all article links on page
-      if (results.length < 3) {
-        console.log('SR falling back to full-page scan');
-        document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
-          const item = extractFromAnchor(a);
-          if (item) results.push(item);
-        });
-      }
+      document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
+        const item = extractFromAnchor(a);
+        if (item) results.push(item);
+      });
 
       // Dedupe by URL
       const seen = new Set();
