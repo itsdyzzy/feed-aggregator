@@ -104,6 +104,14 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
     // Try 1: sanitize + strict parse
     try {
       const xml = sanitizeRssFeed(raw);
+      // Debug: log lines around the known problem area
+      const lines = xml.split('\n');
+      if (lines.length >= 107) {
+        console.log(`${sourceName} DEBUG line105: ${lines[104]?.substring(0, 120)}`);
+        console.log(`${sourceName} DEBUG line106: ${lines[105]?.substring(0, 120)}`);
+        console.log(`${sourceName} DEBUG line107: ${lines[106]?.substring(0, 200)}`);
+        console.log(`${sourceName} DEBUG line108: ${lines[107]?.substring(0, 120)}`);
+      }
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log(`${sourceName} direct: ${feed.items.length} items`);
