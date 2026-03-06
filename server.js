@@ -339,6 +339,7 @@ async function fetchComplex(browser) {
 }
 
 async function fetchWWD() {
+  // Just get titles/links/dates from RSS — images fetched separately after browser closes
   const feedUrls = [
     'https://wwd.com/footwear-news/feed/',
     'https://wwd.com/footwear-news/sneaker-news/feed/',
@@ -346,7 +347,7 @@ async function fetchWWD() {
   for (const feedUrl of feedUrls) {
     try {
       const res = await fetch(feedUrl, {
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(12000),
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
       });
       if (!res.ok) continue;
@@ -355,20 +356,12 @@ async function fetchWWD() {
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log(`WWD direct: ${feed.items.length} items`);
-        const articles = feed.items.slice(0, 10).map(item => ({
+        return feed.items.slice(0, 10).map(item => ({
           source: 'wwd', sourceName: 'WWD',
-          title: item.title || '',
-          description: item.contentSnippet || '',
-          link: item.link || '',
-          date: item.pubDate || item.isoDate || '',
+          title: item.title || '', description: item.contentSnippet || '',
+          link: item.link || '', date: item.pubDate || item.isoDate || '',
           image: null
         }));
-        // Fetch og:image for all in parallel — WWD article pages are publicly accessible
-        await Promise.allSettled(articles.map(async (a) => {
-          const meta = await fetchOgMeta(a.link);
-          if (meta.image) a.image = meta.image;
-        }));
-        return articles;
       }
     } catch(e) { console.error(`WWD feed error: ${e.message}`); }
   }
@@ -506,18 +499,33 @@ async function fetchAllFeeds() {
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
 
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = await rssPromise;
+      // Await RSS results + enrich WWD images in parallel (WWD has no images in RSS feed)
+      const [rssResults] = await Promise.all([
+        rssPromise,
+        Promise.resolve() // placeholder — WWD enrichment runs after we have the articles
+      ]);
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = rssResults;
+
+      const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
+      // Fetch WWD images now — browser is closed, memory is free, runs in parallel with sort/cache
+      const wwdImagePromise = Promise.allSettled(wwdArticles.map(async (a) => {
+        const meta = await fetchOgMeta(a.link);
+        if (meta.image) a.image = meta.image;
+      }));
       const articles = [
-        ...(hypebeast.status         === 'fulfilled' ? hypebeast.value     : []),
-        ...(highsnobiety.status      === 'fulfilled' ? highsnobiety.value  : []),
-        ...(sneakernews.status       === 'fulfilled' ? sneakernews.value   : []),
-        ...(hiphopdx.status          === 'fulfilled' ? hiphopdx.value      : []),
-        ...(soleretriever.status     === 'fulfilled' ? soleretriever.value : []),
-        ...(wwd.status               === 'fulfilled' ? wwd.value           : []),
+        ...(hypebeast.status     === 'fulfilled' ? hypebeast.value     : []),
+        ...(highsnobiety.status  === 'fulfilled' ? highsnobiety.value  : []),
+        ...(sneakernews.status   === 'fulfilled' ? sneakernews.value   : []),
+        ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
+        ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
+        ...wwdArticles,
         ...complexArticles,
         ...mnArticles,
         ...hnhhArticles
       ];
+
+      // Wait for WWD images (they fetch in parallel while we built the article list)
+      await wwdImagePromise;
       articles.sort((a, b) => new Date(b.date) - new Date(a.date));
       cachedArticles = articles;
       lastFetch = Date.now();
