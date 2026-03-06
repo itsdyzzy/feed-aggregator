@@ -307,33 +307,26 @@ async function fetchSoleRetriever() {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'networkidle', timeout: 45000 });
 
-    // Wait for article links to appear - try multiple selectors
+    // Wait specifically for /news/articles/ links to appear
     try {
-      await page.waitForFunction(() => {
-        const links = Array.from(document.querySelectorAll('a[href]'))
-          .filter(a => a.href.includes('soleretriever.com/news/') && !a.href.includes('/tags/'));
-        return links.length > 5;
-      }, { timeout: 15000 });
-    } catch(e) { console.log('SR: waitForFunction timed out, proceeding anyway'); }
+      await page.waitForFunction(() =>
+        Array.from(document.querySelectorAll('a[href]'))
+          .some(a => a.href.includes('/news/articles/')),
+        { timeout: 15000 }
+      );
+    } catch(e) { console.log('SR: timed out waiting for articles'); }
 
-    // Log ALL unique news hrefs for debugging
-    const allHrefs = await page.evaluate(() =>
-      [...new Set(Array.from(document.querySelectorAll('a[href]'))
-        .map(a => a.href)
-        .filter(h => h.includes('soleretriever.com/news/'))
-      )].slice(0, 20)
-    );
-    console.log('SR all news hrefs:', JSON.stringify(allHrefs));
+    // Scroll down to load more articles
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+    await page.waitForTimeout(2000);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(2000);
 
     const results = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
-        if (!href.includes('soleretriever.com/news/')) return;
-        if (href.includes('/news/tags/')) return;
-        const srPath = new URL(href).pathname;
-        const srSegs = srPath.split('/').filter(Boolean);
-        if (srSegs.length < 2) return;
+        if (!href.includes('/news/articles/')) return;
         const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
         const title = textEls.length ? textEls[0].innerText.trim() : '';
         if (!title || title.length < 10) return;
@@ -349,6 +342,8 @@ async function fetchSoleRetriever() {
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
+
+    console.log('SR found ' + results.length + ' articles, fetching meta...');
 
     await Promise.allSettled(results.map(async (article) => {
       const meta = await fetchOgMeta(article.link);
