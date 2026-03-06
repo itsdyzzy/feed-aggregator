@@ -307,7 +307,6 @@ async function fetchSoleRetriever() {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'networkidle', timeout: 45000 });
 
-    // Wait specifically for /news/articles/ links to appear
     try {
       await page.waitForFunction(() =>
         Array.from(document.querySelectorAll('a[href]'))
@@ -316,34 +315,55 @@ async function fetchSoleRetriever() {
       );
     } catch(e) { console.log('SR: timed out waiting for articles'); }
 
-    // Scroll down to load more articles
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
-    await page.waitForTimeout(2000);
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(2000);
-
     const results = await page.evaluate(() => {
       const results = [];
-      document.querySelectorAll('a[href]').forEach(a => {
-        const href = a.href || '';
-        if (!href.includes('/news/articles/')) return;
-        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="heading"]');
-        const title = textEls.length ? textEls[0].innerText.trim() : '';
-        if (!title || title.length < 10) return;
-        const card = a.closest('article, li, [class*="card"], [class*="item"]') || a;
-        const timeEl = card.querySelector('time');
-        results.push({
-          source: 'soleretriever', sourceName: 'Sole Retriever',
-          title, description: '', link: href,
-          date: timeEl ? (timeEl.getAttribute('datetime') || '') : '',
-          image: null
+
+      // Strategy 1: Find the "Just In" sidebar section
+      const allText = Array.from(document.querySelectorAll('*'));
+      let justInContainer = null;
+      for (const el of allText) {
+        if (el.innerText && el.innerText.trim() === 'Just In') {
+          justInContainer = el.closest('section, div, aside, nav') || el.parentElement;
+          break;
+        }
+      }
+
+      if (justInContainer) {
+        console.log('Found Just In container:', justInContainer.tagName, justInContainer.className);
+        justInContainer.querySelectorAll('a[href]').forEach(a => {
+          const href = a.href || '';
+          if (!href.includes('/news/articles/')) return;
+          const title = a.innerText.trim().split('\n')[0].trim();
+          if (!title || title.length < 10) return;
+          const timeEl = a.closest('li, div, article')?.querySelector('time, [class*="time"], [class*="date"], [class*="ago"]');
+          results.push({
+            source: 'soleretriever', sourceName: 'Sole Retriever',
+            title, description: '', link: href,
+            date: timeEl ? (timeEl.getAttribute('datetime') || timeEl.innerText.trim()) : '',
+            image: null
+          });
         });
-      });
+      }
+
+      // Strategy 2: fallback - grab all /news/articles/ links
+      if (results.length === 0) {
+        document.querySelectorAll('a[href]').forEach(a => {
+          const href = a.href || '';
+          if (!href.includes('/news/articles/')) return;
+          const title = a.innerText.trim().split('\n')[0].trim();
+          if (!title || title.length < 10) return;
+          results.push({
+            source: 'soleretriever', sourceName: 'Sole Retriever',
+            title, description: '', link: href, date: '', image: null
+          });
+        });
+      }
+
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
 
-    console.log('SR found ' + results.length + ' articles, fetching meta...');
+    console.log('SR found ' + results.length + ' articles');
 
     await Promise.allSettled(results.map(async (article) => {
       const meta = await fetchOgMeta(article.link);
