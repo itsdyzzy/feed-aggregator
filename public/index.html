@@ -149,32 +149,95 @@
     input[type="search"]:focus { border-color: var(--accent); }
     input[type="search"]::placeholder { color: var(--muted); }
 
-    .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .filters { display: flex; gap: 0.5rem; align-items: center; }
 
-    .filter-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
+    /* ALL trigger button */
+    .filter-btn-all {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      color: #000;
       padding: 0.5rem 1rem;
       font-family: 'DM Sans', sans-serif;
       font-size: 0.75rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       transition: all 0.2s;
+      white-space: nowrap;
     }
-    .filter-btn:hover { border-color: var(--text); color: var(--text); }
-    .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
-    .filter-btn[data-source="hypebeast"].active { background: var(--tag-hype); border-color: var(--tag-hype); color: #fff; }
-    .filter-btn[data-source="highsnobiety"].active { background: var(--tag-high); border-color: var(--tag-high); color: #fff; }
-    .filter-btn[data-source="complex"].active { background: var(--tag-complex); border-color: var(--tag-complex); color: #fff; }
-    .filter-btn[data-source="sneakernews"].active { background: var(--tag-sn); border-color: var(--tag-sn); color: #fff; }
-    .filter-btn[data-source="hiphopdx"].active { background: var(--tag-hiphopdx); border-color: var(--tag-hiphopdx); color: #fff; }
-    .filter-btn[data-source="complex"].active { background: var(--tag-complex); border-color: var(--tag-complex); color: #fff; }
-    .filter-btn[data-source="soleretriever"].active { background: var(--tag-soleretriever); border-color: var(--tag-soleretriever); color: #fff; }
-    .filter-btn[data-source="hnhh"].active { background: var(--tag-hnhh); border-color: var(--tag-hnhh); color: #fff; }
-    .filter-btn[data-source="modernnotoriety"].active { background: var(--tag-modernnotoriety); border-color: var(--tag-modernnotoriety); color: #fff; }
-    .filter-btn[data-source="wwd"].active { background: var(--tag-wwd); border-color: var(--tag-wwd); color: #fff; }
+    .filter-btn-all:hover { background: #d4e800; border-color: #d4e800; }
+    .filter-btn-all .chevron {
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .filter-btn-all.open .chevron { transform: rotate(180deg); }
+    /* Active source label in the button */
+    .filter-btn-all .active-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #000;
+      flex-shrink: 0;
+      display: none;
+    }
+    .filter-btn-all.filtered .active-dot { display: block; }
+    .filter-btn-all.filtered { background: var(--surface); border-color: var(--text); color: var(--text); }
+    .filter-btn-all.filtered .active-dot { background: var(--accent); }
+
+    /* Dropdown */
+    .source-dropdown {
+      position: relative;
+    }
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: #111;
+      border: 1px solid var(--border);
+      z-index: 200;
+      min-width: 200px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    .dropdown-menu.open { display: block; }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.65rem 1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: #1a1a1a; color: var(--text); }
+    .dropdown-item.active { color: var(--text); background: #1a1a1a; }
+    .dropdown-item .item-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .dropdown-item.active .item-dot { opacity: 1; }
+    .dropdown-item .item-count {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+    .dropdown-item.active .item-count { color: var(--text); }
 
     .stats-bar {
       padding: 0.75rem 2rem;
@@ -357,18 +420,65 @@
     <input type="search" id="searchInput" placeholder="Search articles..." oninput="renderArticles()"/>
   </div>
   <div class="filters">
-    <button class="filter-btn active" data-source="all" onclick="setFilter('all', this)">All</button>
-    <button class="filter-btn" data-source="hypebeast" onclick="setFilter('hypebeast', this)">Hypebeast</button>
-    <button class="filter-btn" data-source="highsnobiety" onclick="setFilter('highsnobiety', this)">Highsnobiety</button>
-    <button class="filter-btn" data-source="complex" onclick="setFilter('complex', this)">Complex</button>
-    <button class="filter-btn" data-source="sneakernews" onclick="setFilter('sneakernews', this)">Sneaker News</button>
-    <button class="filter-btn" data-source="hiphopdx" onclick="setFilter('hiphopdx', this)">HipHopDX</button>
-    
-
-    <button class="filter-btn" data-source="soleretriever" onclick="setFilter('soleretriever', this)">Sole Retriever</button>
-    <button class="filter-btn" data-source="modernnotoriety" onclick="setFilter('modernnotoriety', this)">Modern Notoriety</button>
-    <button class="filter-btn" data-source="wwd" onclick="setFilter('wwd', this)">WWD</button>
-    <button class="filter-btn" data-source="hnhh" onclick="setFilter('hnhh', this)">HotNewHipHop</button>
+    <div class="source-dropdown" id="sourceDropdown">
+      <button class="filter-btn-all" id="filterAllBtn" onclick="toggleDropdown()">
+        <span class="active-dot"></span>
+        <span id="filterLabel">ALL SOURCES</span>
+        <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="dropdown-menu" id="dropdownMenu">
+        <button class="dropdown-item active" data-source="all" onclick="setFilter('all')">
+          <span class="item-dot" style="background:var(--accent)"></span>
+          All Sources
+          <span class="item-count" id="count-all"></span>
+        </button>
+        <button class="dropdown-item" data-source="hypebeast" onclick="setFilter('hypebeast')">
+          <span class="item-dot" style="background:var(--tag-hype)"></span>
+          Hypebeast
+          <span class="item-count" id="count-hypebeast"></span>
+        </button>
+        <button class="dropdown-item" data-source="highsnobiety" onclick="setFilter('highsnobiety')">
+          <span class="item-dot" style="background:var(--tag-high)"></span>
+          Highsnobiety
+          <span class="item-count" id="count-highsnobiety"></span>
+        </button>
+        <button class="dropdown-item" data-source="complex" onclick="setFilter('complex')">
+          <span class="item-dot" style="background:var(--tag-complex)"></span>
+          Complex
+          <span class="item-count" id="count-complex"></span>
+        </button>
+        <button class="dropdown-item" data-source="sneakernews" onclick="setFilter('sneakernews')">
+          <span class="item-dot" style="background:var(--tag-sn)"></span>
+          Sneaker News
+          <span class="item-count" id="count-sneakernews"></span>
+        </button>
+        <button class="dropdown-item" data-source="hiphopdx" onclick="setFilter('hiphopdx')">
+          <span class="item-dot" style="background:var(--tag-hiphopdx)"></span>
+          HipHopDX
+          <span class="item-count" id="count-hiphopdx"></span>
+        </button>
+        <button class="dropdown-item" data-source="soleretriever" onclick="setFilter('soleretriever')">
+          <span class="item-dot" style="background:var(--tag-soleretriever)"></span>
+          Sole Retriever
+          <span class="item-count" id="count-soleretriever"></span>
+        </button>
+        <button class="dropdown-item" data-source="modernnotoriety" onclick="setFilter('modernnotoriety')">
+          <span class="item-dot" style="background:var(--tag-modernnotoriety)"></span>
+          Modern Notoriety
+          <span class="item-count" id="count-modernnotoriety"></span>
+        </button>
+        <button class="dropdown-item" data-source="wwd" onclick="setFilter('wwd')">
+          <span class="item-dot" style="background:var(--tag-wwd)"></span>
+          WWD
+          <span class="item-count" id="count-wwd"></span>
+        </button>
+        <button class="dropdown-item" data-source="hnhh" onclick="setFilter('hnhh')">
+          <span class="item-dot" style="background:var(--tag-hnhh)"></span>
+          HotNewHipHop
+          <span class="item-count" id="count-hnhh"></span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -399,10 +509,45 @@
     return Math.floor(hrs / 24) + 'd ago';
   }
 
-  function setFilter(source, btn) {
+  const sourceLabels = {
+    all: 'ALL SOURCES', hypebeast: 'HYPEBEAST', highsnobiety: 'HIGHSNOBIETY',
+    complex: 'COMPLEX', sneakernews: 'SNEAKER NEWS', hiphopdx: 'HIPHOPDX',
+    soleretriever: 'SOLE RETRIEVER', modernnotoriety: 'MODERN NOTORIETY',
+    wwd: 'WWD', hnhh: 'HOTNEWHI PHOP'
+  };
+
+  function toggleDropdown() {
+    const btn = document.getElementById('filterAllBtn');
+    const menu = document.getElementById('dropdownMenu');
+    btn.classList.toggle('open');
+    menu.classList.toggle('open');
+  }
+
+  function closeDropdown() {
+    document.getElementById('filterAllBtn').classList.remove('open');
+    document.getElementById('dropdownMenu').classList.remove('open');
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('sourceDropdown').contains(e.target)) closeDropdown();
+  });
+
+  function setFilter(source) {
     activeFilter = source;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    // Update dropdown items active state
+    document.querySelectorAll('.dropdown-item').forEach(b => {
+      b.classList.toggle('active', b.dataset.source === source);
+    });
+    // Update trigger button
+    const btn = document.getElementById('filterAllBtn');
+    const label = document.getElementById('filterLabel');
+    label.textContent = sourceLabels[source] || source.toUpperCase();
+    if (source === 'all') {
+      btn.classList.remove('filtered');
+    } else {
+      btn.classList.add('filtered');
+    }
+    closeDropdown();
     renderArticles();
   }
 
@@ -419,6 +564,15 @@
     // Update stats
     const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, soleretriever: 0, modernnotoriety: 0, wwd: 0, hnhh: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
+
+    // Update dropdown counts
+    Object.entries(counts).forEach(([src, n]) => {
+      const el = document.getElementById('count-' + src);
+      if (el) el.textContent = n;
+    });
+    const countAllEl = document.getElementById('count-all');
+    if (countAllEl) countAllEl.textContent = allArticles.length;
+
     document.getElementById('statsBar').innerHTML = `
       <span><strong>${filtered.length}</strong> Articles Shown</span>
       <span>Hypebeast <strong>${counts.hypebeast}</strong></span>
