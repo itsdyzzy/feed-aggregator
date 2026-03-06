@@ -221,7 +221,13 @@ async function fetchComplex(browser) {
     for (const section of ['https://www.complex.com/sneakers', 'https://www.complex.com/style']) {
       try {
         await page.goto(section, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForTimeout(3000);
+        // Wait for article cards — stop as soon as we have them, max 3s
+        try {
+          await page.waitForFunction(
+            () => document.querySelectorAll('a[href*="/sneakers/"],a[href*="/style/"]').length >= 5,
+            { timeout: 3000 }
+          );
+        } catch(e) { /* proceed with what loaded */ }
         const results = await page.evaluate(() => {
           const results = [];
           document.querySelectorAll('a[href]').forEach(a => {
@@ -254,17 +260,20 @@ async function fetchComplex(browser) {
   finally { await page.close(); }
 }
 
-async function fetchSoleRetriever(browser) {
-  // Strategy 1: try their RSS feed — fast, always fresh, no scraping needed
-  const rssSources = [
+async function fetchSoleRetriever() {
+  // RSS-first — fast, structured, real ISO dates, no scraping needed
+  const feedUrls = [
+    'https://www.soleretriever.com/rss.xml',
     'https://www.soleretriever.com/rss',
     'https://www.soleretriever.com/feed',
-    'https://www.soleretriever.com/rss.xml',
     'https://www.soleretriever.com/news/feed',
   ];
-  for (const feedUrl of rssSources) {
+  for (const feedUrl of feedUrls) {
     try {
-      const res = await fetch(feedUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }, signal: AbortSignal.timeout(8000) });
+      const res = await fetch(feedUrl, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+      });
       if (!res.ok) continue;
       let xml = await res.text();
       if (!xml.includes('<rss') && !xml.includes('<feed') && !xml.includes('<item')) continue;
@@ -281,70 +290,51 @@ async function fetchSoleRetriever(browser) {
       }
     } catch(e) { /* try next */ }
   }
-
-  // Strategy 2: rss2json proxy
-  const r2j = await fetchViaRss2json('https://www.soleretriever.com/rss', 'soleretriever', 'Sole Retriever');
+  // rss2json fallback
+  const r2j = await fetchViaRss2json('https://www.soleretriever.com/rss.xml', 'soleretriever', 'Sole Retriever');
   if (r2j?.length) return r2j;
-
-  // Strategy 3: Playwright scrape as last resort
-  console.log('SR: falling back to Playwright scrape');
-  const page = await browser.newPage();
-  try {
-    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://www.soleretriever.com/news', { waitUntil: 'domcontentloaded', timeout: 45000 });
-    try {
-      await page.waitForFunction(() => document.querySelectorAll('a[href*="/news/articles/"]').length >= 25, { timeout: 20000 });
-    } catch(e) { console.log('SR scrape: proceeding with available articles'); }
-    await page.waitForTimeout(1000);
-
-    const results = await page.evaluate(() => {
-      const relToTs = (str) => {
-        if (!str) return 0;
-        const m = str.match(/about\s+(\d+)\s+(second|minute|hour|day|week)/i);
-        if (!m) return 0;
-        const ms = { second: 1e3, minute: 6e4, hour: 36e5, day: 864e5, week: 6048e5 };
-        return Date.now() - parseInt(m[1]) * (ms[m[2].toLowerCase()] || 0);
-      };
-      const extract = (a) => {
-        const href = a.href || '';
-        let title = a.querySelector('h1,h2,h3,h4,h5,h6,[class*="title"],[class*="headline"],p')?.innerText?.trim() || '';
-        if (!title || title.length < 5) {
-          title = a.innerText.trim().split('\n').map(l => l.trim())
-            .filter(l => l.length > 0 && !/^about\s+\d+/i.test(l) && !/^\d+\s*[hms]\s*ago/i.test(l)
-              && !/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(l))[0] || '';
-        }
-        if (!title || title.length < 5) return null;
-        const lines = a.innerText.trim().split('\n').map(l => l.trim());
-        const dateStr = a.querySelector('time')?.getAttribute('datetime')
-          || lines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l))
-          || lines.find(l => /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(l)) || '';
-        const img = a.querySelector('img');
-        return { source: 'soleretriever', sourceName: 'Sole Retriever', title, description: '', link: href, date: dateStr, _ts: relToTs(dateStr) || new Date(dateStr).getTime() || 0, image: img?.src?.startsWith('http') ? img.src : null };
-      };
-      const results = [];
-      document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => { const i = extract(a); if (i) results.push(i); });
-      const seen = new Set();
-      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; })
-        .sort((a, b) => b._ts - a._ts).slice(0, 20).map(({ _ts, ...r }) => r);
-    });
-
-    console.log('Sole Retriever scraped: ' + results.length + ' items');
-    await Promise.allSettled(results.map(async (a) => {
-      if (a.image && a.date) return;
-      const meta = await fetchOgMeta(a.link);
-      if (meta.image && !a.image) a.image = meta.image;
-      if (meta.date && !a.date) a.date = meta.date;
-    }));
-    return results;
-  } catch(e) { console.error('Sole Retriever scrape error:', e.message); return []; }
-  finally { await page.close(); }
+  console.error('Sole Retriever: all RSS attempts failed');
+  return [];
 }
 
 async function fetchHNHH(browser) {
+  // HNHH has strong bot detection — try RSS feed first before Playwright
+  try {
+    const res = await fetch('https://www.hotnewhiphop.com/rss/', {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (res.ok) {
+      let xml = await res.text();
+      if (xml.includes('<item') || xml.includes('<entry')) {
+        xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+        const feed = await parser.parseString(xml);
+        if (feed.items?.length) {
+          // Filter to hip-hop/sneaker relevant categories
+          const relevant = feed.items.filter(item => {
+            const cats = (item.categories || []).join(' ').toLowerCase();
+            const link = (item.link || '').toLowerCase();
+            return cats.includes('sneaker') || cats.includes('hip') || cats.includes('rap')
+              || link.includes('sneaker') || link.includes('hip-hop') || link.includes('rap');
+          });
+          const items = (relevant.length >= 5 ? relevant : feed.items).slice(0, 20);
+          console.log('HotNewHipHop RSS: ' + items.length + ' items');
+          return items.map(item => ({
+            source: 'hnhh', sourceName: 'HotNewHipHop',
+            title: item.title || '', description: item.contentSnippet || '',
+            link: item.link || '', date: item.pubDate || item.isoDate || '',
+            image: extractImage(item)
+          }));
+        }
+      }
+    }
+  } catch(e) { console.log('HNHH RSS failed, trying Playwright'); }
+
+  // Playwright fallback
   const page = await browser.newPage();
   try {
-    await page.goto('https://www.hotnewhiphop.com/articles/sneakers', { waitUntil: 'networkidle', timeout: 45000 });
-    await page.waitForTimeout(5000);
+    await page.goto('https://www.hotnewhiphop.com/articles/sneakers', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    try { await page.waitForFunction(() => document.querySelectorAll('a[href]').length > 20, { timeout: 5000 }); } catch(e) {}
     const results = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('a[href]').forEach(a => {
@@ -371,42 +361,41 @@ async function fetchHNHH(browser) {
   finally { await page.close(); }
 }
 
-// ─── Main fetch orchestrator ──────────────────────────────────────────────────
+// ─── Main orchestrator ────────────────────────────────────────────────────────
 
-let fetchInProgress = null; // prevents concurrent duplicate fetches
+let fetchInProgress = null; // prevents duplicate concurrent fetches
 
 async function fetchAllFeeds() {
-  // If a fetch is already running, wait for it instead of launching a second one
   if (fetchInProgress) {
-    console.log('Fetch already in progress, waiting...');
+    console.log('Fetch already in progress, reusing...');
     return fetchInProgress;
   }
-
   fetchInProgress = (async () => {
     console.log('Fetching all feeds...');
     let browser;
     try {
-      // RSS sources fire immediately in parallel
+      // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever()
       ]);
 
-      // One shared Chromium — pages run sequentially inside it
+      // Single Chromium for all Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
       const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
-      const srArticles      = await fetchSoleRetriever(browser).catch(e => { console.error('SR failed:', e.message); return []; });
       const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
 
-      // Close browser before awaiting RSS to free memory
+      // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
 
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await rssPromise;
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever] = await rssPromise;
       const articles = [
         ...(hypebeast.status    === 'fulfilled' ? hypebeast.value    : []),
         ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
         ...(sneakernews.status  === 'fulfilled' ? sneakernews.value  : []),
         ...(hiphopdx.status     === 'fulfilled' ? hiphopdx.value     : []),
-        ...complexArticles, ...srArticles, ...hnhhArticles
+        ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
+        ...complexArticles,
+        ...hnhhArticles
       ];
       articles.sort((a, b) => new Date(b.date) - new Date(a.date));
       cachedArticles = articles;
@@ -416,7 +405,6 @@ async function fetchAllFeeds() {
     } catch(e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
     finally { if (browser) await browser.close(); fetchInProgress = null; }
   })();
-
   return fetchInProgress;
 }
 
@@ -443,3 +431,8 @@ app.listen(PORT, () => {
   console.log('Feed aggregator running on port ' + PORT);
   fetchAllFeeds().catch(console.error);
 });
+
+
+
+
+
