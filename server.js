@@ -307,36 +307,65 @@ async function fetchSoleRetriever() {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-    // Wait until we have a healthy batch of article links rendered
     try {
       await page.waitForFunction(() =>
         document.querySelectorAll('a[href*="/news/articles/"]').length >= 10,
         { timeout: 20000 }
       );
-    } catch(e) { console.log('SR: timed out waiting for 10+ articles, proceeding with what we have'); }
+    } catch(e) { console.log('SR: timed out waiting for 10+ articles, proceeding'); }
+
+    // Debug: log raw structure of first 5 anchors so we can see what text/elements they contain
+    const debugAnchors = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('a[href*="/news/articles/"]'))
+        .slice(0, 5)
+        .map(a => ({
+          href: a.href,
+          innerText: a.innerText?.trim().slice(0, 200),
+          h: a.querySelector('h1,h2,h3,h4,h5,h6')?.innerText?.trim().slice(0, 100),
+          p: a.querySelector('p')?.innerText?.trim().slice(0, 100),
+          titleCls: a.querySelector('[class*="title"],[class*="headline"]')?.innerText?.trim().slice(0, 100),
+          childCount: a.children.length
+        }));
+    });
+    console.log('SR anchor debug:', JSON.stringify(debugAnchors));
 
     const results = await page.evaluate(() => {
       const extractFromAnchor = (a) => {
         const href = a.href || '';
 
-        // innerText format: "about 4 hours ago\nActual Title Here"
-        // Filter out timestamp lines, keep the title
-        const lines = a.innerText.trim().split('\n')
-          .map(l => l.trim())
-          .filter(l =>
-            l.length > 0 &&
-            !/^about\s+\d+\s+(second|minute|hour|day|week)/i.test(l) &&
-            !/^\d+\s*(s|m|h|d|w)\s*ago$/i.test(l)
-          );
-        const title = lines[0] || '';
-        if (!title || title.length < 10) return null;
+        // Priority 1: semantic heading elements inside the anchor
+        const headingEl = a.querySelector('h1,h2,h3,h4,h5,h6');
+        const titleClsEl = a.querySelector('[class*="title"],[class*="headline"],[class*="heading"]');
+        const pEl = a.querySelector('p');
 
-        // Grab date from <time> or "about X ago" text
+        let title = headingEl?.innerText?.trim()
+          || titleClsEl?.innerText?.trim()
+          || pEl?.innerText?.trim()
+          || '';
+
+        // Priority 2: parse innerText lines, stripping timestamps and dates
+        if (!title || title.length < 5) {
+          const lines = a.innerText.trim().split('\n')
+            .map(l => l.trim())
+            .filter(l =>
+              l.length > 0 &&
+              !/^about\s+\d+\s+(second|minute|hour|day|week)/i.test(l) &&
+              !/^\d+\s*(s|m|h|d|w)\s*ago$/i.test(l) &&
+              !/^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d/i.test(l)
+            );
+          title = lines[0] || '';
+        }
+
+        if (!title || title.length < 5) return null;
+
+        // Date: <time datetime>, then "about X ago", then "Month D, YYYY"
         const timeEl = a.querySelector('time');
         let date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
         if (!date) {
           const allLines = a.innerText.trim().split('\n').map(l => l.trim());
-          date = allLines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l)) || '';
+          date = allLines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l))
+              || allLines.find(l => /^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d/i.test(l))
+              || '';
         }
 
         const img = a.querySelector('img');
@@ -345,8 +374,6 @@ async function fetchSoleRetriever() {
         return { source: 'soleretriever', sourceName: 'Sole Retriever', title, description: '', link: href, date, image };
       };
 
-      // Grab every article link on the page — the sidebar only shows 6 due to
-      // CSS overflow:hidden, but the full page grid has 30+ articles
       const results = [];
       document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
         const item = extractFromAnchor(a);
@@ -364,7 +391,6 @@ async function fetchSoleRetriever() {
 
     console.log('SR found ' + results.length + ' articles');
 
-    // Fetch og meta only for items still missing image or date
     await Promise.allSettled(results.map(async (article) => {
       if (article.image && article.date) return;
       const meta = await fetchOgMeta(article.link);
