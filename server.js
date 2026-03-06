@@ -211,6 +211,16 @@ async function fetchHipHopDX() {
 }
 
 
+async function fetchModernNotoriety() {
+  // WordPress site — standard /feed endpoint
+  const direct = await fetchDirectFeed('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
+  if (direct?.length) return direct;
+  const r2j = await fetchViaRss2json('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
+  if (r2j?.length) return r2j;
+  console.error('Modern Notoriety: all feed attempts failed');
+  return [];
+}
+
 // ─── Playwright scrapers (shared browser) ────────────────────────────────────
 
 async function fetchComplex(browser) {
@@ -376,7 +386,8 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever()
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(),
+        fetchSoleRetriever(), fetchModernNotoriety()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
@@ -387,13 +398,14 @@ async function fetchAllFeeds() {
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
 
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever] = await rssPromise;
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, modernnotoriety] = await rssPromise;
       const articles = [
-        ...(hypebeast.status    === 'fulfilled' ? hypebeast.value    : []),
-        ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
-        ...(sneakernews.status  === 'fulfilled' ? sneakernews.value  : []),
-        ...(hiphopdx.status     === 'fulfilled' ? hiphopdx.value     : []),
-        ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
+        ...(hypebeast.status         === 'fulfilled' ? hypebeast.value         : []),
+        ...(highsnobiety.status      === 'fulfilled' ? highsnobiety.value      : []),
+        ...(sneakernews.status       === 'fulfilled' ? sneakernews.value       : []),
+        ...(hiphopdx.status          === 'fulfilled' ? hiphopdx.value          : []),
+        ...(soleretriever.status     === 'fulfilled' ? soleretriever.value     : []),
+        ...(modernnotoriety.status   === 'fulfilled' ? modernnotoriety.value   : []),
         ...complexArticles,
         ...hnhhArticles
       ];
