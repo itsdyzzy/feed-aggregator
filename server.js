@@ -338,6 +338,23 @@ async function fetchComplex(browser) {
   finally { await page.close(); }
 }
 
+async function fetchWWD() {
+  // WordPress VIP — try standard feed URLs for footwear section
+  const feedUrls = [
+    'https://wwd.com/footwear-news/feed/',
+    'https://wwd.com/footwear-news/sneaker-news/feed/',
+    'https://wwd.com/feed/?cat=footwear',
+  ];
+  for (const feedUrl of feedUrls) {
+    const direct = await fetchDirectFeed(feedUrl, 'wwd', 'WWD Footwear');
+    if (direct?.length) return direct;
+  }
+  const r2j = await fetchViaRss2json('https://wwd.com/footwear-news/feed/', 'wwd', 'WWD Footwear');
+  if (r2j?.length) return r2j;
+  console.error('WWD: all feed attempts failed');
+  return [];
+}
+
 async function fetchSoleRetriever() {
   // RSS-first — fast, structured, real ISO dates, no scraping needed
   const feedUrls = [
@@ -454,7 +471,7 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever()
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
@@ -466,13 +483,14 @@ async function fetchAllFeeds() {
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
 
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever] = await rssPromise;
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = await rssPromise;
       const articles = [
         ...(hypebeast.status         === 'fulfilled' ? hypebeast.value     : []),
         ...(highsnobiety.status      === 'fulfilled' ? highsnobiety.value  : []),
         ...(sneakernews.status       === 'fulfilled' ? sneakernews.value   : []),
         ...(hiphopdx.status          === 'fulfilled' ? hiphopdx.value      : []),
         ...(soleretriever.status     === 'fulfilled' ? soleretriever.value : []),
+        ...(wwd.status               === 'fulfilled' ? wwd.value           : []),
         ...complexArticles,
         ...mnArticles,
         ...hnhhArticles
