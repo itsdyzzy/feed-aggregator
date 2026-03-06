@@ -251,8 +251,57 @@ async function fetchHipHopDX() {
 }
 
 
+async function fetchComplex(browser) {
+  // Open both pages simultaneously instead of sequentially — saves 2.5s
+  const pages = await Promise.all([
+    browser.newPage(),
+    browser.newPage()
+  ]);
+  const sections = ['https://www.complex.com/sneakers', 'https://www.complex.com/style'];
+  try {
+    const sectionResults = await Promise.all(sections.map(async (section, i) => {
+      const page = pages[i];
+      try {
+        await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+        await page.goto(section, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(2500);
+        return await page.evaluate(() => {
+          const results = [];
+          document.querySelectorAll('a[href]').forEach(a => {
+            const href = a.href || '';
+            if (!href.includes('complex.com')) return;
+            if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]+\/[a-z0-9-]/)) return;
+            const lines = a.innerText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 15);
+            const title = lines[0] || '';
+            if (!title || title.length < 10) return;
+            const card = a.closest('article,[class*="card"],[class*="item"],[class*="post"]');
+            const timeEl = card ? card.querySelector('time') : null;
+            const img = card ? card.querySelector('img') : null;
+            results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl ? (timeEl.getAttribute('datetime') || '') : '', image: img?.src?.startsWith('http') ? img.src : null });
+          });
+          const seen = new Set();
+          return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; });
+        });
+      } catch(e) { console.error('Complex section error:', e.message); return []; }
+      finally { await page.close(); }
+    }));
+
+    const allResults = sectionResults.flat();
+    const seen = new Set();
+    const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 30);
+    // Only fetch og:meta for articles missing BOTH image and date (minimize requests)
+    const needsMeta = deduped.filter(a => !a.image || !a.date).slice(0, 10);
+    await Promise.allSettled(needsMeta.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
+    console.log('Complex scraped: ' + deduped.length + ' items');
+    return deduped;
+  } catch(e) { console.error('Complex scrape error:', e.message); return []; }
+}
+
 async function fetchModernNotoriety(browser) {
-  // Their /feed URL returns the HTML homepage, so scrape directly
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
@@ -263,7 +312,6 @@ async function fetchModernNotoriety(browser) {
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('modernnotoriety.com')) return;
-        // Skip nav/category/tag/page links
         if (href.match(/\/(nike|air-jordan|adidas|new-balance|vans|reebok|contact|page|category|tag|#)\/?$/i)) return;
         const segs = new URL(href).pathname.split('/').filter(Boolean);
         if (segs.length < 1 || segs[0].length < 3) return;
@@ -273,18 +321,14 @@ async function fetchModernNotoriety(browser) {
         const card = a.closest('article,[class*="card"],[class*="post"],[class*="entry"]');
         const timeEl = card?.querySelector('time');
         const img = card?.querySelector('img');
-        results.push({
-          source: 'modernnotoriety', sourceName: 'Modern Notoriety',
-          title, description: '', link: href,
-          date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
-          image: img?.src?.startsWith('http') ? img.src : null
-        });
+        results.push({ source: 'modernnotoriety', sourceName: 'Modern Notoriety', title, description: '', link: href, date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '', image: img?.src?.startsWith('http') ? img.src : null });
       });
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
     });
-    await Promise.allSettled(results.map(async (a) => {
-      if (a.image && a.date) return;
+    // Only fetch meta for articles missing both image AND date — cap at 5
+    const needsMeta = results.filter(a => !a.image || !a.date).slice(0, 5);
+    await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
@@ -296,47 +340,6 @@ async function fetchModernNotoriety(browser) {
 }
 
 // ─── Playwright scrapers (shared browser) ────────────────────────────────────
-
-async function fetchComplex(browser) {
-  const page = await browser.newPage();
-  try {
-    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    const allResults = [];
-    for (const section of ['https://www.complex.com/sneakers', 'https://www.complex.com/style']) {
-      try {
-        await page.goto(section, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForTimeout(2500);
-        const results = await page.evaluate(() => {
-          const results = [];
-          document.querySelectorAll('a[href]').forEach(a => {
-            const href = a.href || '';
-            if (!href.includes('complex.com')) return;
-            if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]+\/[a-z0-9-]/)) return;
-            const lines = a.innerText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 15);
-            const title = lines[0] || '';
-            if (!title || title.length < 10) return;
-            const card = a.closest('article,[class*="card"],[class*="item"],[class*="post"]');
-            const timeEl = card ? card.querySelector('time') : null;
-            results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl ? (timeEl.getAttribute('datetime') || '') : '', image: null });
-          });
-          const seen = new Set();
-          return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; });
-        });
-        allResults.push(...results);
-      } catch(e) { console.error('Complex section error:', e.message); }
-    }
-    const seen = new Set();
-    const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 30);
-    await Promise.allSettled(deduped.map(async (article) => {
-      const meta = await fetchOgMeta(article.link);
-      if (meta.image) article.image = meta.image;
-      if (meta.date && !article.date) article.date = meta.date;
-    }));
-    console.log('Complex scraped: ' + deduped.length + ' items');
-    return deduped;
-  } catch(e) { console.error('Complex scrape error:', e.message); return []; }
-  finally { await page.close(); }
-}
 
 async function fetchWWD() {
   // Just get titles/links/dates from RSS — images fetched separately after browser closes
@@ -541,11 +544,13 @@ async function fetchAllFeeds() {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/articles', async (req, res) => {
-  try {
-    if (cachedArticles.length === 0 || Date.now() - lastFetch > CACHE_TTL) await fetchAllFeeds();
-    res.json({ articles: cachedArticles, lastFetch });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+app.get('/api/articles', (req, res) => {
+  // Always respond instantly with whatever is cached
+  res.json({ articles: cachedArticles, lastFetch });
+  // If cache is stale, kick off background refresh (don't await — user already has response)
+  if (Date.now() - lastFetch > CACHE_TTL) {
+    fetchAllFeeds().catch(console.error);
+  }
 });
 
 app.get('/api/refresh', async (req, res) => {
@@ -558,7 +563,10 @@ app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.
 
 app.listen(PORT, () => {
   console.log('Feed aggregator running on port ' + PORT);
+  // Initial fetch on boot
   fetchAllFeeds().catch(console.error);
+  // Background refresh every 10 minutes — keeps cache warm regardless of traffic
+  setInterval(() => fetchAllFeeds().catch(console.error), 10 * 60 * 1000);
 });
 
 
