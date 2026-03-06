@@ -104,14 +104,6 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
     // Try 1: sanitize + strict parse
     try {
       const xml = sanitizeRssFeed(raw);
-      // Debug: log lines around the known problem area
-      const lines = xml.split('\n');
-      if (lines.length >= 107) {
-        console.log(`${sourceName} DEBUG line105: ${lines[104]?.substring(0, 120)}`);
-        console.log(`${sourceName} DEBUG line106: ${lines[105]?.substring(0, 120)}`);
-        console.log(`${sourceName} DEBUG line107: ${lines[106]?.substring(0, 200)}`);
-        console.log(`${sourceName} DEBUG line108: ${lines[107]?.substring(0, 120)}`);
-      }
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log(`${sourceName} direct: ${feed.items.length} items`);
@@ -259,14 +251,48 @@ async function fetchHipHopDX() {
 }
 
 
-async function fetchModernNotoriety() {
-  // WordPress site — standard /feed endpoint
-  const direct = await fetchDirectFeed('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
-  if (direct?.length) return direct;
-  const r2j = await fetchViaRss2json('https://modernnotoriety.com/feed/', 'modernnotoriety', 'Modern Notoriety');
-  if (r2j?.length) return r2j;
-  console.error('Modern Notoriety: all feed attempts failed');
-  return [];
+async function fetchModernNotoriety(browser) {
+  // Their /feed URL returns the HTML homepage, so scrape directly
+  const page = await browser.newPage();
+  try {
+    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+    await page.goto('https://modernnotoriety.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
+    const results = await page.evaluate(() => {
+      const results = [];
+      document.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('modernnotoriety.com')) return;
+        // Skip nav/category/tag/page links
+        if (href.match(/\/(nike|air-jordan|adidas|new-balance|vans|reebok|contact|page|category|tag|#)\/?$/i)) return;
+        const segs = new URL(href).pathname.split('/').filter(Boolean);
+        if (segs.length < 1 || segs[0].length < 3) return;
+        const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="entry"],[class*="post-title"]');
+        const title = titleEl ? titleEl.innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        if (!title || title.length < 10) return;
+        const card = a.closest('article,[class*="card"],[class*="post"],[class*="entry"]');
+        const timeEl = card?.querySelector('time');
+        const img = card?.querySelector('img');
+        results.push({
+          source: 'modernnotoriety', sourceName: 'Modern Notoriety',
+          title, description: '', link: href,
+          date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
+          image: img?.src?.startsWith('http') ? img.src : null
+        });
+      });
+      const seen = new Set();
+      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+    });
+    await Promise.allSettled(results.map(async (a) => {
+      if (a.image && a.date) return;
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
+    console.log('Modern Notoriety scraped: ' + results.length + ' items');
+    return results;
+  } catch(e) { console.error('Modern Notoriety scrape error:', e.message); return []; }
+  finally { await page.close(); }
 }
 
 // ─── Playwright scrapers (shared browser) ────────────────────────────────────
@@ -428,27 +454,27 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(),
-        fetchSoleRetriever(), fetchModernNotoriety()
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
       const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
+      const mnArticles      = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
       const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
 
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
 
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, modernnotoriety] = await rssPromise;
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever] = await rssPromise;
       const articles = [
-        ...(hypebeast.status         === 'fulfilled' ? hypebeast.value         : []),
-        ...(highsnobiety.status      === 'fulfilled' ? highsnobiety.value      : []),
-        ...(sneakernews.status       === 'fulfilled' ? sneakernews.value       : []),
-        ...(hiphopdx.status          === 'fulfilled' ? hiphopdx.value          : []),
-        ...(soleretriever.status     === 'fulfilled' ? soleretriever.value     : []),
-        ...(modernnotoriety.status   === 'fulfilled' ? modernnotoriety.value   : []),
+        ...(hypebeast.status         === 'fulfilled' ? hypebeast.value     : []),
+        ...(highsnobiety.status      === 'fulfilled' ? highsnobiety.value  : []),
+        ...(sneakernews.status       === 'fulfilled' ? sneakernews.value   : []),
+        ...(hiphopdx.status          === 'fulfilled' ? hiphopdx.value      : []),
+        ...(soleretriever.status     === 'fulfilled' ? soleretriever.value : []),
         ...complexArticles,
+        ...mnArticles,
         ...hnhhArticles
       ];
       articles.sort((a, b) => new Date(b.date) - new Date(a.date));
