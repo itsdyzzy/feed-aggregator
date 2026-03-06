@@ -113,11 +113,11 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
 }
 
 async function fetchHypebeast() {
-  // Try rss2json first
+  // Try rss2json first as it's more reliable for Hypebeast
   const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
   if (r2j && r2j.length > 0) return r2j;
 
-  // Try direct RSS with multiple user agents
+  // Try direct with various user agents
   const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Googlebot/2.1 (+http://www.google.com/bot.html)',
@@ -125,13 +125,10 @@ async function fetchHypebeast() {
   ];
   for (const ua of userAgents) {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
       const res = await fetch('https://hypebeast.com/feed', {
-        signal: controller.signal,
+        signal: AbortSignal.timeout(12000),
         headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, text/xml, */*' }
       });
-      clearTimeout(timer);
       if (!res.ok) continue;
       let xml = await res.text();
       if (!xml.includes('<rss') && !xml.includes('<feed')) continue;
@@ -214,38 +211,7 @@ async function fetchHipHopDX() {
 }
 
 
-// Generic Playwright scraper for JS-rendered sites
-async function scrapeWithPlaywright(url, source, sourceName, scrapeLogic) {
-  let browser;
-  try {
-    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
-    const page = await browser.newPage();
-    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
-    let articles = await scrapeLogic(page);
-    // Fetch og:image and publish date for articles (in parallel, max 20)
-    const needsMeta = articles.filter(a => !a.image || !a.date).slice(0, 20);
-    if (needsMeta.length > 0) {
-      await Promise.allSettled(needsMeta.map(async (article) => {
-        const meta = await fetchOgMeta(article.link);
-        if (meta.image && !article.image) article.image = meta.image;
-        if (meta.date && !article.date) article.date = meta.date;
-      }));
-    }
-    console.log(sourceName + ' scraped: ' + articles.length + ' items');
-    return articles;
-  } catch (e) {
-    console.error(sourceName + ' scrape error:', e.message);
-    return [];
-  } finally {
-    if (browser) await browser.close();
-  }
-}
-
-// All three Playwright scrapers accept a shared browser instance.
-// fetchAllFeeds launches ONE Chromium, passes it to each scraper in sequence,
-// then closes it — preventing the OOM crashes from 3 simultaneous instances.
+// ─── Playwright scrapers (shared browser) ────────────────────────────────────
 
 async function fetchComplex(browser) {
   const page = await browser.newPage();
@@ -289,102 +255,86 @@ async function fetchComplex(browser) {
 }
 
 async function fetchSoleRetriever(browser) {
+  // Strategy 1: try their RSS feed — fast, always fresh, no scraping needed
+  const rssSources = [
+    'https://www.soleretriever.com/rss',
+    'https://www.soleretriever.com/feed',
+    'https://www.soleretriever.com/rss.xml',
+    'https://www.soleretriever.com/news/feed',
+  ];
+  for (const feedUrl of rssSources) {
+    try {
+      const res = await fetch(feedUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      let xml = await res.text();
+      if (!xml.includes('<rss') && !xml.includes('<feed') && !xml.includes('<item')) continue;
+      xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        console.log('Sole Retriever RSS (' + feedUrl + '): ' + feed.items.length + ' items');
+        return feed.items.slice(0, 20).map(item => ({
+          source: 'soleretriever', sourceName: 'Sole Retriever',
+          title: item.title || '', description: item.contentSnippet || '',
+          link: item.link || '', date: item.pubDate || item.isoDate || '',
+          image: extractImage(item)
+        }));
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  // Strategy 2: rss2json proxy
+  const r2j = await fetchViaRss2json('https://www.soleretriever.com/rss', 'soleretriever', 'Sole Retriever');
+  if (r2j?.length) return r2j;
+
+  // Strategy 3: Playwright scrape as last resort
+  console.log('SR: falling back to Playwright scrape');
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://www.soleretriever.com/news', { waitUntil: 'domcontentloaded', timeout: 45000 });
-
-    // Wait for both the main grid AND sidebar to render (34 total on the page)
     try {
-      await page.waitForFunction(() =>
-        document.querySelectorAll('a[href*="/news/articles/"]').length >= 25,
-        { timeout: 20000 }
-      );
-    } catch(e) { console.log('SR: proceeding with available articles'); }
-
+      await page.waitForFunction(() => document.querySelectorAll('a[href*="/news/articles/"]').length >= 25, { timeout: 20000 });
+    } catch(e) { console.log('SR scrape: proceeding with available articles'); }
     await page.waitForTimeout(1000);
 
     const results = await page.evaluate(() => {
-      // Convert "about X hours/minutes/days ago" → approximate timestamp for sorting
-      const relativeToTimestamp = (str) => {
+      const relToTs = (str) => {
         if (!str) return 0;
-        const now = Date.now();
         const m = str.match(/about\s+(\d+)\s+(second|minute|hour|day|week)/i);
         if (!m) return 0;
-        const n = parseInt(m[1]);
-        const unit = m[2].toLowerCase();
-        const ms = { second: 1000, minute: 60000, hour: 3600000, day: 86400000, week: 604800000 };
-        return now - n * (ms[unit] || 0);
+        const ms = { second: 1e3, minute: 6e4, hour: 36e5, day: 864e5, week: 6048e5 };
+        return Date.now() - parseInt(m[1]) * (ms[m[2].toLowerCase()] || 0);
       };
-
-      const extractFromAnchor = (a) => {
+      const extract = (a) => {
         const href = a.href || '';
-        const headingEl = a.querySelector('h1,h2,h3,h4,h5,h6');
-        const titleClsEl = a.querySelector('[class*="title"],[class*="headline"],[class*="heading"]');
-        const pEl = a.querySelector('p');
-        let title = headingEl?.innerText?.trim() || titleClsEl?.innerText?.trim() || pEl?.innerText?.trim() || '';
-
+        let title = a.querySelector('h1,h2,h3,h4,h5,h6,[class*="title"],[class*="headline"],p')?.innerText?.trim() || '';
         if (!title || title.length < 5) {
-          title = a.innerText.trim().split('\n')
-            .map(l => l.trim())
-            .filter(l => l.length > 0
-              && !/^about\s+\d+\s+(second|minute|hour|day|week)/i.test(l)
-              && !/^\d+\s*(s|m|h|d|w)\s*ago$/i.test(l)
-              && !/^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d/i.test(l)
-            )[0] || '';
+          title = a.innerText.trim().split('\n').map(l => l.trim())
+            .filter(l => l.length > 0 && !/^about\s+\d+/i.test(l) && !/^\d+\s*[hms]\s*ago/i.test(l)
+              && !/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(l))[0] || '';
         }
         if (!title || title.length < 5) return null;
-
-        // Capture the raw relative date string (e.g. "about 3 hours ago")
-        const timeEl = a.querySelector('time');
-        let dateStr = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
-        if (!dateStr) {
-          const lines = a.innerText.trim().split('\n').map(l => l.trim());
-          dateStr = lines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l))
-                 || lines.find(l => /^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d/i.test(l))
-                 || '';
-        }
-
+        const lines = a.innerText.trim().split('\n').map(l => l.trim());
+        const dateStr = a.querySelector('time')?.getAttribute('datetime')
+          || lines.find(l => /about\s+\d+\s+(second|minute|hour|day|week)/i.test(l))
+          || lines.find(l => /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(l)) || '';
         const img = a.querySelector('img');
-        // Compute a numeric sort key from the relative string
-        const sortKey = relativeToTimestamp(dateStr) || new Date(dateStr).getTime() || 0;
-
-        return {
-          source: 'soleretriever', sourceName: 'Sole Retriever',
-          title, description: '', link: href,
-          date: dateStr,
-          _sortKey: sortKey,
-          image: img?.src?.startsWith('http') ? img.src : null
-        };
+        return { source: 'soleretriever', sourceName: 'Sole Retriever', title, description: '', link: href, date: dateStr, _ts: relToTs(dateStr) || new Date(dateStr).getTime() || 0, image: img?.src?.startsWith('http') ? img.src : null };
       };
-
       const results = [];
-      document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => {
-        const item = extractFromAnchor(a);
-        if (item) results.push(item);
-      });
-
-      // Dedupe by URL
+      document.querySelectorAll('a[href*="/news/articles/"]').forEach(a => { const i = extract(a); if (i) results.push(i); });
       const seen = new Set();
-      const deduped = results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; });
-
-      // Sort newest first using the numeric sort key, then take top 20
-      deduped.sort((a, b) => b._sortKey - a._sortKey);
-      return deduped.slice(0, 20).map(({ _sortKey, ...rest }) => rest);
+      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; })
+        .sort((a, b) => b._ts - a._ts).slice(0, 20).map(({ _ts, ...r }) => r);
     });
 
-    console.log('SR found ' + results.length + ' articles');
-
-    // Only fetch og:meta for articles that are missing both image AND date —
-    // most will have images inline from the page, skipping saves ~5s
-    await Promise.allSettled(results.map(async (article) => {
-      if (article.image && article.date) return;
-      const meta = await fetchOgMeta(article.link);
-      if (meta.image && !article.image) article.image = meta.image;
-      if (meta.date && !article.date) article.date = meta.date;
-    }));
-
     console.log('Sole Retriever scraped: ' + results.length + ' items');
+    await Promise.allSettled(results.map(async (a) => {
+      if (a.image && a.date) return;
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
     return results;
   } catch(e) { console.error('Sole Retriever scrape error:', e.message); return []; }
   finally { await page.close(); }
@@ -400,22 +350,20 @@ async function fetchHNHH(browser) {
       document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('hotnewhiphop.com')) return;
-        const path = new URL(href).pathname;
-        const segments = path.split('/').filter(Boolean);
-        if (segments.length < 2) return;
-        if (!segments[segments.length - 1].includes('.')) return;
-        const textEls = a.querySelectorAll('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
-        const title = textEls.length ? textEls[0].innerText.trim() : a.innerText.trim().split('\n')[0].trim();
+        const segs = new URL(href).pathname.split('/').filter(Boolean);
+        if (segs.length < 2 || !segs[segs.length - 1].includes('.')) return;
+        const textEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
+        const title = textEl ? textEl.innerText.trim() : a.innerText.trim().split('\n')[0].trim();
         if (!title || title.length < 15) return;
         results.push({ source: 'hnhh', sourceName: 'HotNewHipHop', title, description: '', link: href, date: '', image: null });
       });
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
     });
-    await Promise.allSettled(results.map(async (article) => {
-      const meta = await fetchOgMeta(article.link);
-      if (meta.image) article.image = meta.image;
-      if (meta.date) article.date = meta.date;
+    await Promise.allSettled(results.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image) a.image = meta.image;
+      if (meta.date) a.date = meta.date;
     }));
     console.log('HotNewHipHop scraped: ' + results.length + ' items');
     return results;
@@ -423,42 +371,56 @@ async function fetchHNHH(browser) {
   finally { await page.close(); }
 }
 
+// ─── Main fetch orchestrator ──────────────────────────────────────────────────
+
+let fetchInProgress = null; // prevents concurrent duplicate fetches
+
 async function fetchAllFeeds() {
-  console.log('Fetching all feeds...');
-  let browser;
-  try {
-    // RSS sources — kick off immediately and run in parallel with Playwright work
-    const rssPromise = Promise.allSettled([
-      fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
-    ]);
+  // If a fetch is already running, wait for it instead of launching a second one
+  if (fetchInProgress) {
+    console.log('Fetch already in progress, waiting...');
+    return fetchInProgress;
+  }
 
-    // Single Chromium instance shared across all three Playwright scrapers
-    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
-    const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
-    const srArticles      = await fetchSoleRetriever(browser).catch(e => { console.error('SR failed:', e.message); return []; });
-    const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
+  fetchInProgress = (async () => {
+    console.log('Fetching all feeds...');
+    let browser;
+    try {
+      // RSS sources fire immediately in parallel
+      const rssPromise = Promise.allSettled([
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX()
+      ]);
 
-    // Close browser before awaiting RSS — frees memory while we wait
-    if (browser) { await browser.close(); browser = null; }
+      // One shared Chromium — pages run sequentially inside it
+      browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+      const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
+      const srArticles      = await fetchSoleRetriever(browser).catch(e => { console.error('SR failed:', e.message); return []; });
+      const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
 
-    const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await rssPromise;
-    const articles = [
-      ...(hypebeast.status    === 'fulfilled' ? hypebeast.value    : []),
-      ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
-      ...(sneakernews.status  === 'fulfilled' ? sneakernews.value  : []),
-      ...(hiphopdx.status     === 'fulfilled' ? hiphopdx.value     : []),
-      ...complexArticles,
-      ...srArticles,
-      ...hnhhArticles
-    ];
-    articles.sort((a, b) => new Date(b.date) - new Date(a.date));
-    cachedArticles = articles;
-    lastFetch = Date.now();
-    console.log(`Fetched ${articles.length} articles total`);
-    return articles;
-  } catch (e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
-  finally { if (browser) await browser.close(); }
+      // Close browser before awaiting RSS to free memory
+      await browser.close(); browser = null;
+
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx] = await rssPromise;
+      const articles = [
+        ...(hypebeast.status    === 'fulfilled' ? hypebeast.value    : []),
+        ...(highsnobiety.status === 'fulfilled' ? highsnobiety.value : []),
+        ...(sneakernews.status  === 'fulfilled' ? sneakernews.value  : []),
+        ...(hiphopdx.status     === 'fulfilled' ? hiphopdx.value     : []),
+        ...complexArticles, ...srArticles, ...hnhhArticles
+      ];
+      articles.sort((a, b) => new Date(b.date) - new Date(a.date));
+      cachedArticles = articles;
+      lastFetch = Date.now();
+      console.log('Fetched ' + articles.length + ' articles total');
+      return articles;
+    } catch(e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
+    finally { if (browser) await browser.close(); fetchInProgress = null; }
+  })();
+
+  return fetchInProgress;
 }
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -466,7 +428,7 @@ app.get('/api/articles', async (req, res) => {
   try {
     if (cachedArticles.length === 0 || Date.now() - lastFetch > CACHE_TTL) await fetchAllFeeds();
     res.json({ articles: cachedArticles, lastFetch });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/refresh', async (req, res) => {
@@ -477,7 +439,7 @@ app.get('/api/refresh', async (req, res) => {
 
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
-app.listen(PORT, async () => {
-  console.log(`Feed aggregator running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log('Feed aggregator running on port ' + PORT);
   fetchAllFeeds().catch(console.error);
 });
