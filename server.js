@@ -10,7 +10,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const parser = new Parser({
-  signal: AbortSignal.timeout(15000),
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'Accept': 'application/rss+xml, application/xml, text/xml, */*'
@@ -22,6 +21,13 @@ const parser = new Parser({
       ['enclosure', 'enclosure']
     ]
   }
+});
+
+// Lenient parser for feeds with malformed XML (e.g. unescaped HTML in description fields)
+const lenientParser = new Parser({
+  headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)' },
+  xml2js: { strict: false, trim: true },
+  customFields: { item: [['media:content', 'mediaContent'], ['media:thumbnail', 'mediaThumbnail']] }
 });
 
 let cachedArticles = [];
@@ -94,28 +100,38 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
     });
     if (!res.ok) { console.error(`${sourceName} direct: HTTP ${res.status}`); return null; }
     const raw = await res.text();
-    const xml = sanitizeRssFeed(raw);
-    const feed = await parser.parseString(xml);
-    if (feed.items?.length) {
-      console.log(`${sourceName} direct: ${feed.items.length} items`);
-      return feed.items.slice(0, 20).map(item => ({
-        source, sourceName,
-        title: item.title || '',
-        description: item.contentSnippet || '',
-        link: item.link || '',
-        date: item.pubDate || item.isoDate || '',
-        image: extractImage(item)
-      }));
-    }
+
+    // Try 1: sanitize + strict parse
+    try {
+      const xml = sanitizeRssFeed(raw);
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        console.log(`${sourceName} direct: ${feed.items.length} items`);
+        return feed.items.slice(0, 20).map(item => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) }));
+      }
+    } catch(e) { console.error(`${sourceName} strict parse failed (${e.message}), trying lenient`); }
+
+    // Try 2: lenient parser — strict:false handles malformed XML that our sanitizer misses
+    try {
+      const feed = await lenientParser.parseString(raw);
+      if (feed.items?.length) {
+        console.log(`${sourceName} lenient: ${feed.items.length} items`);
+        return feed.items.slice(0, 20).map(item => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) }));
+      }
+    } catch(e) { console.error(`${sourceName} lenient parse failed: ${e.message}`); }
+
   } catch (e) { console.error(`${sourceName} direct:`, e.message); }
   return null;
 }
 
 function sanitizeRssFeed(xml) {
-  // Tags that contain raw HTML and must be emptied to prevent XML parse errors
-  const htmlTags = ['content:encoded', 'content', 'media:description', 'slash:comments', 'wfw:commentRss'];
+  // Strip ALL tags known to contain raw HTML in WordPress/CMS feeds
+  const htmlTags = [
+    'content:encoded', 'content', 'excerpt:encoded',
+    'media:description', 'slash:comments', 'wfw:commentRss',
+    'dc:description', 'atom:content'
+  ];
   for (const tag of htmlTags) {
-    // Use split/join to avoid regex catastrophic backtracking on large feeds
     const open = `<${tag}`, close = `</${tag}>`;
     const parts = xml.split(close);
     for (let i = 0; i < parts.length - 1; i++) {
@@ -124,9 +140,9 @@ function sanitizeRssFeed(xml) {
     }
     xml = parts.join(close);
   }
-  // Strip item <description> blocks that contain raw HTML (WordPress puts full post HTML here)
-  xml = xml.replace(/<description>([^<]*(?:<(?!\/description>)[^<]*)*)<\/description>/g, (match, inner) => {
-    if (inner.includes('<p') || inner.includes('<div') || inner.includes('<img') || inner.includes('<a ')) {
+  // Strip <description> blocks containing raw HTML (no CDATA)
+  xml = xml.replace(/<description>([\s\S]*?)<\/description>/g, (match, inner) => {
+    if (inner.includes('<p') || inner.includes('<div') || inner.includes('<img') || inner.includes('<a ') || inner.includes('<span')) {
       return '<description></description>';
     }
     return match;
