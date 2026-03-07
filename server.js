@@ -215,7 +215,7 @@ async function fetchHypebeast() {
       });
       if (!res.ok) { console.error('Hypebeast HTTP:', res.status); continue; }
       const raw = await res.text();
-      if (!raw.includes('<rss') && !raw.includes('<feed')) { console.error('Hypebeast: no RSS in response'); continue; }
+      if (!raw.includes('<rss') && !raw.includes('<feed')) { console.error('Hypebeast: no RSS in response, got:', raw.substring(0, 200)); continue; }
       const preExtracted = preExtractFromRaw(raw);
       // Try strict parse first, fall back to lenient
       let items = null;
@@ -560,37 +560,49 @@ async function fetchNiceKicks(browser) {
     await page.waitForTimeout(2000);
     const results = await page.evaluate(() => {
       const results = [];
-      // Only grab links that are inside an article/card element that also has a <time> tag
-      // This filters out nav links, category hubs, and promo banners
-      document.querySelectorAll('article, [class*="card"], [class*="post"], [class*="story"]').forEach(card => {
-        const timeEl = card.querySelector('time');
-        if (!timeEl) return; // must have a date — rules out nav/category cards
-        const a = card.querySelector('a[href]');
+      const seen = new Set();
+
+      const addCard = (card) => {
+        const links = card.querySelectorAll('a[href]');
+        const a = Array.from(links).find(l => l.href?.includes('nicekicks.com')) || links[0];
         if (!a) return;
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
-        // Skip known non-article paths
+        if (seen.has(href)) return;
         if (href.match(/\/(category|tag|page|about|contact|newsletter|release-dates|sign-up|deals)\/?$/i)) return;
-        // URL must have a meaningful slug (more than just a brand name)
         const pathname = new URL(href).pathname;
         const segs = pathname.split('/').filter(Boolean);
-        if (segs.length < 1 || segs[0].length < 5) return;
-        // Skip single-word category slugs like /converse/ /nike/ /jordan/
+        if (segs.length < 1) return;
+        // Skip single-word brand slugs with no hyphen (e.g. /nike/ /converse/)
         if (segs.length === 1 && !segs[0].includes('-')) return;
-        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]');
-        const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
+        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
+        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 10) return;
+        const timeEl = card.querySelector('time');
         const img = card.querySelector('img');
         const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || null);
+        seen.add(href);
         results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
           title, description: '', link: href,
-          date: timeEl.getAttribute('datetime') || timeEl.innerText?.trim() || '',
+          date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
           image: imgSrc
         });
+      };
+
+      // Pass 1: cards that have a <time> element (most reliable — dated articles)
+      document.querySelectorAll('article, [class*="card"], [class*="post"], [class*="story"], [class*="item"]').forEach(card => {
+        if (card.querySelector('time')) addCard(card);
       });
-      const seen = new Set();
-      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 15);
+
+      // Pass 2: if too few results, loosen to any card with a title heading
+      if (results.length < 5) {
+        document.querySelectorAll('article, [class*="card"], [class*="post"], [class*="story"]').forEach(card => {
+          addCard(card);
+        });
+      }
+
+      return results.slice(0, 15);
     });
     // Fetch og:meta only for articles missing images (cap at 8)
     const needsMeta = results.filter(a => !a.image).slice(0, 8);
