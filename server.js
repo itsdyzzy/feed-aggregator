@@ -100,6 +100,7 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
     });
     if (!res.ok) { console.error(`${sourceName} direct: HTTP ${res.status}`); return null; }
     const raw = await res.text();
+    const preExtracted = preExtractFromRaw(raw);
 
     // Try 1: sanitize + strict parse
     try {
@@ -107,21 +108,48 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log(`${sourceName} direct: ${feed.items.length} items`);
-        return feed.items.slice(0, 20).map(item => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) }));
+        return feed.items.slice(0, 20).map((item, i) => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || preExtracted[i]?.description || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) || preExtracted[i]?.image || null }));
       }
     } catch(e) { console.error(`${sourceName} strict parse failed (${e.message}), trying lenient`); }
 
-    // Try 2: lenient parser — strict:false handles malformed XML that our sanitizer misses
+    // Try 2: lenient parser
     try {
       const feed = await lenientParser.parseString(raw);
       if (feed.items?.length) {
         console.log(`${sourceName} lenient: ${feed.items.length} items`);
-        return feed.items.slice(0, 20).map(item => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) }));
+        return feed.items.slice(0, 20).map((item, i) => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || preExtracted[i]?.description || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) || preExtracted[i]?.image || null }));
       }
     } catch(e) { console.error(`${sourceName} lenient parse failed: ${e.message}`); }
 
   } catch (e) { console.error(`${sourceName} direct:`, e.message); }
   return null;
+}
+
+// Pre-extract image URLs and description text from raw XML content:encoded blocks
+// before sanitizeRssFeed strips them. Returns array of {image, description} by item index.
+function preExtractFromRaw(raw) {
+  const results = [];
+  const itemBlocks = raw.split(/<item[\s>]/i);
+  for (let i = 1; i < itemBlocks.length; i++) {
+    const block = itemBlocks[i];
+    // Extract content:encoded block
+    const ceStart = block.indexOf('<content:encoded');
+    const ceEnd = block.indexOf('</content:encoded>');
+    let image = null, description = '';
+    if (ceStart !== -1 && ceEnd !== -1) {
+      let ce = block.slice(ceStart, ceEnd + 18);
+      // Strip CDATA wrapper if present
+      ce = ce.replace(/<!\[CDATA\[|\]\]>/g, '');
+      // Extract first image src
+      const imgMatch = ce.match(/<img[^>]+src=["']([^"']+)["']/i)
+                    || ce.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
+      if (imgMatch) image = imgMatch[1] || imgMatch[0];
+      // Strip HTML tags for plain text description
+      description = ce.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    }
+    results.push({ image, description });
+  }
+  return results;
 }
 
 function sanitizeRssFeed(xml) {
@@ -153,7 +181,6 @@ function sanitizeRssFeed(xml) {
 }
 
 async function fetchHypebeast() {
-  // Direct fetch first — rss2json rejects Hypebeast's feed format
   const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Googlebot/2.1 (+http://www.google.com/bot.html)',
@@ -168,27 +195,21 @@ async function fetchHypebeast() {
       if (!res.ok) continue;
       const raw = await res.text();
       if (!raw.includes('<rss') && !raw.includes('<feed')) continue;
+      const preExtracted = preExtractFromRaw(raw);
       const xml = sanitizeRssFeed(raw);
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log('Hypebeast direct: ' + feed.items.length + ' items');
-        const firstItem = feed.items[0];
-        console.log('Hypebeast DEBUG item keys:', Object.keys(firstItem).join(','));
-        console.log('Hypebeast DEBUG mediaContent:', JSON.stringify(firstItem.mediaContent));
-        console.log('Hypebeast DEBUG enclosure:', JSON.stringify(firstItem.enclosure));
-        console.log('Hypebeast DEBUG contentSnippet:', (firstItem.contentSnippet||'').substring(0,100));
-        console.log('Hypebeast DEBUG content:', (firstItem.content||'').substring(0,200));
-        console.log('Hypebeast DEBUG description:', (firstItem.description||'').substring(0,200));
-        return feed.items.slice(0, 20).map(item => ({
+        return feed.items.slice(0, 20).map((item, i) => ({
           source: 'hypebeast', sourceName: 'Hypebeast',
-          title: item.title || '', description: item.contentSnippet || '',
+          title: item.title || '',
+          description: item.contentSnippet || preExtracted[i]?.description || '',
           link: item.link || '', date: item.pubDate || item.isoDate || '',
-          image: extractImage(item)
+          image: extractImage(item) || preExtracted[i]?.image || null
         }));
       }
     } catch(e) { console.error('Hypebeast direct:', e.message); }
   }
-  // rss2json as last resort
   const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
   if (r2j?.length) return r2j;
   return [];
@@ -220,28 +241,24 @@ async function fetchSneakerNews() {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.text();
+    const preExtracted = preExtractFromRaw(raw);
     const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
     const items = feed.items?.slice(0, 20) || [];
-    const articles = items.map(item => ({
+    const articles = items.map((item, i) => ({
       source: 'sneakernews', sourceName: 'Sneaker News',
-      title: item.title || '', description: item.contentSnippet || '',
+      title: item.title || '',
+      description: item.contentSnippet || preExtracted[i]?.description || '',
       link: item.link || '', date: item.pubDate || item.isoDate || '',
-      image: extractImage(item)
+      image: extractImage(item) || preExtracted[i]?.image || null
     }));
-    // Fetch og:image in parallel only for articles missing an image
+    // Fetch og:image in parallel only for articles still missing an image
     const needsImg = articles.filter(a => !a.image);
     await Promise.allSettled(needsImg.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image) a.image = meta.image;
     }));
     console.log('Sneaker News: ' + articles.length + ' items');
-    const snFirst = feed.items[0];
-    console.log('SneakerNews DEBUG keys:', Object.keys(snFirst).join(','));
-    console.log('SneakerNews DEBUG mediaContent:', JSON.stringify(snFirst.mediaContent));
-    console.log('SneakerNews DEBUG enclosure:', JSON.stringify(snFirst.enclosure));
-    console.log('SneakerNews DEBUG contentSnippet:', (snFirst.contentSnippet||'').substring(0,100));
-    console.log('SneakerNews DEBUG content:encoded:', (snFirst['content:encoded']||'').substring(0,300));
     return articles;
   } catch (e) {
     console.error('Sneaker News direct:', e.message);
