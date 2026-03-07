@@ -280,6 +280,7 @@ async function fetchSneakerNews() {
       if (meta.image) a.image = meta.image;
     }));
     console.log('Sneaker News: ' + articles.length + ' items');
+    console.log('SN DEBUG images:', articles.slice(0,3).map(a => a.image || 'NULL').join(' | '));
     return articles;
   } catch (e) {
     console.error('Sneaker News direct:', e.message);
