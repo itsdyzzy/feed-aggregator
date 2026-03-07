@@ -237,42 +237,45 @@ async function fetchHypebeast(browser) {
       console.error('Hypebeast: no items in response, raw snippet:', raw.substring(0, 300));
     }
     console.log('Hypebeast: feed failed, scraping homepage');
-    await page.goto('https://hypebeast.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await page.waitForTimeout(1500);
-    const { items: results, debugLinks } = await page.evaluate(() => {
-      const results = [];
-      const debugLinks = Array.from(document.querySelectorAll('a[href]'))
-        .filter(a => a.href.includes('hypebeast.com') && a.href.includes('/20'))
-        .slice(0, 5).map(a => a.href);
-      document.querySelectorAll('a[href]').forEach(a => {
-        const href = a.href || '';
-        if (!href.includes('hypebeast.com')) return;
-        if (!/hypebeast\.com\/\d{4}\//.test(href)) return;
-        const card = a.closest('article, [class*="post"], [class*="card"], [class*="item"], li');
-        if (!card) return;
-        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"]') || a;
-        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
-        if (!title || title.length < 10) return;
-        const timeEl = card.querySelector('time');
-        const img = card.querySelector('img');
-        results.push({
-          source: 'hypebeast', sourceName: 'Hypebeast',
-          title, description: '', link: href,
-          date: timeEl?.getAttribute('datetime') || '',
-          image: img?.src?.startsWith('http') ? img.src : null
+    try {
+      await page.goto('https://hypebeast.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.waitForTimeout(1500);
+      const { items: results, debugLinks } = await page.evaluate(() => {
+        const results = [];
+        const debugLinks = Array.from(document.querySelectorAll('a[href]'))
+          .filter(a => a.href.includes('hypebeast.com') && a.href.includes('/20'))
+          .slice(0, 5).map(a => a.href);
+        document.querySelectorAll('a[href]').forEach(a => {
+          const href = a.href || '';
+          if (!href.includes('hypebeast.com')) return;
+          if (!/hypebeast\.com\/\d{4}\//.test(href)) return;
+          const card = a.closest('article, [class*="post"], [class*="card"], [class*="item"], li');
+          if (!card) return;
+          const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"]') || a;
+          const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
+          if (!title || title.length < 10) return;
+          const timeEl = card.querySelector('time');
+          const img = card.querySelector('img');
+          results.push({
+            source: 'hypebeast', sourceName: 'Hypebeast',
+            title, description: '', link: href,
+            date: timeEl?.getAttribute('datetime') || '',
+            image: img?.src?.startsWith('http') ? img.src : null
+          });
         });
+        const seen = new Set();
+        return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20), debugLinks };
       });
-      const seen = new Set();
-      return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20), debugLinks };
-    });
-    console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
-    await Promise.allSettled(results.filter(a => !a.image || !a.date).slice(0, 8).map(async (a) => {
-      const meta = await fetchOgMeta(a.link);
-      if (meta.image && !a.image) a.image = meta.image;
-      if (meta.date && !a.date) a.date = meta.date;
-    }));
-    console.log('Hypebeast homepage: ' + results.length + ' items');
-    return results;
+      console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
+      console.log('HB homepage items before meta:', results.length);
+      await Promise.allSettled(results.filter(a => !a.image || !a.date).slice(0, 8).map(async (a) => {
+        const meta = await fetchOgMeta(a.link);
+        if (meta.image && !a.image) a.image = meta.image;
+        if (meta.date && !a.date) a.date = meta.date;
+      }));
+      console.log('Hypebeast homepage: ' + results.length + ' items');
+      return results;
+    } catch(e) { console.error('Hypebeast homepage scrape failed:', e.message); return []; }
   } catch(e) { console.error('Hypebeast error:', e.message); return []; }
   finally { await page.close(); }
 }
@@ -586,10 +589,10 @@ async function fetchHNHH(browser) {
 async function fetchNiceKicks(browser) {
   // Try news/release-specific RSS feeds first
   const rssUrls = [
-    'https://nicekicks.com/category/release-dates/feed/',
     'https://nicekicks.com/category/news/feed/',
     'https://nicekicks.com/category/sneaker-news/feed/',
     'https://nicekicks.com/category/releases/feed/',
+    'https://nicekicks.com/category/features/feed/',
     'https://nicekicks.com/feed/',
   ];
   // Keywords that indicate roundup/buyer-guide content to skip
