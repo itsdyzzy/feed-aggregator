@@ -172,6 +172,13 @@ async function fetchHypebeast() {
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log('Hypebeast direct: ' + feed.items.length + ' items');
+        const firstItem = feed.items[0];
+        console.log('Hypebeast DEBUG item keys:', Object.keys(firstItem).join(','));
+        console.log('Hypebeast DEBUG mediaContent:', JSON.stringify(firstItem.mediaContent));
+        console.log('Hypebeast DEBUG enclosure:', JSON.stringify(firstItem.enclosure));
+        console.log('Hypebeast DEBUG contentSnippet:', (firstItem.contentSnippet||'').substring(0,100));
+        console.log('Hypebeast DEBUG content:', (firstItem.content||'').substring(0,200));
+        console.log('Hypebeast DEBUG description:', (firstItem.description||'').substring(0,200));
         return feed.items.slice(0, 20).map(item => ({
           source: 'hypebeast', sourceName: 'Hypebeast',
           title: item.title || '', description: item.contentSnippet || '',
@@ -229,6 +236,12 @@ async function fetchSneakerNews() {
       if (meta.image) a.image = meta.image;
     }));
     console.log('Sneaker News: ' + articles.length + ' items');
+    const snFirst = feed.items[0];
+    console.log('SneakerNews DEBUG keys:', Object.keys(snFirst).join(','));
+    console.log('SneakerNews DEBUG mediaContent:', JSON.stringify(snFirst.mediaContent));
+    console.log('SneakerNews DEBUG enclosure:', JSON.stringify(snFirst.enclosure));
+    console.log('SneakerNews DEBUG contentSnippet:', (snFirst.contentSnippet||'').substring(0,100));
+    console.log('SneakerNews DEBUG content:encoded:', (snFirst['content:encoded']||'').substring(0,300));
     return articles;
   } catch (e) {
     console.error('Sneaker News direct:', e.message);
