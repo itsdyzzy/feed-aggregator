@@ -213,15 +213,25 @@ async function fetchHypebeast() {
         signal: AbortSignal.timeout(12000),
         headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, text/xml, */*' }
       });
-      if (!res.ok) continue;
+      if (!res.ok) { console.error('Hypebeast HTTP:', res.status); continue; }
       const raw = await res.text();
-      if (!raw.includes('<rss') && !raw.includes('<feed')) continue;
+      if (!raw.includes('<rss') && !raw.includes('<feed')) { console.error('Hypebeast: no RSS in response'); continue; }
       const preExtracted = preExtractFromRaw(raw);
-      const xml = sanitizeRssFeed(raw);
-      const feed = await parser.parseString(xml);
-      if (feed.items?.length) {
-        console.log('Hypebeast direct: ' + feed.items.length + ' items');
-        return feed.items.slice(0, 20).map((item, i) => ({
+      // Try strict parse first, fall back to lenient
+      let items = null;
+      try {
+        const feed = await parser.parseString(sanitizeRssFeed(raw));
+        if (feed.items?.length) items = feed.items;
+      } catch(e) { console.error('Hypebeast strict parse failed:', e.message); }
+      if (!items) {
+        try {
+          const feed = await lenientParser.parseString(raw);
+          if (feed.items?.length) { items = feed.items; console.log('Hypebeast using lenient parser'); }
+        } catch(e) { console.error('Hypebeast lenient parse failed:', e.message); continue; }
+      }
+      if (items?.length) {
+        console.log('Hypebeast direct: ' + items.length + ' items');
+        return items.slice(0, 20).map((item, i) => ({
           source: 'hypebeast', sourceName: 'Hypebeast',
           title: item.title || '',
           description: item.contentSnippet || preExtracted[i]?.description || '',
@@ -231,8 +241,7 @@ async function fetchHypebeast() {
       }
     } catch(e) { console.error('Hypebeast direct:', e.message); }
   }
-  const r2j = await fetchViaRss2json('https://hypebeast.com/feed', 'hypebeast', 'Hypebeast');
-  if (r2j?.length) return r2j;
+  console.error('Hypebeast: all direct attempts failed, skipping rss2json (known incompatible)');
   return [];
 }
 
@@ -280,7 +289,6 @@ async function fetchSneakerNews() {
       if (meta.image) a.image = meta.image;
     }));
     console.log('Sneaker News: ' + articles.length + ' items');
-    console.log('SN DEBUG images:', articles.slice(0,3).map(a => a.image || 'NULL').join(' | '));
     return articles;
   } catch (e) {
     console.error('Sneaker News direct:', e.message);
@@ -600,7 +608,7 @@ async function fetchAllFeeds() {
       articles.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       // Rewrite image URLs through proxy for sources that block hotlinking
-      const proxySourcess = new Set(['hypebeast', 'sneakernews']);
+      const proxySourcess = new Set(['hypebeast']);
       for (const a of articles) {
         if (a.image && proxySourcess.has(a.source)) {
           a.image = '/api/img?url=' + encodeURIComponent(a.image);
