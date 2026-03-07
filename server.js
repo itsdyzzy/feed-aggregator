@@ -618,61 +618,68 @@ async function fetchNiceKicks(browser) {
       // The Latest Stories header is .archive-recent-header
       // Articles are in its next sibling element
       const header = document.querySelector('.archive-recent-header');
-      const articleContainer = header?.nextElementSibling;
 
-      // DEBUG: log all major containers on page to find the editorial list
-      const allContainers = Array.from(document.querySelectorAll('div[class],section[class],ul[class],ol[class]'))
-        .filter(el => el.querySelectorAll('a[href*="nicekicks.com"]').length > 2)
-        .map(el => `${el.tagName}.${el.className?.split(' ').join('.')}(${el.querySelectorAll('a[href]').length}links)`)
-        .slice(0, 10);
-      console.log('NK ALL CONTAINERS:', allContainers.join(' | '));
+      // Map ALL containers with nicekicks links so we can identify the right one
+      const containerMap = Array.from(document.querySelectorAll('div[class],section[class],ul[class],ol[class],aside[class]'))
+        .filter(el => el.querySelectorAll('a[href*="nicekicks.com"]').length >= 3)
+        .map(el => ({
+          tag: el.tagName,
+          cls: el.className?.trim().slice(0, 80),
+          links: el.querySelectorAll('a[href]').length,
+          firstTitle: el.querySelector('h1,h2,h3,h4,[class*="title"]')?.innerText?.trim().slice(0, 50) || '',
+          sample: Array.from(el.querySelectorAll('a[href*="nicekicks.com"]')).slice(0,2).map(a => a.href.replace('https://nicekicks.com',''))
+        }));
 
-      if (!articleContainer) {
-        // Fallback: find H2 "Latest Stories" and get parent's next sibling
-        const heading = Array.from(document.querySelectorAll('h2,h3,h4'))
-          .find(el => /latest stories/i.test(el.innerText?.trim()));
-        const fallbackContainer = heading?.closest('header,section,[class*="header"]')?.nextElementSibling;
-        return { results: [], debug: `no_container heading_found:${!!heading} fallback:${!!fallbackContainer} fallback_class:${fallbackContainer?.className?.slice(0,60)}` };
-      }
+      if (!header) return { results: [], containerMap, debug: 'NO_ARCHIVE_RECENT_HEADER' };
+
+      // Try all next siblings of the header — the list may not be immediately adjacent
+      const siblings = [];
+      let sib = header.nextElementSibling;
+      while (sib) { siblings.push(sib); sib = sib.nextElementSibling; }
+
+      // Also check header's parent's next sibling
+      const parentNext = header.parentElement?.nextElementSibling;
+      if (parentNext) siblings.unshift(parentNext);
 
       const results = [];
       const seen = new Set();
 
-      articleContainer.querySelectorAll('a[href]').forEach(a => {
-        const href = a.href || '';
-        if (!href.includes('nicekicks.com')) return;
-        if (seen.has(href)) return;
-        if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms|sneaker-release)/i)) return;
-        const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
-        if (!slug || !slug.includes('-')) return;
-
-        const card = a.closest('li,article,[class*="item"],[class*="story"],[class*="card"]') || a.parentElement;
-        const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]')
-          || card?.querySelector('h1,h2,h3,h4,[class*="title"]');
-        const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
-        if (!title || title.length < 8) return;
-
-        const img = a.querySelector('img') || card?.querySelector('img');
-        const imgSrc = img?.src?.startsWith('http') ? img.src
-          : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
-        const timeEl = card?.querySelector('time');
-
-        seen.add(href);
-        results.push({
-          source: 'nicekicks', sourceName: 'Nice Kicks',
-          title, description: '', link: href,
-          date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
-          image: imgSrc
+      for (const container of siblings) {
+        container.querySelectorAll('a[href]').forEach(a => {
+          const href = a.href || '';
+          if (!href.includes('nicekicks.com')) return;
+          if (seen.has(href)) return;
+          if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms|sneaker-release)/i)) return;
+          const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
+          if (!slug || !slug.includes('-')) return;
+          const card = a.closest('li,article,[class*="item"],[class*="story"],[class*="card"]') || a.parentElement;
+          const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]')
+            || card?.querySelector('h1,h2,h3,h4,[class*="title"]');
+          const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
+          if (!title || title.length < 8) return;
+          const img = a.querySelector('img') || card?.querySelector('img');
+          const imgSrc = img?.src?.startsWith('http') ? img.src
+            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
+          const timeEl = card?.querySelector('time');
+          seen.add(href);
+          results.push({
+            source: 'nicekicks', sourceName: 'Nice Kicks',
+            title, description: '', link: href,
+            date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
+            image: imgSrc
+          });
         });
-      });
+      }
 
       return {
         results: results.slice(0, 15),
-        debug: `container_class:${articleContainer.className?.slice(0,80)} links_found:${results.length}`
+        containerMap,
+        debug: `siblings:${siblings.length} links_found:${results.length}`
       };
     });
 
     console.log('NK DEBUG:', results.debug);
+    console.log('NK CONTAINERS:', JSON.stringify(results.containerMap?.slice(0,6)));
 
     if (!results.results?.length) {
       // Log full body text snippet to understand page structure
