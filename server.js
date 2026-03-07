@@ -276,6 +276,8 @@ async function fetchHypebeast(browser) {
         if (meta.image && !a.image) a.image = meta.image;
         if (meta.date && !a.date) a.date = meta.date;
       }));
+      const withImages = results.filter(a => a.image).length;
+      console.log(`HB images: ${withImages}/${results.length} have images`);
       console.log('Hypebeast homepage: ' + results.length + ' items');
       console.log('HB titles:', results.slice(0,3).map(a => a.title).join(' | '));
       return results;
@@ -617,6 +619,13 @@ async function fetchNiceKicks(browser) {
       // Articles are in its next sibling element
       const header = document.querySelector('.archive-recent-header');
       const articleContainer = header?.nextElementSibling;
+
+      // DEBUG: log all major containers on page to find the editorial list
+      const allContainers = Array.from(document.querySelectorAll('div[class],section[class],ul[class],ol[class]'))
+        .filter(el => el.querySelectorAll('a[href*="nicekicks.com"]').length > 2)
+        .map(el => `${el.tagName}.${el.className?.split(' ').join('.')}(${el.querySelectorAll('a[href]').length}links)`)
+        .slice(0, 10);
+      console.log('NK ALL CONTAINERS:', allContainers.join(' | '));
 
       if (!articleContainer) {
         // Fallback: find H2 "Latest Stories" and get parent's next sibling
