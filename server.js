@@ -256,11 +256,13 @@ async function fetchHypebeast(browser) {
           if (!title || title.length < 10) return;
           const timeEl = card.querySelector('time');
           const img = card.querySelector('img');
+          const imgSrc = img?.src?.startsWith('http') ? img.src
+            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
           results.push({
             source: 'hypebeast', sourceName: 'Hypebeast',
             title, description: '', link: href,
             date: timeEl?.getAttribute('datetime') || '',
-            image: img?.src?.startsWith('http') ? img.src : null
+            image: imgSrc
           });
         });
         const seen = new Set();
@@ -268,12 +270,14 @@ async function fetchHypebeast(browser) {
       });
       console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
       console.log('HB homepage items before meta:', results.length);
-      await Promise.allSettled(results.filter(a => !a.image || !a.date).slice(0, 8).map(async (a) => {
+      // Images are lazy-loaded on homepage — fetch og:meta for any article missing an image
+      await Promise.allSettled(results.filter(a => !a.image || !a.date).map(async (a) => {
         const meta = await fetchOgMeta(a.link);
         if (meta.image && !a.image) a.image = meta.image;
         if (meta.date && !a.date) a.date = meta.date;
       }));
       console.log('Hypebeast homepage: ' + results.length + ' items');
+      console.log('HB titles:', results.slice(0,3).map(a => a.title).join(' | '));
       return results;
     } catch(e) { console.error('Hypebeast homepage scrape failed:', e.message); return []; }
   } catch(e) { console.error('Hypebeast error:', e.message); return []; }
@@ -606,6 +610,7 @@ async function fetchNiceKicks(browser) {
         const filtered = result.filter(a => !skipPatterns.test(a.title));
         if (filtered.length >= 5) {
           console.log(`Nice Kicks RSS (${feedUrl.split('/').slice(-3,-1).join('/')}): ${filtered.length} items`);
+          console.log('NK titles:', filtered.slice(0,5).map(a => a.title).join(' | '));
           return filtered;
         }
         // If we didn't filter enough, keep going to try a better feed
