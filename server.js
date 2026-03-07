@@ -551,41 +551,57 @@ async function fetchHNHH(browser) {
   finally { await page.close(); }
 }
 
-async function fetchNiceKicks() {
-  // Try RSS first — Nice Kicks is WordPress and almost certainly has /feed/
-  const feedUrls = ['https://nicekicks.com/feed/', 'https://nicekicks.com/rss/'];
-  for (const feedUrl of feedUrls) {
-    try {
-      const res = await fetch(feedUrl, {
-        signal: AbortSignal.timeout(10000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-      });
-      if (!res.ok) continue;
-      const raw = await res.text();
-      if (!raw.includes('<item') && !raw.includes('<entry')) continue;
-      const preExtracted = preExtractFromRaw(raw);
-      const xml = sanitizeRssFeed(raw);
-      const feed = await parser.parseString(xml);
-      if (feed.items?.length) {
-        console.log('Nice Kicks RSS: ' + feed.items.length + ' items');
-        const articles = feed.items.slice(0, 20).map((item, i) => ({
+async function fetchNiceKicks(browser) {
+  const page = await browser.newPage();
+  try {
+    await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
+    await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Scroll down to trigger lazy-load of Latest Stories section
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+    await page.waitForTimeout(2000);
+    const results = await page.evaluate(() => {
+      const results = [];
+      // Find the "Latest Stories" heading then grab article links after it
+      const headings = Array.from(document.querySelectorAll('h2,h3,[class*="heading"],[class*="title"]'));
+      const latestHeading = headings.find(h => h.innerText?.toLowerCase().includes('latest'));
+      const searchRoot = latestHeading?.closest('section,[class*="section"],[class*="block"]') || document;
+      searchRoot.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('nicekicks.com')) return;
+        const segs = new URL(href).pathname.split('/').filter(Boolean);
+        // Article URLs have at least 1 slug segment, not just category pages
+        if (segs.length < 1 || segs[0].length < 3) return;
+        if (href.match(/\/(category|tag|page|about|contact|newsletter)\/?/i)) return;
+        // Get title — prefer heading inside the link, else link text
+        const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="name"]');
+        const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
+        if (!title || title.length < 8) return;
+        const card = a.closest('article,[class*="card"],[class*="post"],[class*="item"],[class*="story"]');
+        const timeEl = card?.querySelector('time');
+        const img = card?.querySelector('img');
+        const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || null);
+        results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
-          title: item.title || '',
-          description: item.contentSnippet || preExtracted[i]?.description || '',
-          link: item.link || '', date: item.pubDate || item.isoDate || '',
-          image: extractImage(item) || preExtracted[i]?.image || null
-        }));
-        const needsImg = articles.filter(a => !a.image);
-        await Promise.allSettled(needsImg.map(async (a) => {
-          const meta = await fetchOgMeta(a.link);
-          if (meta.image) a.image = meta.image;
-        }));
-        return articles;
-      }
-    } catch(e) { console.error('Nice Kicks RSS error:', e.message); }
-  }
-  console.error('Nice Kicks: RSS failed');
-  return [];
+          title, description: '',
+          link: href,
+          date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
+          image: imgSrc
+        });
+      });
+      const seen = new Set();
+      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+    });
+    // Fetch og:meta for missing images/dates (cap at 8 to stay fast)
+    const needsMeta = results.filter(a => !a.image || !a.date).slice(0, 8);
+    await Promise.allSettled(needsMeta.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
+    console.log('Nice Kicks scraped: ' + results.length + ' items');
+    return results;
+  } catch(e) { console.error('Nice Kicks scrape error:', e.message); return []; }
+  finally { await page.close(); }
 }
 
 // ─── Main orchestrator ────────────────────────────────────────────────────────
@@ -603,13 +619,14 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD(), fetchNiceKicks()
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
       const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
       const mnArticles      = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
+      const nkArticles      = await fetchNiceKicks(browser).catch(e => { console.error('NiceKicks failed:', e.message); return []; });
       const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
 
       // Close browser before awaiting RSS to free memory while we wait
@@ -620,7 +637,7 @@ async function fetchAllFeeds() {
         rssPromise,
         Promise.resolve() // placeholder — WWD enrichment runs after we have the articles
       ]);
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd, nicekicks] = rssResults;
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = rssResults;
 
       const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
       // Fetch WWD images now — browser is closed, memory is free, runs in parallel with sort/cache
@@ -635,9 +652,9 @@ async function fetchAllFeeds() {
         ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
         ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
         ...wwdArticles,
-        ...(nicekicks.status     === 'fulfilled' ? nicekicks.value     : []),
         ...complexArticles,
         ...mnArticles,
+        ...nkArticles,
         ...hnhhArticles
       ];
 
