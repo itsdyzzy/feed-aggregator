@@ -201,48 +201,37 @@ function sanitizeRssFeed(xml) {
   return xml;
 }
 
-async function fetchHypebeast() {
-  const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Googlebot/2.1 (+http://www.google.com/bot.html)',
-    'Mozilla/5.0 (compatible; RSS reader)'
-  ];
-  for (const ua of userAgents) {
-    try {
-      const res = await fetch('https://hypebeast.com/feed', {
-        signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': ua, 'Accept': 'application/rss+xml, text/xml, */*' }
-      });
-      if (!res.ok) { console.error('Hypebeast HTTP:', res.status); continue; }
-      const raw = await res.text();
-      if (!raw.includes('<rss') && !raw.includes('<feed')) { console.error('Hypebeast: no RSS in response, got:', raw.substring(0, 200)); continue; }
-      const preExtracted = preExtractFromRaw(raw);
-      // Try strict parse first, fall back to lenient
-      let items = null;
-      try {
-        const feed = await parser.parseString(sanitizeRssFeed(raw));
-        if (feed.items?.length) items = feed.items;
-      } catch(e) { console.error('Hypebeast strict parse failed:', e.message); }
-      if (!items) {
-        try {
-          const feed = await lenientParser.parseString(raw);
-          if (feed.items?.length) { items = feed.items; console.log('Hypebeast using lenient parser'); }
-        } catch(e) { console.error('Hypebeast lenient parse failed:', e.message); continue; }
-      }
-      if (items?.length) {
-        console.log('Hypebeast direct: ' + items.length + ' items');
-        return items.slice(0, 20).map((item, i) => ({
-          source: 'hypebeast', sourceName: 'Hypebeast',
-          title: item.title || '',
-          description: item.contentSnippet || preExtracted[i]?.description || '',
-          link: item.link || '', date: item.pubDate || item.isoDate || '',
-          image: extractImage(item) || preExtracted[i]?.image || null
-        }));
-      }
-    } catch(e) { console.error('Hypebeast direct:', e.message); }
-  }
-  console.error('Hypebeast: all direct attempts failed, skipping rss2json (known incompatible)');
-  return [];
+async function fetchHypebeast(browser) {
+  // Direct HTTP fetch is blocked by Hypebeast's CDN on Railway IPs — use Playwright
+  const page = await browser.newPage();
+  try {
+    await page.setExtraHTTPHeaders({
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    });
+    await page.goto('https://hypebeast.com/feed', { waitUntil: 'domcontentloaded', timeout: 20000 });
+    const raw = await page.content();
+    if (!raw.includes('<item') && !raw.includes('<entry')) {
+      console.error('Hypebeast Playwright: no RSS content');
+      return [];
+    }
+    const preExtracted = preExtractFromRaw(raw);
+    const xml = sanitizeRssFeed(raw);
+    const feed = await parser.parseString(xml);
+    if (feed.items?.length) {
+      console.log('Hypebeast Playwright: ' + feed.items.length + ' items');
+      return feed.items.slice(0, 20).map((item, i) => ({
+        source: 'hypebeast', sourceName: 'Hypebeast',
+        title: item.title || '',
+        description: item.contentSnippet || preExtracted[i]?.description || '',
+        link: item.link || '', date: item.pubDate || item.isoDate || '',
+        image: extractImage(item) || preExtracted[i]?.image || null
+      }));
+    }
+    return [];
+  } catch(e) { console.error('Hypebeast Playwright error:', e.message); return []; }
+  finally { await page.close(); }
 }
 
 async function fetchHighsnobiety() {
@@ -612,6 +601,7 @@ async function fetchNiceKicks(browser) {
       if (meta.date && !a.date) a.date = meta.date;
     }));
     console.log('Nice Kicks scraped: ' + results.length + ' items');
+    console.log('NK DEBUG titles:', results.slice(0,5).map(a => a.title).join(' | '));
     return results;
   } catch(e) { console.error('Nice Kicks scrape error:', e.message); return []; }
   finally { await page.close(); }
@@ -632,11 +622,12 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
+        fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+      const hypeArticles    = await fetchHypebeast(browser).catch(e => { console.error('Hypebeast failed:', e.message); return []; });
       const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
       const mnArticles      = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
       const nkArticles      = await fetchNiceKicks(browser).catch(e => { console.error('NiceKicks failed:', e.message); return []; });
@@ -650,7 +641,7 @@ async function fetchAllFeeds() {
         rssPromise,
         Promise.resolve() // placeholder — WWD enrichment runs after we have the articles
       ]);
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = rssResults;
+      const [highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = rssResults;
 
       const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
       // Fetch WWD images now — browser is closed, memory is free, runs in parallel with sort/cache
@@ -659,7 +650,7 @@ async function fetchAllFeeds() {
         if (meta.image) a.image = meta.image;
       }));
       const articles = [
-        ...(hypebeast.status     === 'fulfilled' ? hypebeast.value     : []),
+        ...hypeArticles,
         ...(highsnobiety.status  === 'fulfilled' ? highsnobiety.value  : []),
         ...(sneakernews.status   === 'fulfilled' ? sneakernews.value   : []),
         ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
