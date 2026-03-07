@@ -551,6 +551,43 @@ async function fetchHNHH(browser) {
   finally { await page.close(); }
 }
 
+async function fetchNiceKicks() {
+  // Try RSS first — Nice Kicks is WordPress and almost certainly has /feed/
+  const feedUrls = ['https://nicekicks.com/feed/', 'https://nicekicks.com/rss/'];
+  for (const feedUrl of feedUrls) {
+    try {
+      const res = await fetch(feedUrl, {
+        signal: AbortSignal.timeout(10000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+      });
+      if (!res.ok) continue;
+      const raw = await res.text();
+      if (!raw.includes('<item') && !raw.includes('<entry')) continue;
+      const preExtracted = preExtractFromRaw(raw);
+      const xml = sanitizeRssFeed(raw);
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        console.log('Nice Kicks RSS: ' + feed.items.length + ' items');
+        const articles = feed.items.slice(0, 20).map((item, i) => ({
+          source: 'nicekicks', sourceName: 'Nice Kicks',
+          title: item.title || '',
+          description: item.contentSnippet || preExtracted[i]?.description || '',
+          link: item.link || '', date: item.pubDate || item.isoDate || '',
+          image: extractImage(item) || preExtracted[i]?.image || null
+        }));
+        const needsImg = articles.filter(a => !a.image);
+        await Promise.allSettled(needsImg.map(async (a) => {
+          const meta = await fetchOgMeta(a.link);
+          if (meta.image) a.image = meta.image;
+        }));
+        return articles;
+      }
+    } catch(e) { console.error('Nice Kicks RSS error:', e.message); }
+  }
+  console.error('Nice Kicks: RSS failed');
+  return [];
+}
+
 // ─── Main orchestrator ────────────────────────────────────────────────────────
 
 let fetchInProgress = null; // prevents duplicate concurrent fetches
@@ -566,7 +603,7 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
+        fetchHypebeast(), fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD(), fetchNiceKicks()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
@@ -583,7 +620,7 @@ async function fetchAllFeeds() {
         rssPromise,
         Promise.resolve() // placeholder — WWD enrichment runs after we have the articles
       ]);
-      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = rssResults;
+      const [hypebeast, highsnobiety, sneakernews, hiphopdx, soleretriever, wwd, nicekicks] = rssResults;
 
       const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
       // Fetch WWD images now — browser is closed, memory is free, runs in parallel with sort/cache
@@ -598,6 +635,7 @@ async function fetchAllFeeds() {
         ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
         ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
         ...wwdArticles,
+        ...(nicekicks.status     === 'fulfilled' ? nicekicks.value     : []),
         ...complexArticles,
         ...mnArticles,
         ...hnhhArticles
