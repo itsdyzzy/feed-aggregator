@@ -612,13 +612,29 @@ async function fetchNiceKicks(browser) {
         .find(el => /latest stories/i.test(el.innerText?.trim()));
       if (!heading) return { results: [], debug: 'NO_HEADING_FOUND' };
 
-      // Walk up to find the section container, then grab all sibling/child links with images
-      const section = heading.closest('section,[class*="section"],[class*="block"],div') || heading.parentElement;
+      // The list items should be siblings of the heading or children of heading's direct parent
+      // Do NOT use closest() — it walks too far up and grabs the whole page
+      const parent = heading.parentElement;
+      // Try: parent's next sibling, or parent itself, or heading's next siblings
+      const candidates = [];
+      // Collect all next siblings of the heading
+      let sib = heading.nextElementSibling;
+      while (sib) { candidates.push(sib); sib = sib.nextElementSibling; }
+      // Also try direct parent if it has multiple children
+      if (parent && parent.children.length > 2) candidates.push(parent);
+
+      const searchRoot = candidates.length > 0
+        ? { querySelectorAll: (sel) => {
+            const all = [];
+            candidates.forEach(c => c.querySelectorAll(sel).forEach(el => all.push(el)));
+            return all;
+          }}
+        : parent;
+
       const results = [];
       const seen = new Set();
 
-      // Each "Latest Stories" item: look for any <a> with an adjacent/child img
-      section.querySelectorAll('a[href]').forEach(a => {
+      searchRoot.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
@@ -626,19 +642,17 @@ async function fetchNiceKicks(browser) {
         const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
         if (!slug || !slug.includes('-')) return;
 
-        // Title: either inside the <a> or in a sibling element
+        const card = a.closest('li,article,[class*="item"],[class*="story"],[class*="card"]') || a.parentElement;
         const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]')
-          || a.closest('li,article,[class*="item"]')?.querySelector('h1,h2,h3,h4,[class*="title"]');
+          || card?.querySelector('h1,h2,h3,h4,[class*="title"]');
         const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 8) return;
 
-        // Image: inside <a> or in sibling/parent card
-        const card = a.closest('li,article,[class*="item"],[class*="story"],[class*="card"]') || a.parentElement;
         const img = a.querySelector('img') || card?.querySelector('img');
         const imgSrc = img?.src?.startsWith('http') ? img.src
           : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
-
         const timeEl = card?.querySelector('time');
+
         seen.add(href);
         results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
@@ -647,7 +661,11 @@ async function fetchNiceKicks(browser) {
           image: imgSrc
         });
       });
-      return { results: results.slice(0, 15), debug: `section_tag:${section.tagName} section_class:${section.className?.slice(0,60)} links_found:${results.length}` };
+
+      return {
+        results: results.slice(0, 15),
+        debug: `heading_tag:${heading.tagName} parent_tag:${parent?.tagName} parent_class:${parent?.className?.slice(0,60)} sibling_count:${candidates.length-1} links_found:${results.length}`
+      };
     });
 
     console.log('NK DEBUG:', results.debug);
