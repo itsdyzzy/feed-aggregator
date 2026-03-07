@@ -593,27 +593,26 @@ async function fetchHNHH(browser) {
 async function fetchNiceKicks(browser) {
   // Try news/release-specific RSS feeds first
   const rssUrls = [
+    'https://nicekicks.com/category/news/feed/?posts_per_page=20',
     'https://nicekicks.com/category/news/feed/',
     'https://nicekicks.com/category/sneaker-news/feed/',
     'https://nicekicks.com/category/releases/feed/',
     'https://nicekicks.com/category/features/feed/',
     'https://nicekicks.com/feed/',
   ];
-  // Keywords that indicate roundup/buyer-guide content to skip
-  const skipPatterns = /best\s|buyer|guide|foot locker|shop now|where to buy|collection showcases|roundup|review|vs\./i;
+  // Only skip obvious non-news roundup/shopping content
+  const skipPatterns = /buyer.?s guide|foot locker|shop now|where to buy|collection showcases/i;
 
   for (const feedUrl of rssUrls) {
     try {
       const result = await fetchDirectFeed(feedUrl, 'nicekicks', 'Nice Kicks');
       if (result?.length) {
-        // Filter to actual news/release articles
         const filtered = result.filter(a => !skipPatterns.test(a.title));
         if (filtered.length >= 5) {
           console.log(`Nice Kicks RSS (${feedUrl.split('/').slice(-3,-1).join('/')}): ${filtered.length} items`);
           console.log('NK titles:', filtered.slice(0,5).map(a => a.title).join(' | '));
-          return filtered;
+          return filtered.slice(0, 20);
         }
-        // If we didn't filter enough, keep going to try a better feed
       }
     } catch(e) { /* try next */ }
   }
