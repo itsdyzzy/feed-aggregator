@@ -584,28 +584,40 @@ async function fetchHNHH(browser) {
 }
 
 async function fetchNiceKicks(browser) {
-  // Try RSS first — much faster and more reliable
-  const rssUrls = ['https://nicekicks.com/feed/', 'https://nicekicks.com/feed', 'https://nicekicks.com/rss'];
+  // Try news/release-specific RSS feeds first
+  const rssUrls = [
+    'https://nicekicks.com/category/release-dates/feed/',
+    'https://nicekicks.com/category/news/feed/',
+    'https://nicekicks.com/category/sneaker-news/feed/',
+    'https://nicekicks.com/category/releases/feed/',
+    'https://nicekicks.com/feed/',
+  ];
+  // Keywords that indicate roundup/buyer-guide content to skip
+  const skipPatterns = /best\s|buyer|guide|foot locker|shop now|where to buy|collection showcases|roundup|review|vs\./i;
+
   for (const feedUrl of rssUrls) {
     try {
       const result = await fetchDirectFeed(feedUrl, 'nicekicks', 'Nice Kicks');
       if (result?.length) {
-        console.log('Nice Kicks RSS: ' + result.length + ' items');
-        return result;
+        // Filter to actual news/release articles
+        const filtered = result.filter(a => !skipPatterns.test(a.title));
+        if (filtered.length >= 5) {
+          console.log(`Nice Kicks RSS (${feedUrl.split('/').slice(-3,-1).join('/')}): ${filtered.length} items`);
+          return filtered;
+        }
+        // If we didn't filter enough, keep going to try a better feed
       }
     } catch(e) { /* try next */ }
   }
 
-  // Playwright fallback — articles are lazy-loaded, must wait for them
+  // Playwright fallback — target the "Latest Stories" list section specifically
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://nicekicks.com/', { waitUntil: 'networkidle', timeout: 30000 });
-    // Wait for actual article/story elements to appear (lazy-loaded after nav)
     try {
       await page.waitForSelector('article, [class*="story"], [class*="post"], [class*="entry"]', { timeout: 8000 });
     } catch(e) { console.log('NK: no article elements found, trying scroll'); }
-    // Scroll to trigger lazy load
     await page.evaluate(() => window.scrollTo(0, 600));
     await page.waitForTimeout(2000);
     await page.evaluate(() => window.scrollTo(0, 1400));
@@ -614,8 +626,12 @@ async function fetchNiceKicks(browser) {
     const results = await page.evaluate(() => {
       const results = [];
       const seen = new Set();
-      // Target article/story containers directly — not raw links
-      const containers = document.querySelectorAll('article, [class*="story"], [class*="post-card"], [class*="entry"], [class*="feed-item"]');
+      // Prefer "Latest Stories" section if it exists
+      const latestSection = Array.from(document.querySelectorAll('h2,h3,[class*="section-title"],[class*="heading"]'))
+        .find(el => /latest stories|latest news|recent/i.test(el.innerText));
+      const searchRoot = latestSection?.closest('section, [class*="section"], div') || document;
+
+      const containers = searchRoot.querySelectorAll('article, [class*="story"], [class*="post-card"], [class*="entry"], [class*="feed-item"], li');
       containers.forEach(card => {
         const a = card.querySelector('a[href*="nicekicks.com"]') || card.querySelector('a[href]');
         if (!a) return;
@@ -623,13 +639,14 @@ async function fetchNiceKicks(browser) {
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
         if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms)/i)) return;
-        // Skip bare nav slugs (no hyphens or single segment utility pages)
         const pathname = new URL(href).pathname.replace(/\/$/, '');
         const slug = pathname.split('/').pop();
         if (!slug || !slug.includes('-')) return;
         const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]');
         const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 8) return;
+        // Skip roundup/buyer-guide content
+        if (/best\s|buyer|guide|foot locker|shop now|where to buy|collection showcases|roundup/i.test(title)) return;
         const timeEl = card.querySelector('time');
         const img = card.querySelector('img');
         const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || img?.dataset?.lazySrc || null);
@@ -644,13 +661,12 @@ async function fetchNiceKicks(browser) {
       return results.slice(0, 15);
     });
 
-    console.log('NK DEBUG found ' + results.length + ' items via containers');
-
     if (results.length === 0) {
       const pageInfo = await page.evaluate(() => ({
         url: location.href,
         articleCount: document.querySelectorAll('article').length,
-        bodySnippet: document.body?.innerText?.slice(0, 200)
+        storyCount: document.querySelectorAll('[class*="story"]').length,
+        bodySnippet: document.body?.innerText?.slice(0, 300)
       }));
       console.log('NK DEBUG page info:', JSON.stringify(pageInfo));
     }
