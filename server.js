@@ -591,72 +591,54 @@ async function fetchHNHH(browser) {
 }
 
 async function fetchNiceKicks(browser) {
-  // Try news/release-specific RSS feeds first
-  const rssUrls = [
-    'https://nicekicks.com/category/news/feed/?posts_per_page=20',
-    'https://nicekicks.com/category/news/feed/',
-    'https://nicekicks.com/category/sneaker-news/feed/',
-    'https://nicekicks.com/category/releases/feed/',
-    'https://nicekicks.com/category/features/feed/',
-    'https://nicekicks.com/feed/',
-  ];
-  // Only skip obvious non-news roundup/shopping content
-  const skipPatterns = /buyer.?s guide|foot locker|shop now|where to buy|collection showcases/i;
-
-  for (const feedUrl of rssUrls) {
-    try {
-      const result = await fetchDirectFeed(feedUrl, 'nicekicks', 'Nice Kicks');
-      if (result?.length) {
-        const filtered = result.filter(a => !skipPatterns.test(a.title));
-        if (filtered.length >= 5) {
-          console.log(`Nice Kicks RSS (${feedUrl.split('/').slice(-3,-1).join('/')}): ${filtered.length} items`);
-          console.log('NK titles:', filtered.slice(0,5).map(a => a.title).join(' | '));
-          return filtered.slice(0, 20);
-        }
-      }
-    } catch(e) { /* try next */ }
-  }
-
-  // Playwright fallback — target the "Latest Stories" list section specifically
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://nicekicks.com/', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Wait for "Latest Stories" heading to appear
     try {
-      await page.waitForSelector('article, [class*="story"], [class*="post"], [class*="entry"]', { timeout: 8000 });
-    } catch(e) { console.log('NK: no article elements found, trying scroll'); }
-    await page.evaluate(() => window.scrollTo(0, 600));
-    await page.waitForTimeout(2000);
-    await page.evaluate(() => window.scrollTo(0, 1400));
+      await page.waitForFunction(
+        () => Array.from(document.querySelectorAll('h2,h3,h4')).some(el => /latest stories/i.test(el.innerText)),
+        { timeout: 8000 }
+      );
+    } catch(e) { console.log('NK: Latest Stories heading not found yet, scrolling'); }
+    // Scroll down to trigger lazy load of the list
+    await page.evaluate(() => window.scrollTo(0, 500));
     await page.waitForTimeout(1500);
 
     const results = await page.evaluate(() => {
+      // Find the "Latest Stories" heading
+      const heading = Array.from(document.querySelectorAll('h2,h3,h4,p,[class*="title"],[class*="heading"]'))
+        .find(el => /latest stories/i.test(el.innerText?.trim()));
+      if (!heading) return { results: [], debug: 'NO_HEADING_FOUND' };
+
+      // Walk up to find the section container, then grab all sibling/child links with images
+      const section = heading.closest('section,[class*="section"],[class*="block"],div') || heading.parentElement;
       const results = [];
       const seen = new Set();
-      // Prefer "Latest Stories" section if it exists
-      const latestSection = Array.from(document.querySelectorAll('h2,h3,[class*="section-title"],[class*="heading"]'))
-        .find(el => /latest stories|latest news|recent/i.test(el.innerText));
-      const searchRoot = latestSection?.closest('section, [class*="section"], div') || document;
 
-      const containers = searchRoot.querySelectorAll('article, [class*="story"], [class*="post-card"], [class*="entry"], [class*="feed-item"], li');
-      containers.forEach(card => {
-        const a = card.querySelector('a[href*="nicekicks.com"]') || card.querySelector('a[href]');
-        if (!a) return;
+      // Each "Latest Stories" item: look for any <a> with an adjacent/child img
+      section.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
-        if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms)/i)) return;
-        const pathname = new URL(href).pathname.replace(/\/$/, '');
-        const slug = pathname.split('/').pop();
+        if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms|sneaker-release)/i)) return;
+        const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
         if (!slug || !slug.includes('-')) return;
-        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]');
-        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
+
+        // Title: either inside the <a> or in a sibling element
+        const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]')
+          || a.closest('li,article,[class*="item"]')?.querySelector('h1,h2,h3,h4,[class*="title"]');
+        const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 8) return;
-        // Skip roundup/buyer-guide content
-        if (/best\s|buyer|guide|foot locker|shop now|where to buy|collection showcases|roundup/i.test(title)) return;
-        const timeEl = card.querySelector('time');
-        const img = card.querySelector('img');
-        const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || img?.dataset?.lazySrc || null);
+
+        // Image: inside <a> or in sibling/parent card
+        const card = a.closest('li,article,[class*="item"],[class*="story"],[class*="card"]') || a.parentElement;
+        const img = a.querySelector('img') || card?.querySelector('img');
+        const imgSrc = img?.src?.startsWith('http') ? img.src
+          : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
+
+        const timeEl = card?.querySelector('time');
         seen.add(href);
         results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
@@ -665,27 +647,28 @@ async function fetchNiceKicks(browser) {
           image: imgSrc
         });
       });
-      return results.slice(0, 15);
+      return { results: results.slice(0, 15), debug: `section_tag:${section.tagName} section_class:${section.className?.slice(0,60)} links_found:${results.length}` };
     });
 
-    if (results.length === 0) {
-      const pageInfo = await page.evaluate(() => ({
-        url: location.href,
-        articleCount: document.querySelectorAll('article').length,
-        storyCount: document.querySelectorAll('[class*="story"]').length,
-        bodySnippet: document.body?.innerText?.slice(0, 300)
-      }));
-      console.log('NK DEBUG page info:', JSON.stringify(pageInfo));
+    console.log('NK DEBUG:', results.debug);
+
+    if (!results.results?.length) {
+      // Log full body text snippet to understand page structure
+      const bodySnippet = await page.evaluate(() => document.body?.innerText?.slice(0, 500));
+      console.log('NK DEBUG body:', bodySnippet);
+      return [];
     }
 
-    const needsMeta = results.filter(a => !a.date || !a.image).slice(0, 8);
-    await Promise.allSettled(needsMeta.map(async (a) => {
+    const articles = results.results;
+    // Fetch og:meta for any missing images or dates
+    await Promise.allSettled(articles.filter(a => !a.image || !a.date).slice(0, 10).map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
     }));
-    console.log('Nice Kicks scraped: ' + results.length + ' items');
-    return results;
+    console.log('Nice Kicks scraped: ' + articles.length + ' items');
+    console.log('NK titles:', articles.slice(0,3).map(a => a.title).join(' | '));
+    return articles;
   } catch(e) { console.error('Nice Kicks scrape error:', e.message); return []; }
   finally { await page.close(); }
 }
