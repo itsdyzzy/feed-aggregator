@@ -202,35 +202,68 @@ function sanitizeRssFeed(xml) {
 }
 
 async function fetchHypebeast(browser) {
-  // Direct HTTP fetch is blocked by Hypebeast's CDN on Railway IPs — use Playwright
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
     });
     await page.goto('https://hypebeast.com/feed', { waitUntil: 'domcontentloaded', timeout: 20000 });
-    const raw = await page.content();
-    if (!raw.includes('<item') && !raw.includes('<entry')) {
-      console.error('Hypebeast Playwright: no RSS content');
-      return [];
+    // page.content() wraps XML in <html><body> — get the raw pre/body text instead
+    const raw = await page.evaluate(() => {
+      const pre = document.querySelector('pre');
+      if (pre) return pre.innerText;
+      return document.body?.innerText || document.documentElement?.innerText || '';
+    });
+    if (raw.includes('<item') || raw.includes('<entry')) {
+      const preExtracted = preExtractFromRaw(raw);
+      try {
+        const feed = await parser.parseString(sanitizeRssFeed(raw));
+        if (feed.items?.length) {
+          console.log('Hypebeast feed: ' + feed.items.length + ' items');
+          return feed.items.slice(0, 20).map((item, i) => ({
+            source: 'hypebeast', sourceName: 'Hypebeast',
+            title: item.title || '',
+            description: item.contentSnippet || preExtracted[i]?.description || '',
+            link: item.link || '', date: item.pubDate || item.isoDate || '',
+            image: extractImage(item) || preExtracted[i]?.image || null
+          }));
+        }
+      } catch(e) { console.error('Hypebeast parse error:', e.message); }
     }
-    const preExtracted = preExtractFromRaw(raw);
-    const xml = sanitizeRssFeed(raw);
-    const feed = await parser.parseString(xml);
-    if (feed.items?.length) {
-      console.log('Hypebeast Playwright: ' + feed.items.length + ' items');
-      return feed.items.slice(0, 20).map((item, i) => ({
-        source: 'hypebeast', sourceName: 'Hypebeast',
-        title: item.title || '',
-        description: item.contentSnippet || preExtracted[i]?.description || '',
-        link: item.link || '', date: item.pubDate || item.isoDate || '',
-        image: extractImage(item) || preExtracted[i]?.image || null
-      }));
-    }
-    return [];
-  } catch(e) { console.error('Hypebeast Playwright error:', e.message); return []; }
+    // Fallback: scrape homepage articles
+    console.log('Hypebeast: feed failed, scraping homepage');
+    await page.goto('https://hypebeast.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.waitForTimeout(1500);
+    const results = await page.evaluate(() => {
+      const results = [];
+      document.querySelectorAll('article, [class*="post"], [class*="card"]').forEach(card => {
+        const a = card.querySelector('a[href]');
+        if (!a?.href?.includes('hypebeast.com')) return;
+        if (!a.href.match(/hypebeast\.com\/(sneakers|footwear|style|fashion|music|entertainment|culture)\/\d/)) return;
+        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"]');
+        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
+        if (!title || title.length < 10) return;
+        const timeEl = card.querySelector('time');
+        const img = card.querySelector('img');
+        results.push({
+          source: 'hypebeast', sourceName: 'Hypebeast',
+          title, description: '', link: a.href,
+          date: timeEl?.getAttribute('datetime') || '',
+          image: img?.src?.startsWith('http') ? img.src : null
+        });
+      });
+      const seen = new Set();
+      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+    });
+    await Promise.allSettled(results.filter(a => !a.image || !a.date).slice(0, 8).map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
+    console.log('Hypebeast homepage: ' + results.length + ' items');
+    return results;
+  } catch(e) { console.error('Hypebeast error:', e.message); return []; }
   finally { await page.close(); }
 }
 
@@ -550,26 +583,29 @@ async function fetchNiceKicks(browser) {
     const results = await page.evaluate(() => {
       const results = [];
       const seen = new Set();
-
-      const addCard = (card) => {
-        const links = card.querySelectorAll('a[href]');
-        const a = Array.from(links).find(l => l.href?.includes('nicekicks.com')) || links[0];
-        if (!a) return;
+      document.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
-        if (href.match(/\/(category|tag|page|about|contact|newsletter|release-dates|sign-up|deals)\/?$/i)) return;
+        // Only grab URLs that match dated article paths: /YYYY/MM/slug/ or /slug-with-multiple-words/
         const pathname = new URL(href).pathname;
+        // Must have year in path OR be a multi-word slug (at least 3 hyphens = real article title)
+        const hasYear = /\/20\d\d\//.test(pathname);
         const segs = pathname.split('/').filter(Boolean);
-        if (segs.length < 1) return;
-        // Skip single-word brand slugs with no hyphen (e.g. /nike/ /converse/)
-        if (segs.length === 1 && !segs[0].includes('-')) return;
-        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
-        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
-        if (!title || title.length < 10) return;
-        const timeEl = card.querySelector('time');
+        const isMultiWordSlug = segs.length === 1 && (segs[0].match(/-/g) || []).length >= 3;
+        if (!hasYear && !isMultiWordSlug) return;
+        // Skip hub/utility pages
+        if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag)\//i)) return;
+        // Must be inside a card/list item with an image
+        const card = a.closest('article, li, [class*="card"], [class*="post"], [class*="story"], [class*="item"], [class*="entry"]');
+        if (!card) return;
         const img = card.querySelector('img');
-        const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || null);
+        if (!img) return; // skip text-only nav links
+        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
+        const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
+        if (!title || title.length < 8) return;
+        const timeEl = card.querySelector('time');
+        const imgSrc = img.src?.startsWith('http') ? img.src : (img.dataset?.src || null);
         seen.add(href);
         results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
@@ -577,31 +613,16 @@ async function fetchNiceKicks(browser) {
           date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
           image: imgSrc
         });
-      };
-
-      // Pass 1: cards that have a <time> element (most reliable — dated articles)
-      document.querySelectorAll('article, [class*="card"], [class*="post"], [class*="story"], [class*="item"]').forEach(card => {
-        if (card.querySelector('time')) addCard(card);
       });
-
-      // Pass 2: if too few results, loosen to any card with a title heading
-      if (results.length < 5) {
-        document.querySelectorAll('article, [class*="card"], [class*="post"], [class*="story"]').forEach(card => {
-          addCard(card);
-        });
-      }
-
       return results.slice(0, 15);
     });
-    // Fetch og:meta only for articles missing images (cap at 8)
-    const needsMeta = results.filter(a => !a.image).slice(0, 8);
+    const needsMeta = results.filter(a => !a.date || !a.image).slice(0, 8);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
-      if (meta.image) a.image = meta.image;
+      if (meta.image && !a.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
     }));
     console.log('Nice Kicks scraped: ' + results.length + ' items');
-    console.log('NK DEBUG titles:', results.slice(0,5).map(a => a.title).join(' | '));
     return results;
   } catch(e) { console.error('Nice Kicks scrape error:', e.message); return []; }
   finally { await page.close(); }
