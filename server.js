@@ -215,10 +215,13 @@ async function fetchHypebeast(browser) {
       if (pre) return pre.innerText;
       return document.body?.innerText || document.documentElement?.innerText || '';
     });
-    if (raw.includes('<item') || raw.includes('<entry')) {
-      const preExtracted = preExtractFromRaw(raw);
+    if (raw.includes('<rss') || raw.includes('<feed') || raw.includes('<item') || raw.includes('<entry')) {
+      // Browser injects preamble text before the XML — strip everything before the first tag
+      const xmlStart = raw.indexOf('<rss') !== -1 ? raw.indexOf('<rss') : raw.indexOf('<feed');
+      const cleanRaw = xmlStart > 0 ? raw.slice(xmlStart) : raw;
+      const preExtracted = preExtractFromRaw(cleanRaw);
       try {
-        const feed = await parser.parseString(sanitizeRssFeed(raw));
+        const feed = await parser.parseString(sanitizeRssFeed(cleanRaw));
         if (feed.items?.length) {
           console.log('Hypebeast feed: ' + feed.items.length + ' items');
           return feed.items.slice(0, 20).map((item, i) => ({
@@ -229,7 +232,7 @@ async function fetchHypebeast(browser) {
             image: extractImage(item) || preExtracted[i]?.image || null
           }));
         }
-      } catch(e) { console.error('Hypebeast parse error:', e.message); console.error('Hypebeast raw snippet:', raw.substring(0, 300)); }
+      } catch(e) { console.error('Hypebeast parse error:', e.message); console.error('Hypebeast raw snippet:', cleanRaw.substring(0, 300)); }
     } else {
       console.error('Hypebeast: no items in response, raw snippet:', raw.substring(0, 300));
     }
@@ -581,38 +584,55 @@ async function fetchHNHH(browser) {
 }
 
 async function fetchNiceKicks(browser) {
+  // Try RSS first — much faster and more reliable
+  const rssUrls = ['https://nicekicks.com/feed/', 'https://nicekicks.com/feed', 'https://nicekicks.com/rss'];
+  for (const feedUrl of rssUrls) {
+    try {
+      const result = await fetchDirectFeed(feedUrl, 'nicekicks', 'Nice Kicks');
+      if (result?.length) {
+        console.log('Nice Kicks RSS: ' + result.length + ' items');
+        return result;
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  // Playwright fallback — articles are lazy-loaded, must wait for them
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+    await page.goto('https://nicekicks.com/', { waitUntil: 'networkidle', timeout: 30000 });
+    // Wait for actual article/story elements to appear (lazy-loaded after nav)
+    try {
+      await page.waitForSelector('article, [class*="story"], [class*="post"], [class*="entry"]', { timeout: 8000 });
+    } catch(e) { console.log('NK: no article elements found, trying scroll'); }
+    // Scroll to trigger lazy load
+    await page.evaluate(() => window.scrollTo(0, 600));
     await page.waitForTimeout(2000);
+    await page.evaluate(() => window.scrollTo(0, 1400));
+    await page.waitForTimeout(1500);
+
     const results = await page.evaluate(() => {
       const results = [];
       const seen = new Set();
-      document.querySelectorAll('a[href]').forEach(a => {
+      // Target article/story containers directly — not raw links
+      const containers = document.querySelectorAll('article, [class*="story"], [class*="post-card"], [class*="entry"], [class*="feed-item"]');
+      containers.forEach(card => {
+        const a = card.querySelector('a[href*="nicekicks.com"]') || card.querySelector('a[href]');
+        if (!a) return;
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
-        // Only grab URLs that match dated article paths: /YYYY/MM/slug/ or /slug-with-multiple-words/
-        const pathname = new URL(href).pathname;
-        // Must have year in path OR be a multi-word slug (at least 3 hyphens = real article title)
-        const hasYear = /\/20\d\d\//.test(pathname);
-        const segs = pathname.split('/').filter(Boolean);
-        const isMultiWordSlug = segs.length === 1 && (segs[0].match(/-/g) || []).length >= 3;
-        if (!hasYear && !isMultiWordSlug) return;
-        // Skip hub/utility pages
-        if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag)\//i)) return;
-        // Must be inside a card/list item with an image
-        const card = a.closest('article, li, [class*="card"], [class*="post"], [class*="story"], [class*="item"], [class*="entry"]');
-        if (!card) return;
-        const img = card.querySelector('img');
-        if (!img) return; // skip text-only nav links
-        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
-        const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
+        if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms)/i)) return;
+        // Skip bare nav slugs (no hyphens or single segment utility pages)
+        const pathname = new URL(href).pathname.replace(/\/$/, '');
+        const slug = pathname.split('/').pop();
+        if (!slug || !slug.includes('-')) return;
+        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]');
+        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 8) return;
         const timeEl = card.querySelector('time');
-        const imgSrc = img.src?.startsWith('http') ? img.src : (img.dataset?.src || null);
+        const img = card.querySelector('img');
+        const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || img?.dataset?.lazySrc || null);
         seen.add(href);
         results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
@@ -623,6 +643,18 @@ async function fetchNiceKicks(browser) {
       });
       return results.slice(0, 15);
     });
+
+    console.log('NK DEBUG found ' + results.length + ' items via containers');
+
+    if (results.length === 0) {
+      const pageInfo = await page.evaluate(() => ({
+        url: location.href,
+        articleCount: document.querySelectorAll('article').length,
+        bodySnippet: document.body?.innerText?.slice(0, 200)
+      }));
+      console.log('NK DEBUG page info:', JSON.stringify(pageInfo));
+    }
+
     const needsMeta = results.filter(a => !a.date || !a.image).slice(0, 8);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
@@ -630,15 +662,6 @@ async function fetchNiceKicks(browser) {
       if (meta.date && !a.date) a.date = meta.date;
     }));
     console.log('Nice Kicks scraped: ' + results.length + ' items');
-    if (results.length === 0) {
-      // Debug: show sample hrefs from page to understand URL structure
-      const sampleLinks = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('a[href]'))
-          .filter(a => a.href.includes('nicekicks.com'))
-          .slice(0, 8).map(a => a.href)
-      );
-      console.log('NK DEBUG sample links:', sampleLinks.join(' | '));
-    }
     return results;
   } catch(e) { console.error('Nice Kicks scrape error:', e.message); return []; }
   finally { await page.close(); }
