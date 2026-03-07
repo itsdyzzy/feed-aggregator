@@ -595,46 +595,41 @@ async function fetchNiceKicks(browser) {
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    // Wait for "Latest Stories" heading to appear
+    // Wait for article list to populate after the .archive-recent-header
+    await page.evaluate(() => window.scrollTo(0, 500));
+    await page.waitForTimeout(1500);
+
+    // Wait for article content to load after the Latest Stories header
     try {
       await page.waitForFunction(
-        () => Array.from(document.querySelectorAll('h2,h3,h4')).some(el => /latest stories/i.test(el.innerText)),
-        { timeout: 8000 }
+        () => {
+          const header = document.querySelector('.archive-recent-header');
+          return header?.nextElementSibling?.querySelectorAll('a[href]').length > 0;
+        },
+        { timeout: 10000 }
       );
-    } catch(e) { console.log('NK: Latest Stories heading not found yet, scrolling'); }
-    // Scroll down to trigger lazy load of the list
+    } catch(e) { console.log('NK: waiting for articles timed out, trying scroll'); }
     await page.evaluate(() => window.scrollTo(0, 500));
     await page.waitForTimeout(1500);
 
     const results = await page.evaluate(() => {
-      // Find the "Latest Stories" heading
-      const heading = Array.from(document.querySelectorAll('h2,h3,h4,p,[class*="title"],[class*="heading"]'))
-        .find(el => /latest stories/i.test(el.innerText?.trim()));
-      if (!heading) return { results: [], debug: 'NO_HEADING_FOUND' };
+      // The Latest Stories header is .archive-recent-header
+      // Articles are in its next sibling element
+      const header = document.querySelector('.archive-recent-header');
+      const articleContainer = header?.nextElementSibling;
 
-      // The list items should be siblings of the heading or children of heading's direct parent
-      // Do NOT use closest() — it walks too far up and grabs the whole page
-      const parent = heading.parentElement;
-      // Try: parent's next sibling, or parent itself, or heading's next siblings
-      const candidates = [];
-      // Collect all next siblings of the heading
-      let sib = heading.nextElementSibling;
-      while (sib) { candidates.push(sib); sib = sib.nextElementSibling; }
-      // Also try direct parent if it has multiple children
-      if (parent && parent.children.length > 2) candidates.push(parent);
-
-      const searchRoot = candidates.length > 0
-        ? { querySelectorAll: (sel) => {
-            const all = [];
-            candidates.forEach(c => c.querySelectorAll(sel).forEach(el => all.push(el)));
-            return all;
-          }}
-        : parent;
+      if (!articleContainer) {
+        // Fallback: find H2 "Latest Stories" and get parent's next sibling
+        const heading = Array.from(document.querySelectorAll('h2,h3,h4'))
+          .find(el => /latest stories/i.test(el.innerText?.trim()));
+        const fallbackContainer = heading?.closest('header,section,[class*="header"]')?.nextElementSibling;
+        return { results: [], debug: `no_container heading_found:${!!heading} fallback:${!!fallbackContainer} fallback_class:${fallbackContainer?.className?.slice(0,60)}` };
+      }
 
       const results = [];
       const seen = new Set();
 
-      searchRoot.querySelectorAll('a[href]').forEach(a => {
+      articleContainer.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
@@ -664,7 +659,7 @@ async function fetchNiceKicks(browser) {
 
       return {
         results: results.slice(0, 15),
-        debug: `heading_tag:${heading.tagName} parent_tag:${parent?.tagName} parent_class:${parent?.className?.slice(0,60)} sibling_count:${candidates.length-1} links_found:${results.length}`
+        debug: `container_class:${articleContainer.className?.slice(0,80)} links_found:${results.length}`
       };
     });
 
