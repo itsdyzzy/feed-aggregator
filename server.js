@@ -556,46 +556,47 @@ async function fetchNiceKicks(browser) {
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    // Scroll down to trigger lazy-load of Latest Stories section
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
     await page.waitForTimeout(2000);
     const results = await page.evaluate(() => {
       const results = [];
-      // Find the "Latest Stories" heading then grab article links after it
-      const headings = Array.from(document.querySelectorAll('h2,h3,[class*="heading"],[class*="title"]'));
-      const latestHeading = headings.find(h => h.innerText?.toLowerCase().includes('latest'));
-      const searchRoot = latestHeading?.closest('section,[class*="section"],[class*="block"]') || document;
-      searchRoot.querySelectorAll('a[href]').forEach(a => {
+      // Only grab links that are inside an article/card element that also has a <time> tag
+      // This filters out nav links, category hubs, and promo banners
+      document.querySelectorAll('article, [class*="card"], [class*="post"], [class*="story"]').forEach(card => {
+        const timeEl = card.querySelector('time');
+        if (!timeEl) return; // must have a date — rules out nav/category cards
+        const a = card.querySelector('a[href]');
+        if (!a) return;
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
-        const segs = new URL(href).pathname.split('/').filter(Boolean);
-        // Article URLs have at least 1 slug segment, not just category pages
-        if (segs.length < 1 || segs[0].length < 3) return;
-        if (href.match(/\/(category|tag|page|about|contact|newsletter)\/?/i)) return;
-        // Get title — prefer heading inside the link, else link text
-        const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="name"]');
+        // Skip known non-article paths
+        if (href.match(/\/(category|tag|page|about|contact|newsletter|release-dates|sign-up|deals)\/?$/i)) return;
+        // URL must have a meaningful slug (more than just a brand name)
+        const pathname = new URL(href).pathname;
+        const segs = pathname.split('/').filter(Boolean);
+        if (segs.length < 1 || segs[0].length < 5) return;
+        // Skip single-word category slugs like /converse/ /nike/ /jordan/
+        if (segs.length === 1 && !segs[0].includes('-')) return;
+        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]');
         const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
-        if (!title || title.length < 8) return;
-        const card = a.closest('article,[class*="card"],[class*="post"],[class*="item"],[class*="story"]');
-        const timeEl = card?.querySelector('time');
-        const img = card?.querySelector('img');
+        if (!title || title.length < 10) return;
+        const img = card.querySelector('img');
         const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || null);
         results.push({
           source: 'nicekicks', sourceName: 'Nice Kicks',
-          title, description: '',
-          link: href,
-          date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
+          title, description: '', link: href,
+          date: timeEl.getAttribute('datetime') || timeEl.innerText?.trim() || '',
           image: imgSrc
         });
       });
       const seen = new Set();
-      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 15);
     });
-    // Fetch og:meta for missing images/dates (cap at 8 to stay fast)
-    const needsMeta = results.filter(a => !a.image || !a.date).slice(0, 8);
+    // Fetch og:meta only for articles missing images (cap at 8)
+    const needsMeta = results.filter(a => !a.image).slice(0, 8);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
-      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
     }));
     console.log('Nice Kicks scraped: ' + results.length + ' items');
