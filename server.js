@@ -125,28 +125,49 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
   return null;
 }
 
-// Pre-extract image URLs and description text from raw XML content:encoded blocks
-// before sanitizeRssFeed strips them. Returns array of {image, description} by item index.
+// Pre-extract image URLs and description text from raw XML before sanitizeRssFeed strips content:encoded.
 function preExtractFromRaw(raw) {
   const results = [];
   const itemBlocks = raw.split(/<item[\s>]/i);
   for (let i = 1; i < itemBlocks.length; i++) {
     const block = itemBlocks[i];
-    // Extract content:encoded block
-    const ceStart = block.indexOf('<content:encoded');
-    const ceEnd = block.indexOf('</content:encoded>');
     let image = null, description = '';
-    if (ceStart !== -1 && ceEnd !== -1) {
-      let ce = block.slice(ceStart, ceEnd + 18);
-      // Strip CDATA wrapper if present
-      ce = ce.replace(/<!\[CDATA\[|\]\]>/g, '');
-      // Extract first image src
-      const imgMatch = ce.match(/<img[^>]+src=["']([^"']+)["']/i)
-                    || ce.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
-      if (imgMatch) image = imgMatch[1] || imgMatch[0];
-      // Strip HTML tags for plain text description
+
+    // Check media:content and media:thumbnail first (highest quality)
+    const mediaMatch = block.match(/media:content[^>]+url=["']([^"']+)["']/i)
+                    || block.match(/media:thumbnail[^>]+url=["']([^"']+)["']/i)
+                    || block.match(/enclosure[^>]+url=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
+    if (mediaMatch) image = mediaMatch[1];
+
+    // Extract content:encoded — scoped correctly within this item block
+    const ceOpen = block.indexOf('<content:encoded');
+    const ceClose = block.indexOf('</content:encoded>');
+    if (ceOpen !== -1 && ceClose !== -1 && ceClose > ceOpen) {
+      let ce = block.slice(ceOpen, ceClose);
+      // Strip CDATA wrapper(s)
+      ce = ce.replace(/<!\[CDATA\[/g, '').replace(/\]\]>/g, '');
+      // Extract image from content:encoded if not already found
+      if (!image) {
+        const imgMatch = ce.match(/<img[^>]+src=["']([^"']+)["']/i)
+                      || ce.match(/<img[^>]+src=([^\s>]+)/i)
+                      || ce.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)(?:[?][^\s"'<>]*)?/i);
+        if (imgMatch) image = (imgMatch[1] || imgMatch[0]).replace(/['"]/g, '');
+      }
+      // Plain text description from content:encoded
       description = ce.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
     }
+
+    // If still no image, try any bare img src in the whole item block
+    if (!image) {
+      const bareImg = block.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
+      if (bareImg) image = bareImg[1];
+    }
+
+    // Skip tracking pixels and tiny images
+    if (image && (image.includes('pixel') || image.includes('1x1') || image.includes('tracking'))) {
+      image = null;
+    }
+
     results.push({ image, description });
   }
   return results;
