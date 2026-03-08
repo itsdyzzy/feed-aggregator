@@ -597,106 +597,89 @@ async function fetchNiceKicks(browser) {
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
     await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    // Wait for article list to populate after the .archive-recent-header
-    await page.evaluate(() => window.scrollTo(0, 500));
-    await page.waitForTimeout(1500);
-
-    // Wait for article content to load after the Latest Stories header
-    try {
-      await page.waitForFunction(
-        () => {
-          const header = document.querySelector('.archive-recent-header');
-          return header?.nextElementSibling?.querySelectorAll('a[href]').length > 0;
-        },
-        { timeout: 10000 }
-      );
-    } catch(e) { console.log('NK: waiting for articles timed out, trying scroll'); }
-    await page.evaluate(() => window.scrollTo(0, 500));
-    await page.waitForTimeout(1500);
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await page.waitForTimeout(2000);
 
     const results = await page.evaluate(() => {
-      // The Latest Stories header is .archive-recent-header
-      // Articles are in its next sibling element
-      const header = document.querySelector('.archive-recent-header');
-
-      // Map ALL containers with nicekicks links so we can identify the right one
-      const containerMap = Array.from(document.querySelectorAll('div[class],section[class],ul[class],ol[class],aside[class]'))
-        .filter(el => el.querySelectorAll('a[href*="nicekicks.com"]').length >= 3)
-        .map(el => ({
-          tag: el.tagName,
-          cls: el.className?.trim().slice(0, 80),
-          links: el.querySelectorAll('a[href]').length,
-          firstTitle: el.querySelector('h1,h2,h3,h4,[class*="title"]')?.innerText?.trim().slice(0, 50) || '',
-          sample: Array.from(el.querySelectorAll('a[href*="nicekicks.com"]')).slice(0,2).map(a => a.href.replace('https://nicekicks.com',''))
-        }));
-
-      if (!header) return { results: [], containerMap, debug: 'NO_ARCHIVE_RECENT_HEADER' };
-
-      // Try all next siblings of the header — the list may not be immediately adjacent
-      const siblings = [];
-      let sib = header.nextElementSibling;
-      while (sib) { siblings.push(sib); sib = sib.nextElementSibling; }
-
-      // Also check header's parent's next sibling
-      const parentNext = header.parentElement?.nextElementSibling;
-      if (parentNext) siblings.unshift(parentNext);
-
       const results = [];
       const seen = new Set();
 
-      for (const container of siblings) {
-        container.querySelectorAll('a[href]').forEach(a => {
-          const href = a.href || '';
-          if (!href.includes('nicekicks.com')) return;
-          if (seen.has(href)) return;
-          if (href.match(/\/(release-dates|upcoming-drops|available-now|sign-up|deals|newsletter|category|tag|#|sms|sneaker-release)/i)) return;
-          const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
-          if (!slug || !slug.includes('-')) return;
-          const card = a.closest('li,article,[class*="item"],[class*="story"],[class*="card"]') || a.parentElement;
-          const titleEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"]')
-            || card?.querySelector('h1,h2,h3,h4,[class*="title"]');
-          const title = (titleEl?.innerText || a.innerText || '').trim().split('\n')[0].trim();
-          if (!title || title.length < 8) return;
-          const img = a.querySelector('img') || card?.querySelector('img');
-          const imgSrc = img?.src?.startsWith('http') ? img.src
-            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
-          const timeEl = card?.querySelector('time');
-          seen.add(href);
-          results.push({
-            source: 'nicekicks', sourceName: 'Nice Kicks',
-            title, description: '', link: href,
-            date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '',
-            image: imgSrc
-          });
+      // The Latest Stories layout: each row is a container with
+      // a large image on the left and a title on the right, stacked vertically.
+      // Key signature: an <a> that wraps BOTH an <img> AND has a sibling <a> with text,
+      // OR a parent element with exactly one img and one heading as descendants.
+      // Strategy: find all <a> tags that contain an <img> with width > 200px (the left image link),
+      // then look for the title in the same parent row.
+
+      const allLinks = document.querySelectorAll('a[href]');
+      allLinks.forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('nicekicks.com')) return;
+        if (seen.has(href)) return;
+        if (href.match(/\/(sign-up|deals|newsletter|category|tag|#|sms|about|adidas$|nike$|jordan$|puma$|reebok$|vans$|converse$|new-balance$)/i)) return;
+        const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
+        if (!slug || !slug.includes('-')) return;
+
+        // Find a parent that looks like a row card (has both img and a title heading)
+        let card = a.parentElement;
+        for (let i = 0; i < 5; i++) {
+          if (!card) break;
+          const hasImg = card.querySelector('img') !== null;
+          const hasHeading = card.querySelector('h1,h2,h3,h4') !== null;
+          if (hasImg && hasHeading) break;
+          card = card.parentElement;
+        }
+        if (!card) return;
+
+        // Only accept cards that have BOTH img and heading
+        const img = card.querySelector('img');
+        const heading = card.querySelector('h1,h2,h3,h4');
+        if (!img || !heading) return;
+
+        // The img should be reasonably sized (not a tiny icon/logo)
+        const imgWidth = img.naturalWidth || img.width || img.clientWidth;
+        if (imgWidth > 0 && imgWidth < 100) return;
+
+        const title = heading.innerText.trim().split('\n')[0].trim();
+        if (!title || title.length < 5) return;
+
+        const imgSrc = img.src?.startsWith('http') ? img.src
+          : (img.dataset?.src || img.dataset?.lazySrc || img.dataset?.original || null);
+
+        // Date badge if present
+        const badge = card.querySelector('[class*="date"], time');
+        const date = badge?.getAttribute('datetime') || badge?.innerText?.trim() || '';
+
+        seen.add(href);
+        results.push({
+          source: 'nicekicks', sourceName: 'Nice Kicks',
+          title, description: '', link: href, date, image: imgSrc
         });
-      }
+      });
 
       return {
-        results: results.slice(0, 15),
-        containerMap,
-        debug: `siblings:${siblings.length} links_found:${results.length}`
+        items: results.slice(0, 15),
+        debug: `total_links:${allLinks.length} found:${results.length}`,
+        sampleTitles: results.slice(0, 5).map(r => r.title)
       };
     });
 
     console.log('NK DEBUG:', results.debug);
-    console.log('NK CONTAINERS:', JSON.stringify(results.containerMap?.slice(0,6)));
+    console.log('NK titles:', results.sampleTitles?.join(' | '));
 
-    if (!results.results?.length) {
-      // Log full body text snippet to understand page structure
-      const bodySnippet = await page.evaluate(() => document.body?.innerText?.slice(0, 500));
-      console.log('NK DEBUG body:', bodySnippet);
+    if (!results.items?.length) {
+      const bodySnippet = await page.evaluate(() => document.body?.innerText?.slice(0, 300));
+      console.log('NK body:', bodySnippet);
       return [];
     }
 
-    const articles = results.results;
-    // Fetch og:meta for any missing images or dates
-    await Promise.allSettled(articles.filter(a => !a.image || !a.date).slice(0, 10).map(async (a) => {
+    const articles = results.items;
+    await Promise.allSettled(articles.filter(a => !a.image || !a.date?.includes('-')).slice(0, 12).map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
-      if (meta.date && !a.date) a.date = meta.date;
+      if (meta.date) a.date = meta.date;
     }));
     console.log('Nice Kicks scraped: ' + articles.length + ' items');
-    console.log('NK titles:', articles.slice(0,3).map(a => a.title).join(' | '));
     return articles;
   } catch(e) { console.error('Nice Kicks scrape error:', e.message); return []; }
   finally { await page.close(); }
