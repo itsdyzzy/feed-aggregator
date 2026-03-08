@@ -240,7 +240,7 @@ async function fetchHypebeast(browser) {
     try {
       await page.goto('https://hypebeast.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForTimeout(1500);
-      const { items: results, debugLinks } = await page.evaluate(() => {
+      const { items: results, debugLinks, bodySnip } = await page.evaluate(() => {
         const results = [];
         const debugLinks = Array.from(document.querySelectorAll('a[href]'))
           .filter(a => a.href.includes('hypebeast.com') && a.href.includes('/20'))
@@ -266,9 +266,10 @@ async function fetchHypebeast(browser) {
           });
         });
         const seen = new Set();
-        return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20), debugLinks };
+        return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20), debugLinks, bodySnip: debugLinks.length === 0 ? (document.body?.innerText?.slice(0, 200) || '') : '' };
       });
       console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
+      if (results.length === 0) console.log('HB body snip:', bodySnip);
       console.log('HB homepage items before meta:', results.length);
       // Images are lazy-loaded on homepage — fetch og:meta for any article missing an image
       await Promise.allSettled(results.filter(a => !a.image || !a.date).map(async (a) => {
@@ -608,11 +609,14 @@ async function fetchNiceKicks(browser) {
 
       if (!topBrandsHeading) return { items: [], debug: 'NO_TOP_BRANDS_HEADING' };
 
-      // Walk up to the section/block container for "Top Brands"
-      const topBrandsSection = topBrandsHeading.closest('section, [class*="section"], [class*="block"], [class*="widget"]')
-        || topBrandsHeading.parentElement;
-
-      // Latest Stories section is the next sibling
+      // wp-block-heading has no section wrapper — walk up until we find
+      // an ancestor that actually has a nextElementSibling
+      let topBrandsSection = topBrandsHeading;
+      for (let i = 0; i < 6; i++) {
+        if (topBrandsSection.nextElementSibling) break;
+        topBrandsSection = topBrandsSection.parentElement;
+        if (!topBrandsSection) break;
+      }
       const latestStoriesSection = topBrandsSection?.nextElementSibling;
 
       if (!latestStoriesSection) return { items: [], debug: `top_brands_found class:${topBrandsSection?.className?.slice(0,60)} but no next sibling` };
