@@ -601,65 +601,51 @@ async function fetchNiceKicks(browser) {
     await page.waitForTimeout(2000);
 
     const results = await page.evaluate(() => {
+      // "Top Brands" is a static section that always precedes "Latest Stories"
+      // Find it, then grab its parent's next sibling — that's the Latest Stories section
+      const topBrandsHeading = Array.from(document.querySelectorAll('h2,h3,h4,p,[class*="title"],[class*="heading"]'))
+        .find(el => /top brands/i.test(el.innerText?.trim()));
+
+      if (!topBrandsHeading) return { items: [], debug: 'NO_TOP_BRANDS_HEADING' };
+
+      // Walk up to the section/block container for "Top Brands"
+      const topBrandsSection = topBrandsHeading.closest('section, [class*="section"], [class*="block"], [class*="widget"]')
+        || topBrandsHeading.parentElement;
+
+      // Latest Stories section is the next sibling
+      const latestStoriesSection = topBrandsSection?.nextElementSibling;
+
+      if (!latestStoriesSection) return { items: [], debug: `top_brands_found class:${topBrandsSection?.className?.slice(0,60)} but no next sibling` };
+
       const results = [];
       const seen = new Set();
 
-      // The Latest Stories layout: each row is a container with
-      // a large image on the left and a title on the right, stacked vertically.
-      // Key signature: an <a> that wraps BOTH an <img> AND has a sibling <a> with text,
-      // OR a parent element with exactly one img and one heading as descendants.
-      // Strategy: find all <a> tags that contain an <img> with width > 200px (the left image link),
-      // then look for the title in the same parent row.
-
-      const allLinks = document.querySelectorAll('a[href]');
-      allLinks.forEach(a => {
+      latestStoriesSection.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
-        if (href.match(/\/(sign-up|deals|newsletter|category|tag|#|sms|about|adidas$|nike$|jordan$|puma$|reebok$|vans$|converse$|new-balance$)/i)) return;
+        if (href.match(/\/(sign-up|deals|newsletter|category|tag|#|sms)/i)) return;
         const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
-        if (!slug || !slug.includes('-')) return;
+        if (!slug?.includes('-')) return;
 
-        // Find a parent that looks like a row card (has both img and a title heading)
-        let card = a.parentElement;
-        for (let i = 0; i < 5; i++) {
-          if (!card) break;
-          const hasImg = card.querySelector('img') !== null;
-          const hasHeading = card.querySelector('h1,h2,h3,h4') !== null;
-          if (hasImg && hasHeading) break;
-          card = card.parentElement;
-        }
-        if (!card) return;
-
-        // Only accept cards that have BOTH img and heading
-        const img = card.querySelector('img');
-        const heading = card.querySelector('h1,h2,h3,h4');
-        if (!img || !heading) return;
-
-        // The img should be reasonably sized (not a tiny icon/logo)
-        const imgWidth = img.naturalWidth || img.width || img.clientWidth;
-        if (imgWidth > 0 && imgWidth < 100) return;
-
-        const title = heading.innerText.trim().split('\n')[0].trim();
+        const card = a.closest('li, article, [class*="item"], [class*="post"], [class*="story"]') || a.parentElement;
+        const titleEl = card?.querySelector('h2,h3,h4,[class*="title"],[class*="headline"]');
+        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 5) return;
 
-        const imgSrc = img.src?.startsWith('http') ? img.src
-          : (img.dataset?.src || img.dataset?.lazySrc || img.dataset?.original || null);
-
-        // Date badge if present
-        const badge = card.querySelector('[class*="date"], time');
-        const date = badge?.getAttribute('datetime') || badge?.innerText?.trim() || '';
+        const img = card?.querySelector('img');
+        const imgSrc = img?.src?.startsWith('http') ? img.src
+          : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
+        const timeEl = card?.querySelector('time, [class*="date"]');
+        const date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
 
         seen.add(href);
-        results.push({
-          source: 'nicekicks', sourceName: 'Nice Kicks',
-          title, description: '', link: href, date, image: imgSrc
-        });
+        results.push({ source: 'nicekicks', sourceName: 'Nice Kicks', title, description: '', link: href, date, image: imgSrc });
       });
 
       return {
         items: results.slice(0, 15),
-        debug: `total_links:${allLinks.length} found:${results.length}`,
+        debug: `section_class:${latestStoriesSection.className?.slice(0,80)} found:${results.length}`,
         sampleTitles: results.slice(0, 5).map(r => r.title)
       };
     });
