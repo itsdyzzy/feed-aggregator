@@ -597,8 +597,15 @@ async function fetchNiceKicks(browser) {
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
-    await page.goto('https://nicekicks.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.evaluate(() => window.scrollTo(0, 600));
+    await page.goto('https://nicekicks.com/', { waitUntil: 'networkidle', timeout: 45000 });
+    // Wait for "Top Brands" heading to appear — signals full JS render
+    try {
+      await page.waitForFunction(
+        () => Array.from(document.querySelectorAll('h2,h3,h4')).some(el => /top brands/i.test(el.innerText?.trim())),
+        { timeout: 10000 }
+      );
+    } catch(e) { console.log('NK: Top Brands heading not found after wait'); }
+    await page.evaluate(() => window.scrollTo(0, 800));
     await page.waitForTimeout(2000);
 
     const results = await page.evaluate(() => {
