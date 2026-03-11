@@ -68,6 +68,23 @@ async function fetchOgMeta(url) {
   } catch { return { image: null, date: null }; }
 }
 
+// Playwright-based og:meta fetcher for sites that block plain HTTP (e.g. Hypebeast CDN)
+async function fetchOgMetaViaBrowser(browser, url) {
+  const page = await browser.newPage();
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    const meta = await page.evaluate(() => {
+      const imgEl = document.querySelector('meta[property="og:image"]');
+      const dateEl = document.querySelector('meta[property="article:published_time"]');
+      const image = imgEl?.content?.startsWith('http') ? imgEl.content : null;
+      const date = dateEl?.content || null;
+      return { image, date };
+    });
+    return meta;
+  } catch { return { image: null, date: null }; }
+  finally { await page.close(); }
+}
+
 async function fetchViaRss2json(feedUrl, source, sourceName) {
   try {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
@@ -271,12 +288,13 @@ async function fetchHypebeast(browser) {
       console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
       if (results.length === 0) console.log('HB body snip:', bodySnip);
       console.log('HB homepage items before meta:', results.length);
-      // Images are lazy-loaded on homepage — fetch og:meta for any article missing an image
-      await Promise.allSettled(results.filter(a => !a.image || !a.date).map(async (a) => {
-        const meta = await fetchOgMeta(a.link);
+      // Images are lazy-loaded — Hypebeast blocks plain HTTP fetches, use browser for og:meta
+      // Process sequentially in batches to avoid too many open pages
+      for (const a of results.filter(r => !r.image || !r.date)) {
+        const meta = await fetchOgMetaViaBrowser(browser, a.link);
         if (meta.image && !a.image) a.image = meta.image;
         if (meta.date && !a.date) a.date = meta.date;
-      }));
+      }
       const withImages = results.filter(a => a.image).length;
       console.log(`HB images: ${withImages}/${results.length} have images`);
       console.log('Hypebeast homepage: ' + results.length + ' items');
@@ -609,45 +627,55 @@ async function fetchNiceKicks(browser) {
     await page.waitForTimeout(2000);
 
     const results = await page.evaluate(() => {
-      // "Top Brands" is a static section that always precedes "Latest Stories"
-      // Find it, then grab its parent's next sibling — that's the Latest Stories section
-      const topBrandsHeading = Array.from(document.querySelectorAll('h2,h3,h4,p,[class*="title"],[class*="heading"]'))
-        .find(el => /top brands/i.test(el.innerText?.trim()));
+      // Find "Latest Stories" heading directly — most reliable anchor
+      const allEls = Array.from(document.querySelectorAll('*'));
+      const latestStoriesHeading = allEls.find(el => {
+        if (el.children.length > 3) return false; // skip containers
+        const text = el.innerText?.trim();
+        return text === 'Latest Stories' || text === 'LATEST STORIES';
+      });
 
-      if (!topBrandsHeading) return { items: [], debug: 'NO_TOP_BRANDS_HEADING' };
+      // Log some headings for debug
+      const headingTexts = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5'))
+        .map(el => el.innerText?.trim()?.slice(0, 40)).filter(Boolean).slice(0, 15).join(' | ');
 
-      // wp-block-heading has no section wrapper — walk up until we find
-      // an ancestor that actually has a nextElementSibling
-      let topBrandsSection = topBrandsHeading;
-      for (let i = 0; i < 6; i++) {
-        if (topBrandsSection.nextElementSibling) break;
-        topBrandsSection = topBrandsSection.parentElement;
-        if (!topBrandsSection) break;
+      if (!latestStoriesHeading) return { items: [], debug: 'NO_LATEST_STORIES_HEADING', headingTexts };
+
+      // Walk up from heading until container has 3+ links AND 3+ images
+      let container = latestStoriesHeading.parentElement;
+      for (let i = 0; i < 10; i++) {
+        if (!container) break;
+        if (container.querySelectorAll('a[href]').length >= 3 && container.querySelectorAll('img').length >= 3) break;
+        container = container.parentElement;
       }
-      const latestStoriesSection = topBrandsSection?.nextElementSibling;
-
-      if (!latestStoriesSection) return { items: [], debug: `top_brands_found class:${topBrandsSection?.className?.slice(0,60)} but no next sibling` };
+      if (!container) return { items: [], debug: 'NO_CONTAINER_FOUND', headingTexts };
 
       const results = [];
       const seen = new Set();
-
-      latestStoriesSection.querySelectorAll('a[href]').forEach(a => {
+      container.querySelectorAll('a[href]').forEach(a => {
         const href = a.href || '';
         if (!href.includes('nicekicks.com')) return;
         if (seen.has(href)) return;
-        if (href.match(/\/(sign-up|deals|newsletter|category|tag|#|sms)/i)) return;
+        if (href.match(/\/(sign-up|deals|newsletter|category|tag|sms|top-brands|\.com\/?$)/i)) return;
         const slug = new URL(href).pathname.replace(/\/$/, '').split('/').pop();
-        if (!slug?.includes('-')) return;
+        if (!slug || !slug.includes('-') || slug.length < 5) return;
 
-        const card = a.closest('li, article, [class*="item"], [class*="post"], [class*="story"]') || a.parentElement;
-        const titleEl = card?.querySelector('h2,h3,h4,[class*="title"],[class*="headline"]');
+        // Find card wrapper with both img and a title
+        let card = a;
+        for (let i = 0; i < 7; i++) {
+          if (!card) break;
+          if (card.querySelector('img') && card.querySelector('h1,h2,h3,h4,h5,[class*="title"]')) break;
+          card = card.parentElement;
+        }
+        if (!card) return;
+
+        const titleEl = card.querySelector('h1,h2,h3,h4,h5,[class*="title"],[class*="headline"]');
         const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
         if (!title || title.length < 5) return;
 
-        const img = card?.querySelector('img');
-        const imgSrc = img?.src?.startsWith('http') ? img.src
-          : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
-        const timeEl = card?.querySelector('time, [class*="date"]');
+        const img = card.querySelector('img');
+        const imgSrc = img?.src?.startsWith('http') ? img.src : (img?.dataset?.src || img?.dataset?.lazySrc || null);
+        const timeEl = card.querySelector('time,[class*="date-badge"],[class*="date"]');
         const date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
 
         seen.add(href);
@@ -656,12 +684,14 @@ async function fetchNiceKicks(browser) {
 
       return {
         items: results.slice(0, 15),
-        debug: `section_class:${latestStoriesSection.className?.slice(0,80)} found:${results.length}`,
-        sampleTitles: results.slice(0, 5).map(r => r.title)
+        debug: `container:${container.className?.slice(0,80)} found:${results.length}`,
+        sampleTitles: results.slice(0, 5).map(r => r.title),
+        headingTexts
       };
     });
 
     console.log('NK DEBUG:', results.debug);
+    console.log('NK headings:', results.headingTexts?.slice(0, 200));
     console.log('NK titles:', results.sampleTitles?.join(' | '));
 
     if (!results.items?.length) {
