@@ -416,7 +416,7 @@
 <div class="controls">
   <div class="search-wrap">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="searchInput" placeholder="Search articles..." oninput="renderArticles()"/>
+    <input type="search" id="searchInput" placeholder="Search articles..." oninput="visibleCount=PAGE_SIZE;renderArticles()"/>
   </div>
   <div class="filters">
     <div class="source-dropdown" id="sourceDropdown">
@@ -489,6 +489,8 @@
 <script>
   let allArticles = [];
   let activeFilter = 'all';
+  let visibleCount = 15;
+  const PAGE_SIZE = 15;
 
   function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -542,6 +544,7 @@
       btn.classList.add('filtered');
     }
     closeDropdown();
+    visibleCount = PAGE_SIZE;
     renderArticles();
   }
 
@@ -584,7 +587,8 @@
       return;
     }
 
-    grid.innerHTML = filtered.map((a, i) => `
+    const visible = filtered.slice(0, visibleCount);
+    grid.innerHTML = visible.map((a, i) => `
       <div class="card" style="animation-delay:${Math.min(i * 0.04, 0.6)}s" onclick="window.open('${a.link}','_blank')">
         <div class="card-meta">
           <span class="source-tag ${a.source}">${a.sourceName}</span>
@@ -601,23 +605,63 @@
         </a>
       </div>
     `).join('');
+    // Sentinel element — IntersectionObserver triggers next page load
+    if (visibleCount < filtered.length) {
+      const sentinel = document.createElement('div');
+      sentinel.id = 'scroll-sentinel';
+      sentinel.style.cssText = 'grid-column:1/-1;height:1px;';
+      grid.appendChild(sentinel);
+      observeSentinel(filtered);
+    }
 
     // Update ticker
     const titles = filtered.slice(0, 10).map(a => a.title).join(' &nbsp;·&nbsp; ');
     document.getElementById('tickerText').innerHTML = titles + ' &nbsp;·&nbsp;&nbsp;';
   }
 
-  async function loadArticles() {
+  let scrollObserver = null;
+  function observeSentinel(filtered) {
+    if (scrollObserver) scrollObserver.disconnect();
+    const sentinel = document.getElementById('scroll-sentinel');
+    if (!sentinel) return;
+    scrollObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        scrollObserver.disconnect();
+        visibleCount += PAGE_SIZE;
+        renderArticles();
+      }
+    }, { rootMargin: '200px' });
+    scrollObserver.observe(sentinel);
+  }
+
+  async function loadArticles(isRetry = false) {
+    if (!isRetry) {
+      document.getElementById('grid').innerHTML = `
+        <div class="loader">
+          <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="loader-text">Loading feeds…</div>
+        </div>`;
+    }
     try {
       const res = await fetch('/api/articles');
       const data = await res.json();
       allArticles = data.articles || [];
+      if (allArticles.length === 0 && !isRetry) {
+        document.getElementById('grid').innerHTML = `
+          <div class="loader">
+            <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="loader-text">Fetching feeds, hang tight…</div>
+          </div>`;
+        setTimeout(() => loadArticles(true), 4000);
+        return;
+      }
       renderArticles();
       document.getElementById('errorBanner').style.display = 'none';
     } catch (e) {
       document.getElementById('errorBanner').textContent = 'Could not load articles. Retrying...';
       document.getElementById('errorBanner').style.display = 'block';
       document.getElementById('grid').innerHTML = '<div class="state-msg">Error loading feeds</div>';
+      setTimeout(() => loadArticles(true), 5000);
     }
   }
 
