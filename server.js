@@ -316,51 +316,73 @@ async function fetchHypebeast(browser) {
   finally { await page.close(); }
 }
 
-async function fetchHighsnobiety() {
-  const feedUrls = [
-    'https://www.highsnobiety.com/feed/',
-    'https://www.highsnobiety.com/sneakers/feed/',
-    'https://www.highsnobiety.com/style/feed/',
-  ];
-  let articles = [];
-  for (const feedUrl of feedUrls) {
-    try {
-      const res = await fetch(feedUrl, {
-        signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+async function fetchHighsnobiety(browser) {
+  const page = await browser.newPage();
+  try {
+    await page.setExtraHTTPHeaders({
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+    });
+    await page.goto('https://www.highsnobiety.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
+
+    const results = await page.evaluate(() => {
+      const articles = [];
+      const feedSection = document.querySelector('[data-cy="section-SectionContentFeedV2"]');
+      const teasers = (feedSection || document).querySelectorAll('[data-cy="teaser"]');
+      teasers.forEach(teaser => {
+        const linkEl = teaser.querySelector('[data-cy="teaser-link"]');
+        const href = linkEl?.href || '';
+        if (!href || !href.includes('highsnobiety.com')) return;
+        const titleEl = teaser.querySelector('h1,h2,h3,h4,[class*="title"],[class*="heading"]');
+        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
+        if (!title || title.length < 5) return;
+        const imgEl = teaser.querySelector('[data-cy="teaser-image"] img, img');
+        const image = imgEl?.src?.startsWith('http') ? imgEl.src
+          : (imgEl?.dataset?.src || imgEl?.srcset?.split(' ')[0] || null);
+        const timeEl = teaser.querySelector('time');
+        const date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
+        articles.push({ source: 'highsnobiety', sourceName: 'Highsnobiety', title, description: '', link: href, date, image: image || null });
       });
-      if (!res.ok) continue;
+      const seen = new Set();
+      return articles.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+    });
+
+    console.log(`Highsnobiety scraped: ${results.length} items`);
+
+    // Enrich og:meta for any missing date or image
+    const needsMeta = results.filter(a => !a.date || !a.image).slice(0, 15);
+    await Promise.allSettled(needsMeta.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
+
+    if (results.length > 0) return results;
+  } catch(e) { console.error('Highsnobiety scrape error:', e.message); }
+  finally { await page.close(); }
+
+  // RSS fallback
+  console.log('Highsnobiety: falling back to RSS');
+  try {
+    const res = await fetch('https://www.highsnobiety.com/feed/', {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*', 'Cache-Control': 'no-cache' }
+    });
+    if (res.ok) {
       const raw = await res.text();
-      const xml = sanitizeRssFeed(raw);
-      const feed = await parser.parseString(xml);
+      const feed = await parser.parseString(sanitizeRssFeed(raw));
       if (feed.items?.length) {
-        const items = feed.items.slice(0, 20).map(item => ({
+        return feed.items.slice(0, 20).map(item => ({
           source: 'highsnobiety', sourceName: 'Highsnobiety',
           title: item.title || '', description: item.contentSnippet || '',
           link: item.link || '', date: item.pubDate || item.isoDate || '',
           image: extractImage(item)
         }));
-        // Merge — dedupe by link, keeping whichever has a more recent date
-        for (const item of items) {
-          const existing = articles.find(a => a.link === item.link);
-          if (!existing) articles.push(item);
-        }
       }
-    } catch(e) { console.error(`Highsnobiety feed ${feedUrl}:`, e.message); }
-  }
-  if (!articles.length) {
-    console.error('Highsnobiety: all feeds failed');
-    return [];
-  }
-  console.log(`Highsnobiety: ${articles.length} items across feeds`);
-  // Enrich og:meta for articles missing image OR date
-  const needsMeta = articles.filter(a => !a.image || !a.date);
-  await Promise.allSettled(needsMeta.map(async (a) => {
-    const meta = await fetchOgMeta(a.link);
-    if (meta.image && !a.image) a.image = meta.image;
-    if (meta.date && !a.date) a.date = meta.date;
-  }));
-  return articles;
+    }
+  } catch(e) { console.error('Highsnobiety RSS fallback failed:', e.message); }
+  return [];
 }
 
 async function fetchSneakerNews() {
@@ -644,14 +666,15 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHighsnobiety(), fetchSneakerNews(), fetchJustFreshKicks(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
+        fetchSneakerNews(), fetchJustFreshKicks(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
-      const hypeArticles    = await fetchHypebeast(browser).catch(e => { console.error('Hypebeast failed:', e.message); return []; });
-      const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
-      const mnArticles      = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
+      const hypeArticles       = await fetchHypebeast(browser).catch(e => { console.error('Hypebeast failed:', e.message); return []; });
+      const highsnobArticles   = await fetchHighsnobiety(browser).catch(e => { console.error('Highsnobiety failed:', e.message); return []; });
+      const complexArticles    = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
+      const mnArticles         = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
 
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
@@ -659,19 +682,18 @@ async function fetchAllFeeds() {
       // Await RSS results + enrich WWD images in parallel (WWD has no images in RSS feed)
       const [rssResults] = await Promise.all([
         rssPromise,
-        Promise.resolve() // placeholder — WWD enrichment runs after we have the articles
+        Promise.resolve()
       ]);
-      const [highsnobiety, sneakernews, justfreshkicks, hiphopdx, soleretriever, wwd] = rssResults;
+      const [sneakernews, justfreshkicks, hiphopdx, soleretriever, wwd] = rssResults;
 
       const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
-      // Fetch WWD images now — browser is closed, memory is free, runs in parallel with sort/cache
       const wwdImagePromise = Promise.allSettled(wwdArticles.map(async (a) => {
         const meta = await fetchOgMeta(a.link);
         if (meta.image) a.image = meta.image;
       }));
       const articles = [
         ...hypeArticles,
-        ...(highsnobiety.status  === 'fulfilled' ? highsnobiety.value  : []),
+        ...highsnobArticles,
         ...(sneakernews.status      === 'fulfilled' ? sneakernews.value      : []),
         ...(justfreshkicks.status === 'fulfilled' ? justfreshkicks.value : []),
         ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
