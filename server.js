@@ -346,14 +346,18 @@ async function fetchSneakerNews() {
     const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
     const items = feed.items?.slice(0, 20) || [];
-    const articles = items.map((item, i) => ({
-      source: 'sneakernews', sourceName: 'Sneaker News',
-      title: item.title || '',
-      description: item.contentSnippet || preExtracted[i]?.description || '',
-      link: item.link || '', date: item.pubDate || item.isoDate || '',
-      image: extractImage(item) || preExtracted[i]?.image || null
-    }));
-    // Fetch og:image in parallel only for articles still missing an image
+    const isPlaceholder = (url) => !url || /ksfin|placeholder|default-img|blank/i.test(url) || url.startsWith('data:');
+    const articles = items.map((item, i) => {
+      const img = extractImage(item) || preExtracted[i]?.image || null;
+      return {
+        source: 'sneakernews', sourceName: 'Sneaker News',
+        title: item.title || '',
+        description: item.contentSnippet || preExtracted[i]?.description || '',
+        link: item.link || '', date: item.pubDate || item.isoDate || '',
+        image: isPlaceholder(img) ? null : img
+      };
+    });
+    // Fetch og:image for articles with missing or placeholder images
     const needsImg = articles.filter(a => !a.image);
     await Promise.allSettled(needsImg.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
