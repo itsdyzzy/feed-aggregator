@@ -326,6 +326,16 @@ async function fetchHighsnobiety(browser) {
     await page.goto('https://www.highsnobiety.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
 
+    // Click "Load More" up to 3 times to get enough articles
+    for (let i = 0; i < 3; i++) {
+      try {
+        const loadMore = await page.$('[data-cy="loadMoreButton"]');
+        if (!loadMore) break;
+        await loadMore.click();
+        await page.waitForTimeout(1500);
+      } catch(e) { break; }
+    }
+
     const results = await page.evaluate(() => {
       const articles = [];
       const feedSection = document.querySelector('[data-cy="section-SectionContentFeedV2"]');
