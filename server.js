@@ -267,7 +267,14 @@ async function fetchHypebeast(browser) {
       'Accept-Language': 'en-US,en;q=0.9',
     });
     await page.goto('https://hypebeast.com/latest', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
+
+    // Scroll down to trigger lazy-load for more articles and images
+    await page.setViewportSize({ width: 1280, height: 900 });
+    for (let i = 1; i <= 8; i++) {
+      await page.evaluate((pct) => window.scrollTo(0, document.body.scrollHeight * pct), i * 0.125);
+      await page.waitForTimeout(300);
+    }
+    await page.waitForTimeout(1000);
 
     const results = await page.evaluate(() => {
       const articles = [];
@@ -282,14 +289,16 @@ async function fetchHypebeast(browser) {
         if (!title || title.length < 10) return;
         const timeEl = card.querySelector('time');
         const img = card.querySelector('img');
+        // Try every possible image attribute
         const imgSrc = (img?.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
-          : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
-          || img?.srcset?.split(' ')[0] || null);
+          : img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
+          || img?.dataset?.srcset?.split(' ')[0]
+          || img?.srcset?.split(' ')[0] || null;
         articles.push({
           source: 'hypebeast', sourceName: 'Hypebeast',
           title, description: '', link: href,
           date: timeEl?.getAttribute('datetime') || '',
-          image: imgSrc || null
+          image: (imgSrc && !imgSrc.includes('data:')) ? imgSrc : null
         });
       });
       const seen = new Set();
@@ -300,16 +309,16 @@ async function fetchHypebeast(browser) {
       }).slice(0, 40);
     });
 
-    console.log(`Hypebeast /latest: ${results.length} items`);
+    console.log(`Hypebeast /latest: ${results.length} items, ${results.filter(r=>r.image).length} with images`);
 
-    // Enrich missing images and dates via og:meta
-    await Promise.allSettled(results.filter(r => !r.image || !r.date).slice(0, 15).map(async (a) => {
+    // Fetch og:meta for ALL missing images and dates (not capped — images are critical for HB)
+    await Promise.allSettled(results.filter(r => !r.image || !r.date).map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
     }));
 
-    // Rewrite through image proxy
+    // Rewrite through image proxy to bypass CDN hotlink protection
     for (const a of results) {
       if (a.image) a.image = '/api/img?url=' + encodeURIComponent(a.image);
     }
