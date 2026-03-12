@@ -372,6 +372,40 @@ async function fetchSneakerNews() {
   }
 }
 
+
+async function fetchJustFreshKicks() {
+  try {
+    const res = await fetch('https://justfreshkicks.com/feed/', {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const raw = await res.text();
+    const preExtracted = preExtractFromRaw(raw);
+    const xml = sanitizeRssFeed(raw);
+    const feed = await parser.parseString(xml);
+    const items = feed.items?.slice(0, 20) || [];
+    const articles = items.map((item, i) => ({
+      source: 'justfreshkicks', sourceName: 'Just Fresh Kicks',
+      title: item.title || '',
+      description: item.contentSnippet || preExtracted[i]?.description || '',
+      link: item.link || '', date: item.pubDate || item.isoDate || '',
+      image: extractImage(item) || preExtracted[i]?.image || null
+    }));
+    const needsImg = articles.filter(a => !a.image);
+    await Promise.allSettled(needsImg.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image) a.image = meta.image;
+    }));
+    console.log('Just Fresh Kicks: ' + articles.length + ' items');
+    return articles;
+  } catch(e) {
+    console.error('Just Fresh Kicks:', e.message);
+    const r2j = await fetchViaRss2json('https://justfreshkicks.com/feed/', 'justfreshkicks', 'Just Fresh Kicks');
+    return r2j || [];
+  }
+}
+
 async function fetchHipHopDX() {
   try {
     const res = await fetch('https://hiphopdx.com/rss/news.xml', {
@@ -581,7 +615,7 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchHighsnobiety(), fetchSneakerNews(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
+        fetchHighsnobiety(), fetchSneakerNews(), fetchJustFreshKicks(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
@@ -598,7 +632,7 @@ async function fetchAllFeeds() {
         rssPromise,
         Promise.resolve() // placeholder — WWD enrichment runs after we have the articles
       ]);
-      const [highsnobiety, sneakernews, hiphopdx, soleretriever, wwd] = rssResults;
+      const [highsnobiety, sneakernews, justfreshkicks, hiphopdx, soleretriever, wwd] = rssResults;
 
       const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
       // Fetch WWD images now — browser is closed, memory is free, runs in parallel with sort/cache
@@ -609,7 +643,8 @@ async function fetchAllFeeds() {
       const articles = [
         ...hypeArticles,
         ...(highsnobiety.status  === 'fulfilled' ? highsnobiety.value  : []),
-        ...(sneakernews.status   === 'fulfilled' ? sneakernews.value   : []),
+        ...(sneakernews.status      === 'fulfilled' ? sneakernews.value      : []),
+        ...(justfreshkicks.status === 'fulfilled' ? justfreshkicks.value : []),
         ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
         ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
         ...wwdArticles,
