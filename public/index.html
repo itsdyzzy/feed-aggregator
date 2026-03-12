@@ -24,6 +24,7 @@
       --tag-soleretriever: #00aaff;
       --tag-modernnotoriety: #ff6b00;
       --tag-wwd: #9b59b6;
+      --tag-justfreshkicks: #e74c3c;
     }
 
     html { scroll-behavior: smooth; }
@@ -304,6 +305,7 @@
     .source-tag.soleretriever { color: var(--tag-soleretriever); border-color: var(--tag-soleretriever); }
     .source-tag.modernnotoriety { color: var(--tag-modernnotoriety); border-color: var(--tag-modernnotoriety); }
     .source-tag.wwd { color: var(--tag-wwd); border-color: var(--tag-wwd); }
+    .source-tag.justfreshkicks { color: var(--tag-justfreshkicks); border-color: var(--tag-justfreshkicks); }
 
     .card-date { font-size: 0.7rem; color: var(--muted); }
 
@@ -471,6 +473,11 @@
           WWD
           <span class="item-count" id="count-wwd"></span>
         </button>
+        <button class="dropdown-item" data-source="justfreshkicks" onclick="setFilter('justfreshkicks')">
+          <span class="item-dot" style="background:var(--tag-justfreshkicks)"></span>
+          Just Fresh Kicks
+          <span class="item-count" id="count-justfreshkicks"></span>
+        </button>
       </div>
     </div>
   </div>
@@ -511,7 +518,8 @@
     all: 'ALL SOURCES', hypebeast: 'HYPEBEAST', highsnobiety: 'HIGHSNOBIETY',
     complex: 'COMPLEX', sneakernews: 'SNEAKER NEWS', hiphopdx: 'HIPHOPDX',
     soleretriever: 'SOLE RETRIEVER', modernnotoriety: 'MODERN NOTORIETY',
-    wwd: 'WWD'
+    wwd: 'WWD',
+    justfreshkicks: 'JUST FRESH KICKS'
   };
 
   function toggleDropdown() {
@@ -563,7 +571,7 @@
     );
 
     // Update stats
-    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, soleretriever: 0, modernnotoriety: 0, wwd: 0 };
+    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, soleretriever: 0, modernnotoriety: 0, wwd: 0, justfreshkicks: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
 
     // Update dropdown counts
@@ -584,6 +592,7 @@
       <span>Sole Retriever <strong>${counts.soleretriever}</strong></span>
       <span>Modern Notoriety <strong>${counts.modernnotoriety}</strong></span>
       <span>WWD <strong>${counts.wwd}</strong></span>
+      <span>Just Fresh Kicks <strong>${counts.justfreshkicks}</strong></span>
     `;
 
     if (filtered.length === 0) {
