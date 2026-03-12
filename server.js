@@ -317,21 +317,50 @@ async function fetchHypebeast(browser) {
 }
 
 async function fetchHighsnobiety() {
-  try {
-    const feed = await parser.parseURL('https://www.highsnobiety.com/feed/');
-    const articles = feed.items.slice(0, 20).map(item => ({
-      source: 'highsnobiety', sourceName: 'Highsnobiety',
-      title: item.title || '', description: item.contentSnippet || '',
-      link: item.link || '', date: item.pubDate || item.isoDate || '',
-      image: extractImage(item)
-    }));
-    const needsImg = articles.filter(a => !a.image);
-    await Promise.allSettled(needsImg.map(async (a) => {
-      const meta = await fetchOgMeta(a.link);
-      if (meta.image) a.image = meta.image;
-    }));
-    return articles;
-  } catch (e) { console.error('Highsnobiety:', e.message); return []; }
+  const feedUrls = [
+    'https://www.highsnobiety.com/feed/',
+    'https://www.highsnobiety.com/sneakers/feed/',
+    'https://www.highsnobiety.com/style/feed/',
+  ];
+  let articles = [];
+  for (const feedUrl of feedUrls) {
+    try {
+      const res = await fetch(feedUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
+      if (!res.ok) continue;
+      const raw = await res.text();
+      const xml = sanitizeRssFeed(raw);
+      const feed = await parser.parseString(xml);
+      if (feed.items?.length) {
+        const items = feed.items.slice(0, 20).map(item => ({
+          source: 'highsnobiety', sourceName: 'Highsnobiety',
+          title: item.title || '', description: item.contentSnippet || '',
+          link: item.link || '', date: item.pubDate || item.isoDate || '',
+          image: extractImage(item)
+        }));
+        // Merge — dedupe by link, keeping whichever has a more recent date
+        for (const item of items) {
+          const existing = articles.find(a => a.link === item.link);
+          if (!existing) articles.push(item);
+        }
+      }
+    } catch(e) { console.error(`Highsnobiety feed ${feedUrl}:`, e.message); }
+  }
+  if (!articles.length) {
+    console.error('Highsnobiety: all feeds failed');
+    return [];
+  }
+  console.log(`Highsnobiety: ${articles.length} items across feeds`);
+  // Enrich og:meta for articles missing image OR date
+  const needsMeta = articles.filter(a => !a.image || !a.date);
+  await Promise.allSettled(needsMeta.map(async (a) => {
+    const meta = await fetchOgMeta(a.link);
+    if (meta.image && !a.image) a.image = meta.image;
+    if (meta.date && !a.date) a.date = meta.date;
+  }));
+  return articles;
 }
 
 async function fetchSneakerNews() {
