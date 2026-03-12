@@ -474,8 +474,8 @@ async function fetchComplex(browser) {
     const allResults = sectionResults.flat();
     const seen = new Set();
     const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 30);
-    // Only fetch og:meta for articles missing BOTH image and date (minimize requests)
-    const needsMeta = deduped.filter(a => !a.image || !a.date).slice(0, 10);
+    // Fetch og:meta for all articles missing a date (minimize requests, cap at 10)
+    const needsMeta = deduped.filter(a => !a.date).slice(0, 10);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
@@ -511,8 +511,8 @@ async function fetchModernNotoriety(browser) {
       const seen = new Set();
       return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
     });
-    // Only fetch meta for articles missing both image AND date — cap at 5
-    const needsMeta = results.filter(a => !a.image || !a.date).slice(0, 5);
+    // Fetch meta for all articles missing a date — cap at 5
+    const needsMeta = results.filter(a => !a.date).slice(0, 5);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
@@ -654,7 +654,13 @@ async function fetchAllFeeds() {
 
       // Wait for WWD images (they fetch in parallel while we built the article list)
       await wwdImagePromise;
-      articles.sort((a, b) => new Date(b.date) - new Date(a.date));
+      articles.sort((a, b) => {
+        const da = a.date ? new Date(a.date).getTime() : 0;
+        const db = b.date ? new Date(b.date).getTime() : 0;
+        const va = isNaN(da) ? 0 : da;
+        const vb = isNaN(db) ? 0 : db;
+        return vb - va;
+      });
 
       // Rewrite image URLs through proxy for sources that block hotlinking
       const proxySourcess = new Set(['hypebeast']);
