@@ -256,7 +256,18 @@ async function fetchHypebeast(browser) {
     console.log('Hypebeast: feed failed, scraping homepage');
     try {
       await page.goto('https://hypebeast.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      // Scroll down to trigger lazy image loading, then wait for images to populate
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+      await page.waitForTimeout(2000);
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await page.waitForTimeout(1500);
+      // Wait for at least one real image src to appear
+      try {
+        await page.waitForFunction(() => {
+          const imgs = Array.from(document.querySelectorAll('img[src]'));
+          return imgs.some(img => img.src.includes('hypebeast.com/files') || img.src.includes('hypebeast.com/wp-content'));
+        }, { timeout: 5000 });
+      } catch(e) {}
       const { items: results, debugLinks, bodySnip } = await page.evaluate(() => {
         const results = [];
         const debugLinks = Array.from(document.querySelectorAll('a[href]'))
@@ -273,8 +284,10 @@ async function fetchHypebeast(browser) {
           if (!title || title.length < 10) return;
           const timeEl = card.querySelector('time');
           const img = card.querySelector('img');
-          const imgSrc = img?.src?.startsWith('http') ? img.src
-            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original || null);
+          // Check all possible image src attributes
+          const imgSrc = (img?.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
+            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
+            || img?.srcset?.split(' ')[0] || null);
           results.push({
             source: 'hypebeast', sourceName: 'Hypebeast',
             title, description: '', link: href,
@@ -288,15 +301,14 @@ async function fetchHypebeast(browser) {
       console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
       if (results.length === 0) console.log('HB body snip:', bodySnip);
       console.log('HB homepage items before meta:', results.length);
-      // Images are lazy-loaded — Hypebeast blocks plain HTTP fetches, use browser for og:meta
-      // Process sequentially in batches to avoid too many open pages
-      for (const a of results.filter(r => !r.image || !r.date)) {
-        const meta = await fetchOgMetaViaBrowser(browser, a.link);
-        if (meta.image && !a.image) a.image = meta.image;
-        if (meta.date && !a.date) a.date = meta.date;
-      }
       const withImages = results.filter(a => a.image).length;
       console.log(`HB images: ${withImages}/${results.length} have images`);
+      // For any still missing images, use plain fetch (fast, no browser needed)
+      await Promise.allSettled(results.filter(r => !r.image).slice(0, 10).map(async (a) => {
+        const meta = await fetchOgMeta(a.link);
+        if (meta.image) a.image = meta.image;
+        if (meta.date && !a.date) a.date = meta.date;
+      }));
       console.log('Hypebeast homepage: ' + results.length + ' items');
       console.log('HB titles:', results.slice(0,3).map(a => a.title).join(' | '));
       return results;
