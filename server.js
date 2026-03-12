@@ -255,19 +255,18 @@ async function fetchHypebeast(browser) {
     }
     console.log('Hypebeast: feed failed, scraping homepage');
     try {
-      await page.goto('https://hypebeast.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
-      // Scroll down to trigger lazy image loading, then wait for images to populate
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
-      await page.waitForTimeout(2000);
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await page.waitForTimeout(1500);
-      // Wait for at least one real image src to appear
-      try {
-        await page.waitForFunction(() => {
-          const imgs = Array.from(document.querySelectorAll('img[src]'));
-          return imgs.some(img => img.src.includes('hypebeast.com/files') || img.src.includes('hypebeast.com/wp-content'));
-        }, { timeout: 5000 });
-      } catch(e) {}
+      await page.setViewportSize({ width: 1920, height: 1080 });
+      await page.goto('https://hypebeast.com/', { waitUntil: 'networkidle', timeout: 30000 });
+      for (let i = 1; i <= 5; i++) {
+        await page.evaluate((pct) => window.scrollTo(0, document.body.scrollHeight * pct), i * 0.2);
+        await page.waitForTimeout(400);
+      }
+      await page.waitForTimeout(1000);
+      const imgCount = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('img[src]'))
+          .filter(img => img.src.startsWith('http') && !img.src.includes('data:')).length
+      );
+      console.log('HB real images in DOM:', imgCount);
       const { items: results, debugLinks, bodySnip } = await page.evaluate(() => {
         const results = [];
         const debugLinks = Array.from(document.querySelectorAll('a[href]'))
