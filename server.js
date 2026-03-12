@@ -5,8 +5,49 @@ chromium.use(StealthPlugin());
 const Parser = require('rss-parser');
 const fetch = require('node-fetch');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
+
+// ─── Seen-URLs: persistent deduplication across fetch cycles ─────────────────
+const SEEN_URLS_FILE = path.join(__dirname, 'seen-urls.json');
+let seenUrls = new Set();
+
+function loadSeenUrls() {
+  try {
+    if (fs.existsSync(SEEN_URLS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SEEN_URLS_FILE, 'utf8'));
+      seenUrls = new Set(data);
+      console.log(`Loaded ${seenUrls.size} seen URLs from disk`);
+    }
+  } catch(e) { console.error('Failed to load seen-urls.json:', e.message); }
+}
+
+function saveSeenUrls() {
+  try {
+    fs.writeFileSync(SEEN_URLS_FILE, JSON.stringify([...seenUrls]), 'utf8');
+  } catch(e) { console.error('Failed to save seen-urls.json:', e.message); }
+}
+
+function markUrlsSeen(articles) {
+  let added = 0;
+  for (const a of articles) {
+    if (a.link && !seenUrls.has(a.link)) { seenUrls.add(a.link); added++; }
+  }
+  if (added > 0) saveSeenUrls();
+  return added;
+}
+
+function pruneSeenUrls() {
+  if (seenUrls.size > 2000) {
+    const arr = [...seenUrls];
+    seenUrls = new Set(arr.slice(arr.length - 2000));
+    saveSeenUrls();
+    console.log('Pruned seen-urls to 2000 entries');
+  }
+}
+
+loadSeenUrls();
 const PORT = process.env.PORT || 3000;
 
 const parser = new Parser({
@@ -241,7 +282,7 @@ async function fetchHypebeast(browser) {
         const feed = await parser.parseString(sanitizeRssFeed(cleanRaw));
         if (feed.items?.length) {
           console.log('Hypebeast feed: ' + feed.items.length + ' items');
-          return feed.items.slice(0, 20).map((item, i) => ({
+          return feed.items.slice(0, 40).map((item, i) => ({
             source: 'hypebeast', sourceName: 'Hypebeast',
             title: item.title || '',
             description: item.contentSnippet || preExtracted[i]?.description || '',
@@ -295,7 +336,7 @@ async function fetchHypebeast(browser) {
           });
         });
         const seen = new Set();
-        return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20), debugLinks, bodySnip: debugLinks.length === 0 ? (document.body?.innerText?.slice(0, 200) || '') : '' };
+        return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 40), debugLinks, bodySnip: debugLinks.length === 0 ? (document.body?.innerText?.slice(0, 200) || '') : '' };
       });
       console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
       if (results.length === 0) console.log('HB body snip:', bodySnip);
@@ -721,10 +762,29 @@ async function fetchAllFeeds() {
         }
       }
 
-      cachedArticles = articles;
+      // Deduplicate: merge newly scraped articles with existing cache
+      // New articles = not yet seen ever; existing cache articles are kept as-is
+      const cachedLinks = new Set(cachedArticles.map(a => a.link));
+      const newArticles = articles.filter(a => !seenUrls.has(a.link) || cachedLinks.has(a.link));
+
+      // Merge new + cached, dedupe by link
+      const merged = [...newArticles];
+      for (const a of cachedArticles) {
+        if (!merged.some(m => m.link === a.link)) merged.push(a);
+      }
+      merged.sort((a, b) => {
+        const da = a.date ? new Date(a.date).getTime() : 0;
+        const db = b.date ? new Date(b.date).getTime() : 0;
+        return (isNaN(db) ? 0 : db) - (isNaN(da) ? 0 : da);
+      });
+
+      const added = markUrlsSeen(articles);
+      pruneSeenUrls();
+      console.log(`Fetch complete: ${added} new URLs this cycle, ${merged.length} total in cache`);
+
+      cachedArticles = merged.slice(0, 300);
       lastFetch = Date.now();
-      console.log('Fetched ' + articles.length + ' articles total');
-      return articles;
+      return cachedArticles;
     } catch(e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
     finally { if (browser) await browser.close(); fetchInProgress = null; }
   })();
