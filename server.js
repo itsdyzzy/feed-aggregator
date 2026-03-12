@@ -266,93 +266,55 @@ async function fetchHypebeast(browser) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
     });
-    await page.goto('https://hypebeast.com/feed', { waitUntil: 'domcontentloaded', timeout: 20000 });
-    // page.content() wraps XML in <html><body> — get the raw pre/body text instead
-    const raw = await page.evaluate(() => {
-      const pre = document.querySelector('pre');
-      if (pre) return pre.innerText;
-      return document.body?.innerText || document.documentElement?.innerText || '';
-    });
-    if (raw.includes('<rss') || raw.includes('<feed') || raw.includes('<item') || raw.includes('<entry')) {
-      // Browser injects preamble text before the XML — strip everything before the first tag
-      const xmlStart = raw.indexOf('<rss') !== -1 ? raw.indexOf('<rss') : raw.indexOf('<feed');
-      const cleanRaw = xmlStart > 0 ? raw.slice(xmlStart) : raw;
-      const preExtracted = preExtractFromRaw(cleanRaw);
-      try {
-        const feed = await parser.parseString(sanitizeRssFeed(cleanRaw));
-        if (feed.items?.length) {
-          console.log('Hypebeast feed: ' + feed.items.length + ' items');
-          return feed.items.slice(0, 40).map((item, i) => ({
-            source: 'hypebeast', sourceName: 'Hypebeast',
-            title: item.title || '',
-            description: item.contentSnippet || preExtracted[i]?.description || '',
-            link: item.link || '', date: item.pubDate || item.isoDate || '',
-            image: extractImage(item) || preExtracted[i]?.image || null
-          }));
-        }
-      } catch(e) { console.error('Hypebeast parse error:', e.message); console.error('Hypebeast raw snippet:', cleanRaw.substring(0, 300)); }
-    } else {
-      console.error('Hypebeast: no items in response, raw snippet:', raw.substring(0, 300));
-    }
-    console.log('Hypebeast: feed failed, scraping homepage');
-    try {
-      await page.setViewportSize({ width: 1920, height: 1080 });
-      await page.goto('https://hypebeast.com/', { waitUntil: 'networkidle', timeout: 30000 });
-      for (let i = 1; i <= 5; i++) {
-        await page.evaluate((pct) => window.scrollTo(0, document.body.scrollHeight * pct), i * 0.2);
-        await page.waitForTimeout(400);
-      }
-      await page.waitForTimeout(1000);
-      const imgCount = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('img[src]'))
-          .filter(img => img.src.startsWith('http') && !img.src.includes('data:')).length
-      );
-      console.log('HB real images in DOM:', imgCount);
-      const { items: results, debugLinks, bodySnip } = await page.evaluate(() => {
-        const results = [];
-        const debugLinks = Array.from(document.querySelectorAll('a[href]'))
-          .filter(a => a.href.includes('hypebeast.com') && a.href.includes('/20'))
-          .slice(0, 5).map(a => a.href);
-        document.querySelectorAll('a[href]').forEach(a => {
-          const href = a.href || '';
-          if (!href.includes('hypebeast.com')) return;
-          if (!/hypebeast\.com\/\d{4}\//.test(href)) return;
-          const card = a.closest('article, [class*="post"], [class*="card"], [class*="item"], li');
-          if (!card) return;
-          const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"]') || a;
-          const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
-          if (!title || title.length < 10) return;
-          const timeEl = card.querySelector('time');
-          const img = card.querySelector('img');
-          // Check all possible image src attributes
-          const imgSrc = (img?.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
-            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
-            || img?.srcset?.split(' ')[0] || null);
-          results.push({
-            source: 'hypebeast', sourceName: 'Hypebeast',
-            title, description: '', link: href,
-            date: timeEl?.getAttribute('datetime') || '',
-            image: imgSrc
-          });
+    await page.goto('https://hypebeast.com/latest', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
+
+    const results = await page.evaluate(() => {
+      const articles = [];
+      document.querySelectorAll('a[href]').forEach(a => {
+        const href = a.href || '';
+        if (!href.includes('hypebeast.com')) return;
+        if (!/hypebeast\.com\/\d{4}\//.test(href)) return;
+        const card = a.closest('article, [class*="post"], [class*="card"], [class*="item"], li');
+        if (!card) return;
+        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"]') || a;
+        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
+        if (!title || title.length < 10) return;
+        const timeEl = card.querySelector('time');
+        const img = card.querySelector('img');
+        const imgSrc = (img?.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
+          : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
+          || img?.srcset?.split(' ')[0] || null);
+        articles.push({
+          source: 'hypebeast', sourceName: 'Hypebeast',
+          title, description: '', link: href,
+          date: timeEl?.getAttribute('datetime') || '',
+          image: imgSrc || null
         });
-        const seen = new Set();
-        return { items: results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 40), debugLinks, bodySnip: debugLinks.length === 0 ? (document.body?.innerText?.slice(0, 200) || '') : '' };
       });
-      console.log('HB DEBUG dated links:', debugLinks.join(' | ') || 'NONE FOUND');
-      if (results.length === 0) console.log('HB body snip:', bodySnip);
-      console.log('HB homepage items before meta:', results.length);
-      const withImages = results.filter(a => a.image).length;
-      console.log(`HB images: ${withImages}/${results.length} have images`);
-      // For any still missing images, use plain fetch (fast, no browser needed)
-      await Promise.allSettled(results.filter(r => !r.image).slice(0, 10).map(async (a) => {
-        const meta = await fetchOgMeta(a.link);
-        if (meta.image) a.image = meta.image;
-        if (meta.date && !a.date) a.date = meta.date;
-      }));
-      console.log('Hypebeast homepage: ' + results.length + ' items');
-      console.log('HB titles:', results.slice(0,3).map(a => a.title).join(' | '));
-      return results;
-    } catch(e) { console.error('Hypebeast homepage scrape failed:', e.message); return []; }
+      const seen = new Set();
+      return articles.filter(a => {
+        if (seen.has(a.link)) return false;
+        seen.add(a.link);
+        return true;
+      }).slice(0, 40);
+    });
+
+    console.log(`Hypebeast /latest: ${results.length} items`);
+
+    // Enrich missing images and dates via og:meta
+    await Promise.allSettled(results.filter(r => !r.image || !r.date).slice(0, 15).map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image && !a.image) a.image = meta.image;
+      if (meta.date && !a.date) a.date = meta.date;
+    }));
+
+    // Rewrite through image proxy
+    for (const a of results) {
+      if (a.image) a.image = '/api/img?url=' + encodeURIComponent(a.image);
+    }
+
+    return results;
   } catch(e) { console.error('Hypebeast error:', e.message); return []; }
   finally { await page.close(); }
 }
@@ -753,14 +715,6 @@ async function fetchAllFeeds() {
         const vb = isNaN(db) ? 0 : db;
         return vb - va;
       });
-
-      // Rewrite image URLs through proxy for sources that block hotlinking
-      const proxySourcess = new Set(['hypebeast']);
-      for (const a of articles) {
-        if (a.image && proxySourcess.has(a.source)) {
-          a.image = '/api/img?url=' + encodeURIComponent(a.image);
-        }
-      }
 
       // Deduplicate: merge newly scraped articles with existing cache
       // New articles = not yet seen ever; existing cache articles are kept as-is
