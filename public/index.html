@@ -416,7 +416,7 @@
 <div class="controls">
   <div class="search-wrap">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="searchInput" placeholder="Search articles..." oninput="visibleCount=PAGE_SIZE;renderArticles()"/>
+    <input type="search" id="searchInput" placeholder="Search articles..." oninput="visibleCount=PAGE_SIZE;filteredArticles=[];lastRenderedCount=0;renderArticles()"/>
   </div>
   <div class="filters">
     <div class="source-dropdown" id="sourceDropdown">
@@ -491,6 +491,8 @@
   let activeFilter = 'all';
   let visibleCount = 15;
   const PAGE_SIZE = 15;
+  let filteredArticles = [];
+  let lastRenderedCount = 0;
 
   function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -545,6 +547,8 @@
     }
     closeDropdown();
     visibleCount = PAGE_SIZE;
+    filteredArticles = [];
+    lastRenderedCount = 0;
     renderArticles();
   }
 
@@ -584,28 +588,56 @@
 
     if (filtered.length === 0) {
       grid.innerHTML = '<div class="state-msg">No articles found</div>';
+      filteredArticles = []; lastRenderedCount = 0;
       return;
     }
 
-    const visible = filtered.slice(0, visibleCount);
-    grid.innerHTML = visible.map((a, i) => `
-      <div class="card" style="animation-delay:${Math.min(i * 0.04, 0.6)}s" onclick="window.open('${a.link}','_blank')">
-        <div class="card-meta">
-          <span class="source-tag ${a.source}">${a.sourceName}</span>
-          <span class="card-date">${timeAgo(a.date)}</span>
-        </div>
-        ${a.image
-          ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="lazy" onerror="this.style.display='none'">`
-          : `<div class="card-img-placeholder">${a.sourceName}</div>`
-        }
-        <div class="card-title">${a.title}</div>
-        ${a.description ? `<div class="card-desc">${a.description}</div>` : ''}
-        <a class="card-link" href="${a.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-          Read Full Article →
-        </a>
-      </div>
-    `).join('');
-    // Sentinel element — IntersectionObserver triggers next page load
+    // Full redraw only when filter/search changes (filteredArticles changed)
+    const isAppend = filteredArticles === filtered && lastRenderedCount > 0;
+
+    if (!isAppend) {
+      // New filter or search — full redraw from scratch
+      filteredArticles = filtered;
+      lastRenderedCount = 0;
+      grid.innerHTML = '';
+    }
+
+    // Remove existing sentinel before appending
+    const oldSentinel = document.getElementById('scroll-sentinel');
+    if (oldSentinel) oldSentinel.remove();
+
+    // Only render the NEW cards (from lastRenderedCount to visibleCount)
+    const newCards = filtered.slice(lastRenderedCount, visibleCount);
+    if (newCards.length > 0) {
+      const frag = document.createDocumentFragment();
+      newCards.forEach((a, idx) => {
+        const i = lastRenderedCount + idx;
+        const div = document.createElement('div');
+        div.className = 'card';
+        // Only animate the very first batch — subsequent batches just appear
+        div.style.animationDelay = lastRenderedCount === 0 ? Math.min(i * 0.04, 0.6) + 's' : '0s';
+        div.setAttribute('onclick', `window.open('${a.link}','_blank')`);
+        div.innerHTML = `
+          <div class="card-meta">
+            <span class="source-tag ${a.source}">${a.sourceName}</span>
+            <span class="card-date">${timeAgo(a.date)}</span>
+          </div>
+          ${a.image
+            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="lazy" onerror="this.style.display='none'">`
+            : `<div class="card-img-placeholder">${a.sourceName}</div>`
+          }
+          <div class="card-title">${a.title}</div>
+          ${a.description ? `<div class="card-desc">${a.description}</div>` : ''}
+          <a class="card-link" href="${a.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+            Read Full Article →
+          </a>`;
+        frag.appendChild(div);
+      });
+      grid.appendChild(frag);
+      lastRenderedCount = visibleCount;
+    }
+
+    // Add sentinel if more articles remain
     if (visibleCount < filtered.length) {
       const sentinel = document.createElement('div');
       sentinel.id = 'scroll-sentinel';
@@ -628,9 +660,11 @@
       if (entries[0].isIntersecting) {
         scrollObserver.disconnect();
         visibleCount += PAGE_SIZE;
+        // Keep same filtered reference so append mode kicks in
+        filteredArticles = filtered;
         renderArticles();
       }
-    }, { rootMargin: '200px' });
+    }, { rootMargin: '300px' });
     scrollObserver.observe(sentinel);
   }
 
