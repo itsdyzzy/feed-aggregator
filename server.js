@@ -547,69 +547,7 @@ async function fetchSoleRetriever() {
   return [];
 }
 
-async function fetchHNHH(browser) {
-  // HNHH has strong bot detection — try RSS feed first before Playwright
-  try {
-    const res = await fetch('https://www.hotnewhiphop.com/rss/', {
-      signal: AbortSignal.timeout(8000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-    });
-    if (res.ok) {
-      let xml = await res.text();
-      if (xml.includes('<item') || xml.includes('<entry')) {
-        xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
-        const feed = await parser.parseString(xml);
-        if (feed.items?.length) {
-          // Filter to hip-hop/sneaker relevant categories
-          const relevant = feed.items.filter(item => {
-            const cats = (item.categories || []).join(' ').toLowerCase();
-            const link = (item.link || '').toLowerCase();
-            return cats.includes('sneaker') || cats.includes('hip') || cats.includes('rap')
-              || link.includes('sneaker') || link.includes('hip-hop') || link.includes('rap');
-          });
-          const items = (relevant.length >= 5 ? relevant : feed.items).slice(0, 20);
-          console.log('HotNewHipHop RSS: ' + items.length + ' items');
-          return items.map(item => ({
-            source: 'hnhh', sourceName: 'HotNewHipHop',
-            title: item.title || '', description: item.contentSnippet || '',
-            link: item.link || '', date: item.pubDate || item.isoDate || '',
-            image: extractImage(item)
-          }));
-        }
-      }
-    }
-  } catch(e) { console.log('HNHH RSS failed, trying Playwright'); }
 
-  // Playwright fallback
-  const page = await browser.newPage();
-  try {
-    await page.goto('https://www.hotnewhiphop.com/articles/sneakers', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    try { await page.waitForFunction(() => document.querySelectorAll('a[href]').length > 20, { timeout: 5000 }); } catch(e) {}
-    const results = await page.evaluate(() => {
-      const results = [];
-      document.querySelectorAll('a[href]').forEach(a => {
-        const href = a.href || '';
-        if (!href.includes('hotnewhiphop.com')) return;
-        const segs = new URL(href).pathname.split('/').filter(Boolean);
-        if (segs.length < 2 || !segs[segs.length - 1].includes('.')) return;
-        const textEl = a.querySelector('h1,h2,h3,h4,[class*="title"],[class*="headline"],[class*="name"]');
-        const title = textEl ? textEl.innerText.trim() : a.innerText.trim().split('\n')[0].trim();
-        if (!title || title.length < 15) return;
-        results.push({ source: 'hnhh', sourceName: 'HotNewHipHop', title, description: '', link: href, date: '', image: null });
-      });
-      const seen = new Set();
-      return results.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 20);
-    });
-    await Promise.allSettled(results.map(async (a) => {
-      const meta = await fetchOgMeta(a.link);
-      if (meta.image) a.image = meta.image;
-      if (meta.date) a.date = meta.date;
-    }));
-    console.log('HotNewHipHop scraped: ' + results.length + ' items');
-    return results;
-  } catch(e) { console.error('HotNewHipHop scrape error:', e.message); return []; }
-  finally { await page.close(); }
-}
 
 
 
@@ -636,7 +574,6 @@ async function fetchAllFeeds() {
       const hypeArticles    = await fetchHypebeast(browser).catch(e => { console.error('Hypebeast failed:', e.message); return []; });
       const complexArticles = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
       const mnArticles      = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
-      const hnhhArticles    = await fetchHNHH(browser).catch(e => { console.error('HNHH failed:', e.message); return []; });
 
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
@@ -662,8 +599,7 @@ async function fetchAllFeeds() {
         ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
         ...wwdArticles,
         ...complexArticles,
-        ...mnArticles,
-        ...hnhhArticles
+        ...mnArticles
       ];
 
       // Wait for WWD images (they fetch in parallel while we built the article list)
