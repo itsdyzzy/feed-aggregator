@@ -323,18 +323,8 @@ async function fetchHighsnobiety(browser) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
     });
-    await page.goto('https://www.highsnobiety.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto('https://www.highsnobiety.com/page/1/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
-
-    // Click "Load More" up to 3 times to get enough articles
-    for (let i = 0; i < 3; i++) {
-      try {
-        const loadMore = await page.$('[data-cy="loadMoreButton"]');
-        if (!loadMore) break;
-        await loadMore.click();
-        await page.waitForTimeout(1500);
-      } catch(e) { break; }
-    }
 
     const results = await page.evaluate(() => {
       const articles = [];
