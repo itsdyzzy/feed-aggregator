@@ -797,8 +797,15 @@ app.get('/api/img', async (req, res) => {
   } catch(e) { res.status(500).end(); }
 });
 
-app.get('*', (req, res) => {
+app.get('*', async (req, res) => {
   try {
+    // If cache is empty (fresh boot), wait for first fetch to complete
+    if (cachedArticles.length === 0 && fetchInProgress) {
+      console.log('SSR: waiting for first fetch to complete...');
+      await fetchInProgress;
+      console.log(`SSR: first fetch done, cachedArticles.length = ${cachedArticles.length}`);
+    }
+
     const indexPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(indexPath, 'utf8');
 
