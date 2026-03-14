@@ -800,8 +800,8 @@ app.get('*', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(indexPath, 'utf8');
 
-    // Inject pre-rendered articles for SEO — append a <script> before </body>
-    // that pre-populates the grid before the main JS runs
+    // Inject pre-rendered articles for SEO
+    console.log(`SSR: cachedArticles.length = ${cachedArticles.length}`);
     if (cachedArticles.length > 0) {
       const articles = cachedArticles.slice(0, 15);
 
