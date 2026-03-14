@@ -795,7 +795,52 @@ app.get('/api/img', async (req, res) => {
   } catch(e) { res.status(500).end(); }
 });
 
-app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+app.get('*', (req, res) => {
+  try {
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    let html = fs.readFileSync(indexPath, 'utf8');
+
+    // If we have cached articles, pre-render the first 15 into the HTML for Google/SEO
+    if (cachedArticles.length > 0) {
+      const articles = cachedArticles.slice(0, 15);
+
+      const preRendered = articles.map(a => {
+        const safeTitle = (a.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeDesc = (a.description || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeLink = (a.link || '').replace(/"/g, '&quot;');
+        const safeImg = (a.image || '').replace(/"/g, '&quot;');
+        const safeSource = (a.sourceName || '').replace(/"/g, '&quot;');
+        const sourceClass = (a.source || '').toLowerCase();
+
+        const imgHtml = safeImg
+          ? `<img class="card-img" src="${safeImg}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="card-img-placeholder">${safeSource}</div>`;
+
+        return `<div class="card" onclick="window.open('${safeLink}','_blank')">
+          <div class="card-meta">
+            <span class="source-tag ${sourceClass}">${safeSource}</span>
+          </div>
+          ${imgHtml}
+          <div class="card-title">${safeTitle}</div>
+          ${safeDesc ? `<div class="card-desc">${safeDesc}</div>` : ''}
+          <a class="card-link" href="${safeLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Read Full Article →</a>
+        </div>`;
+      }).join('\n');
+
+      // Replace the loading spinner with pre-rendered cards
+      html = html.replace(
+        '<div class="grid" id="grid">\n  <div class="loader">\n    <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>\n    <div class="loader-text">Fetching latest articles</div>\n  </div>\n</div>',
+        `<div class="grid" id="grid">\n${preRendered}\n</div>`
+      );
+    }
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch(e) {
+    console.error('SSR error:', e.message);
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
 
 app.listen(PORT, () => {
   console.log('Feed aggregator running on port ' + PORT);
