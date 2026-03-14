@@ -800,48 +800,34 @@ app.get('*', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(indexPath, 'utf8');
 
-    // If we have cached articles, pre-render the first 15 into the HTML for Google/SEO
+    // Inject pre-rendered articles for SEO — append a <script> before </body>
+    // that pre-populates the grid before the main JS runs
     if (cachedArticles.length > 0) {
       const articles = cachedArticles.slice(0, 15);
 
-      const preRendered = articles.map(a => {
-        const safeTitle = (a.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const safeDesc = (a.description || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const safeLink = (a.link || '').replace(/"/g, '&quot;');
-        const safeImg = (a.image || '').replace(/"/g, '&quot;');
-        const safeSource = (a.sourceName || '').replace(/"/g, '&quot;');
+      // Build static HTML cards for Google to index
+      const staticCards = articles.map(a => {
+        const safeTitle = (a.title || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const safeDesc = (a.description || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const safeLink = (a.link || '').replace(/"/g,'&quot;');
+        const safeImg = (a.image || '').replace(/"/g,'&quot;');
+        const safeSource = (a.sourceName || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const sourceClass = (a.source || '').toLowerCase();
-
         const imgHtml = safeImg
-          ? `<img class="card-img" src="${safeImg}" alt="${safeTitle}" loading="lazy" onerror="this.style.display='none'">`
+          ? `<img class="card-img" src="${safeImg}" alt="${safeTitle}" loading="lazy">`
           : `<div class="card-img-placeholder">${safeSource}</div>`;
+        return `<div class="card"><div class="card-meta"><span class="source-tag ${sourceClass}">${safeSource}</span></div>${imgHtml}<div class="card-title">${safeTitle}</div>${safeDesc ? `<div class="card-desc">${safeDesc}</div>` : ''}<a class="card-link" href="${safeLink}" target="_blank" rel="noopener">Read Full Article →</a></div>`;
+      }).join('');
 
-        return `<div class="card" onclick="window.open('${safeLink}','_blank')">
-          <div class="card-meta">
-            <span class="source-tag ${sourceClass}">${safeSource}</span>
-          </div>
-          ${imgHtml}
-          <div class="card-title">${safeTitle}</div>
-          ${safeDesc ? `<div class="card-desc">${safeDesc}</div>` : ''}
-          <a class="card-link" href="${safeLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Read Full Article →</a>
-        </div>`;
-      }).join('\n');
+      // Replace spinner with static cards — Google sees these, JS will replace with live feed
+      html = html.replace(
+        /(<div class="grid" id="grid">)[\s\S]*?(<\/div>\s*
+\s*
+\s*<script>)/,
+        `$1${staticCards}</div>
 
-      // Replace the loading spinner with pre-rendered cards
-      // Find grid div and replace everything between its opening tag and </div>\n\n<script>
-      const gridOpen = '<div class="grid" id="grid">';
-      const scriptMarker = '<script>';
-      const gridStart = html.indexOf(gridOpen);
-      const scriptStart = html.indexOf(scriptMarker, gridStart);
-      if (gridStart !== -1 && scriptStart !== -1) {
-        // Find the last </div> before <script>
-        const beforeScript = html.slice(gridStart, scriptStart);
-        const lastDivClose = beforeScript.lastIndexOf('</div>');
-        const gridEnd = gridStart + lastDivClose + '</div>'.length;
-        html = html.slice(0, gridStart)
-          + gridOpen + '\n' + preRendered + '\n</div>'
-          + html.slice(gridEnd);
-      }
+<script>`
+      );
     }
 
     res.setHeader('Content-Type', 'text/html');
