@@ -9,7 +9,7 @@ const fs = require('fs');
 
 const app = express();
 
-// ─── Seen-URLs: persistent deduplication across fetch cycles ───────────────── 
+// ─── Seen-URLs: persistent deduplication across fetch cycles ─────────────────
 const SEEN_URLS_FILE = path.join(__dirname, 'seen-urls.json');
 let seenUrls = new Set();
 
@@ -806,13 +806,8 @@ app.get('*', async (req, res) => {
     let html = fs.readFileSync(indexPath, 'utf8');
     if (cachedArticles.length > 0) {
       const ssrArticles = cachedArticles.slice(0, 15);
-      const jsonData = JSON.stringify(ssrArticles).split('</' + 'script>').join('<\/' + 'script>');
-      // Inject before </body> as fallback if </head> replacement fails
-      if (html.includes('</head>')) {
-        html = html.replace('</head>', '<script>window.__SSR_ARTICLES__=' + jsonData + ';</script></head>');
-      } else {
-        html = html.replace('</body>', '<script>window.__SSR_ARTICLES__=' + jsonData + ';</script></body>');
-      }
+
+      // Step 1: Inject grid cards using markers
       const staticCards = ssrArticles.map(a => {
         const t = (a.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const d = (a.description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -826,12 +821,20 @@ app.get('*', async (req, res) => {
       const endMarker = '<!-- SSR_GRID_END -->';
       const startIdx = html.indexOf(startMarker);
       const endIdx = html.indexOf(endMarker);
-      console.log('SSR markers: start=' + startIdx + ' end=' + endIdx);
       if (startIdx !== -1 && endIdx !== -1) {
         const gridTag = '<div class="grid" id="grid">';
         html = html.slice(0, startIdx) + startMarker + gridTag + staticCards + '</div>' + html.slice(endIdx + endMarker.length);
+        console.log('SSR grid done, length=' + html.length);
       }
-      console.log('SSR: injected ' + ssrArticles.length + ' articles, html length=' + html.length);
+
+      // Step 2: Inject JSON into head using index splice — avoids String.replace() dollar-sign bug
+      const jsonData = JSON.stringify(ssrArticles);
+      const scriptTag = '<script>window.__SSR_ARTICLES__=' + jsonData + ';</' + 'script>';
+      const headCloseIdx = html.indexOf('</head>');
+      if (headCloseIdx !== -1) {
+        html = html.slice(0, headCloseIdx) + scriptTag + html.slice(headCloseIdx);
+        console.log('SSR head done, length=' + html.length);
+      }
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
