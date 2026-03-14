@@ -828,16 +828,19 @@ app.get('*', (req, res) => {
       }).join('\n');
 
       // Replace the loading spinner with pre-rendered cards
-      // Simple marker-based replace — find the grid opening tag and swap its contents
+      // Find grid div and replace everything between its opening tag and </div>\n\n<script>
       const gridOpen = '<div class="grid" id="grid">';
-      const gridClose = '</div>\n\n<script>';
+      const scriptMarker = '<script>';
       const gridStart = html.indexOf(gridOpen);
-      const gridEnd = html.indexOf(gridClose);
-      if (gridStart !== -1 && gridEnd !== -1) {
+      const scriptStart = html.indexOf(scriptMarker, gridStart);
+      if (gridStart !== -1 && scriptStart !== -1) {
+        // Find the last </div> before <script>
+        const beforeScript = html.slice(gridStart, scriptStart);
+        const lastDivClose = beforeScript.lastIndexOf('</div>');
+        const gridEnd = gridStart + lastDivClose + '</div>'.length;
         html = html.slice(0, gridStart)
           + gridOpen + '\n' + preRendered + '\n</div>'
-          + '\n\n<script>'
-          + html.slice(gridEnd + gridClose.length);
+          + html.slice(gridEnd);
       }
     }
 
