@@ -758,7 +758,7 @@ async function fetchAllFeeds() {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/api/articles', (req, res) => {
   // Always respond instantly with whatever is cached
