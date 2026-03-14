@@ -823,13 +823,19 @@ app.get('*', (req, res) => {
 
       // Replace spinner with static cards — Google sees these, JS will replace with live feed
       const gridOpen = '<div class="grid" id="grid">';
+      const gridClose = '</div>';
       const gridIdx = html.indexOf(gridOpen);
       const scriptIdx = html.indexOf('<script>', gridIdx);
+      console.log(`SSR injection: gridIdx=${gridIdx}, scriptIdx=${scriptIdx}`);
       if (gridIdx !== -1 && scriptIdx !== -1) {
-        const beforeScript = html.slice(gridIdx, scriptIdx);
-        const lastClose = beforeScript.lastIndexOf('</div>');
-        const cutEnd = gridIdx + lastClose + '</div>'.length;
-        html = html.slice(0, gridIdx) + gridOpen + staticCards + '</div>' + html.slice(cutEnd);
+        // Cut from right after gridOpen tag all the way to just before <script>
+        // Find the closing </div> of the grid itself (last one before <script>)
+        const chunkBeforeScript = html.slice(gridIdx + gridOpen.length, scriptIdx);
+        const lastDivIdx = chunkBeforeScript.lastIndexOf('</div>');
+        const cutStart = gridIdx + gridOpen.length;
+        const cutEnd = cutStart + lastDivIdx + gridClose.length;
+        html = html.slice(0, gridIdx) + gridOpen + staticCards + html.slice(cutEnd);
+        console.log(`SSR injection: replaced ${cutEnd - cutStart} chars, injected ${staticCards.length} chars`);
       }
     }
 
