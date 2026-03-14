@@ -820,14 +820,15 @@ app.get('*', (req, res) => {
       }).join('');
 
       // Replace spinner with static cards — Google sees these, JS will replace with live feed
-      html = html.replace(
-        /(<div class="grid" id="grid">)[\s\S]*?(<\/div>\s*
-\s*
-\s*<script>)/,
-        `$1${staticCards}</div>
-
-<script>`
-      );
+      const gridOpen = '<div class="grid" id="grid">';
+      const gridIdx = html.indexOf(gridOpen);
+      const scriptIdx = html.indexOf('<script>', gridIdx);
+      if (gridIdx !== -1 && scriptIdx !== -1) {
+        const beforeScript = html.slice(gridIdx, scriptIdx);
+        const lastClose = beforeScript.lastIndexOf('</div>');
+        const cutEnd = gridIdx + lastClose + '</div>'.length;
+        html = html.slice(0, gridIdx) + gridOpen + staticCards + '</div>' + html.slice(cutEnd);
+      }
     }
 
     res.setHeader('Content-Type', 'text/html');
