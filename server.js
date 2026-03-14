@@ -828,10 +828,17 @@ app.get('*', (req, res) => {
       }).join('\n');
 
       // Replace the loading spinner with pre-rendered cards
-      html = html.replace(
-        '<div class="grid" id="grid">\n  <div class="loader">\n    <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>\n    <div class="loader-text">Fetching latest articles</div>\n  </div>\n</div>',
-        `<div class="grid" id="grid">\n${preRendered}\n</div>`
-      );
+      // Simple marker-based replace — find the grid opening tag and swap its contents
+      const gridOpen = '<div class="grid" id="grid">';
+      const gridClose = '</div>\n\n<script>';
+      const gridStart = html.indexOf(gridOpen);
+      const gridEnd = html.indexOf(gridClose);
+      if (gridStart !== -1 && gridEnd !== -1) {
+        html = html.slice(0, gridStart)
+          + gridOpen + '\n' + preRendered + '\n</div>'
+          + '\n\n<script>'
+          + html.slice(gridEnd + gridClose.length);
+      }
     }
 
     res.setHeader('Content-Type', 'text/html');
