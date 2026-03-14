@@ -678,7 +678,9 @@
   }
 
   async function loadArticles(isRetry = false) {
-    if (!isRetry) {
+    // Only show spinner if grid has no pre-rendered SSR content
+    const gridHasContent = document.getElementById('grid').querySelector('.card');
+    if (!isRetry && !gridHasContent) {
       document.getElementById('grid').innerHTML = `
         <div class="loader">
           <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
