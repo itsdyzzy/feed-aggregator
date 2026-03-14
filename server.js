@@ -271,7 +271,9 @@ async function fetchHypebeast(browser) {
     // Scroll down to trigger lazy-load for more articles and images
     await page.setViewportSize({ width: 1280, height: 900 });
     for (let i = 1; i <= 8; i++) {
-      await page.evaluate((pct) => window.scrollTo(0, document.body.scrollHeight * pct), i * 0.125);
+      await page.evaluate((pct) => {
+        if (document.body) window.scrollTo(0, document.body.scrollHeight * pct);
+      }, i * 0.125);
       await page.waitForTimeout(300);
     }
     await page.waitForTimeout(1000);
