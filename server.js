@@ -799,61 +799,42 @@ app.get('/api/img', async (req, res) => {
 
 app.get('*', async (req, res) => {
   try {
-    // If cache is empty (fresh boot), wait for first fetch to complete
     if (cachedArticles.length === 0 && fetchInProgress) {
-      console.log('SSR: waiting for first fetch to complete...');
       await fetchInProgress;
-      console.log(`SSR: first fetch done, cachedArticles.length = ${cachedArticles.length}`);
     }
-
     const indexPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(indexPath, 'utf8');
-
-    // Inject pre-rendered articles for SEO
-    console.log(`SSR: cachedArticles.length = ${cachedArticles.length}`);
     if (cachedArticles.length > 0) {
-      const articles = cachedArticles.slice(0, 15);
-
-      // Build static HTML cards for Google to index
-      const staticCards = articles.map(a => {
-        const safeTitle = (a.title || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        const safeDesc = (a.description || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const safeLink = (a.link || '').replace(/"/g,'&quot;');
-        const safeImg = (a.image || '').replace(/"/g,'&quot;');
-        const safeSource = (a.sourceName || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const sourceClass = (a.source || '').toLowerCase();
-        const imgHtml = safeImg
-          ? `<img class="card-img" src="${safeImg}" alt="${safeTitle}" loading="lazy">`
-          : `<div class="card-img-placeholder">${safeSource}</div>`;
-        return `<div class="card"><div class="card-meta"><span class="source-tag ${sourceClass}">${safeSource}</span></div>${imgHtml}<div class="card-title">${safeTitle}</div>${safeDesc ? `<div class="card-desc">${safeDesc}</div>` : ''}<a class="card-link" href="${safeLink}" target="_blank" rel="noopener">Read Full Article →</a></div>`;
+      const ssrArticles = cachedArticles.slice(0, 15);
+      const jsonData = JSON.stringify(ssrArticles).split('</' + 'script>').join('<\/' + 'script>');
+      html = html.replace('</head>', '<script>window.__SSR_ARTICLES__=' + jsonData + ';</script></head>');
+      const staticCards = ssrArticles.map(a => {
+        const t = (a.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const d = (a.description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const l = (a.link||'').replace(/"/g,'&quot;');
+        const s = (a.sourceName||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const c = (a.source||'').toLowerCase();
+        const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy">' : '<div class="card-img-placeholder">' + s + '</div>';
+        return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
       }).join('');
-
-      // Replace spinner with static cards — Google sees these, JS will replace with live feed
       const gridOpen = '<div class="grid" id="grid">';
-      const gridClose = '</div>';
       const gridIdx = html.indexOf(gridOpen);
       const scriptIdx = html.indexOf('<script>', gridIdx);
-      console.log(`SSR injection: gridIdx=${gridIdx}, scriptIdx=${scriptIdx}`);
       if (gridIdx !== -1 && scriptIdx !== -1) {
-        // Cut from right after gridOpen tag all the way to just before <script>
-        // Find the closing </div> of the grid itself (last one before <script>)
-        const chunkBeforeScript = html.slice(gridIdx + gridOpen.length, scriptIdx);
-        const lastDivIdx = chunkBeforeScript.lastIndexOf('</div>');
-        const cutStart = gridIdx + gridOpen.length;
-        const cutEnd = cutStart + lastDivIdx + gridClose.length;
-        html = html.slice(0, gridIdx) + gridOpen + staticCards + html.slice(cutEnd);
-        console.log(`SSR injection: replaced ${cutEnd - cutStart} chars, injected ${staticCards.length} chars`);
+        const chunk = html.slice(gridIdx + gridOpen.length, scriptIdx);
+        const lastDiv = chunk.lastIndexOf('</div>');
+        const cutEnd = gridIdx + gridOpen.length + lastDiv + '</div>'.length;
+        html = html.slice(0, gridIdx) + gridOpen + staticCards + '</div>' + html.slice(cutEnd);
       }
+      console.log('SSR: injected ' + ssrArticles.length + ' articles, html length=' + html.length);
     }
-
-    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch(e) {
     console.error('SSR error:', e.message);
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   }
 });
-
 app.listen(PORT, () => {
   console.log('Feed aggregator running on port ' + PORT);
   // Initial fetch on boot
