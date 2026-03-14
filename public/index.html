@@ -733,8 +733,23 @@
     }
   }
 
-  // Load on page open
-  loadArticles();
+  // Load on page open — use SSR data instantly if available
+  if (window.__SSR_ARTICLES__ && window.__SSR_ARTICLES__.length > 0) {
+    allArticles = window.__SSR_ARTICLES__;
+    renderArticles();
+    // Then refresh in background to get latest
+    fetch('/api/articles').then(r=>r.json()).then(data=>{
+      if (data.articles && data.articles.length > 0) {
+        allArticles = data.articles;
+        visibleCount = PAGE_SIZE;
+        filteredArticles = [];
+        lastRenderedCount = 0;
+        renderArticles();
+      }
+    }).catch(()=>{});
+  } else {
+    loadArticles();
+  }
 
   // Auto-refresh every 15 minutes
   setInterval(loadArticles, 15 * 60 * 1000);
