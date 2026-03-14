@@ -807,7 +807,12 @@ app.get('*', async (req, res) => {
     if (cachedArticles.length > 0) {
       const ssrArticles = cachedArticles.slice(0, 15);
       const jsonData = JSON.stringify(ssrArticles).split('</' + 'script>').join('<\/' + 'script>');
-      html = html.replace('</head>', '<script>window.__SSR_ARTICLES__=' + jsonData + ';</script></head>');
+      // Inject before </body> as fallback if </head> replacement fails
+      if (html.includes('</head>')) {
+        html = html.replace('</head>', '<script>window.__SSR_ARTICLES__=' + jsonData + ';</script></head>');
+      } else {
+        html = html.replace('</body>', '<script>window.__SSR_ARTICLES__=' + jsonData + ';</script></body>');
+      }
       const staticCards = ssrArticles.map(a => {
         const t = (a.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const d = (a.description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
