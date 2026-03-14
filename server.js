@@ -822,14 +822,14 @@ app.get('*', async (req, res) => {
         const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy">' : '<div class="card-img-placeholder">' + s + '</div>';
         return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
       }).join('');
-      const gridOpen = '<div class="grid" id="grid">';
-      const gridIdx = html.indexOf(gridOpen);
-      const scriptIdx = html.indexOf('<script>', gridIdx);
-      if (gridIdx !== -1 && scriptIdx !== -1) {
-        const chunk = html.slice(gridIdx + gridOpen.length, scriptIdx);
-        const lastDiv = chunk.lastIndexOf('</div>');
-        const cutEnd = gridIdx + gridOpen.length + lastDiv + '</div>'.length;
-        html = html.slice(0, gridIdx) + gridOpen + staticCards + '</div>' + html.slice(cutEnd);
+      const startMarker = '<!-- SSR_GRID_START -->';
+      const endMarker = '<!-- SSR_GRID_END -->';
+      const startIdx = html.indexOf(startMarker);
+      const endIdx = html.indexOf(endMarker);
+      console.log('SSR markers: start=' + startIdx + ' end=' + endIdx);
+      if (startIdx !== -1 && endIdx !== -1) {
+        const gridTag = '<div class="grid" id="grid">';
+        html = html.slice(0, startIdx) + startMarker + gridTag + staticCards + '</div>' + html.slice(endIdx + endMarker.length);
       }
       console.log('SSR: injected ' + ssrArticles.length + ' articles, html length=' + html.length);
     }
