@@ -3,7 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>FEED — Culture & Style</title>
+  <meta name="description" content="The fastest streetwear news aggregator. Latest sneaker drops, collabs, and releases from Hypebeast, Complex, Highsnobiety, Sneaker News and more — all in one place, updated every 10 minutes."/>
+  <meta name="keywords" content="streetwear news, sneaker drops, sneaker releases, streetwear collabs, hypebeast news, complex style, highsnobiety, sneaker news, streetwear aggregator"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:title" content="Streetwear News, Sneaker Drops & Collabs | streetwear.news"/>
+  <meta property="og:description" content="The fastest streetwear news aggregator. Latest sneaker drops, collabs, and releases from Hypebeast, Complex, Highsnobiety, Sneaker News and more — all in one place."/>
+  <meta property="og:url" content="https://streetwear.news/"/>
+  <meta property="og:site_name" content="streetwear.news"/>
+  <meta property="og:image" content="https://streetwear.news/og-image.jpg"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="Streetwear News, Sneaker Drops & Collabs | streetwear.news"/>
+  <meta name="twitter:description" content="The fastest streetwear news aggregator. All sources in one place, updated every 10 minutes."/>
+  <meta name="twitter:image" content="https://streetwear.news/og-image.jpg"/>
+  <link rel="canonical" href="https://streetwear.news/"/>
+  <title>Streetwear News, Sneaker Drops & Collabs | streetwear.news</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,7 +32,7 @@
       --tag-high: #3caaff;
       --tag-complex: #ff8c00;
       --tag-sn: #ff6600;
-      --tag-hiphopdx: #9b59b6; 
+      --tag-hiphopdx: #9b59b6;
       --tag-complex: #ff8c00;
       --tag-soleretriever: #00aaff;
       --tag-modernnotoriety: #ff6b00;
@@ -398,19 +411,35 @@
       text-transform: uppercase;
     }
   </style>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "streetwear.news",
+    "url": "https://streetwear.news/",
+    "description": "The fastest streetwear news aggregator. Latest sneaker drops, collabs, and releases from Hypebeast, Complex, Highsnobiety, Sneaker News and more.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://streetwear.news/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    FEED
-    <span>Culture &amp; Style Aggregator</span>
-  </div>
+  <h1 class="logo">
+    streetwear.news
+    <span>Sneaker Drops &amp; Streetwear News Aggregator</span>
+  </h1>
   <div>
     <button class="refresh-btn" id="refreshBtn" onclick="refresh()">↻ Refresh</button>
   </div>
 </header>
 
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Latest Streetwear News, Sneaker Drops, Collabs &amp; Releases</h2>
 <div class="ticker">
   <div class="ticker-inner" id="tickerText">LOADING LATEST DROPS &nbsp;·&nbsp; HYPEBEAST &nbsp;·&nbsp; HIGHSNOBIETY &nbsp;·&nbsp; COMPLEX &nbsp;·&nbsp; STAY TUNED &nbsp;·&nbsp;&nbsp;</div>
 </div>
@@ -484,6 +513,9 @@
 </div>
 
 <div class="stats-bar" id="statsBar"><span>Loading feeds…</span></div>
+<div id="aboutBlurb" style="padding:0.75rem 2rem;border-bottom:1px solid var(--border);font-size:0.75rem;color:var(--muted);line-height:1.6;">
+  <strong style="color:var(--text)">streetwear.news</strong> aggregates the latest streetwear news, sneaker drops, and collab releases from Hypebeast, Complex, Highsnobiety, Sneaker News, HipHopDX, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks — updated every 10 minutes.
+</div>
 <div id="errorBanner" style="display:none" class="error-banner"></div>
 
 <!-- SSR_GRID_START --><div class="grid" id="grid">
