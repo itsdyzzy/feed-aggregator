@@ -1026,25 +1026,28 @@ app.get('/brand/:slug', async (req, res) => {
 function renderStaticPage(title, metaDesc, bodyContent) {
   const indexPath = require('path').join(__dirname, 'public', 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
+
+  // Update title
   html = html.replace(
     '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
     '<title>' + title + ' | streetwear.news</title>'
   );
-  html = html.replace(
-    '<meta name="description" content="The fastest streetwear news aggregator.',
-    '<meta name="description" content="' + metaDesc
-  );
+
+  // Inject SSR_ABOUT flag + static content flag into head
+  const aboutScript = '<script>window.__SSR_ABOUT__=true;window.__STATIC_PAGE__=true;</' + 'script>';
+  const headClose = html.indexOf('</head>');
+  if (headClose !== -1) html = html.slice(0, headClose) + aboutScript + html.slice(headClose);
+
+  // Replace grid markers with static content
   const startMarker = '<!-- SSR_GRID_START -->';
   const endMarker = '<!-- SSR_GRID_END -->';
   const startIdx = html.indexOf(startMarker);
   const endIdx = html.indexOf(endMarker);
-  const pageContent = '<div class="grid" id="grid"><div style="grid-column:1/-1;padding:3rem 2rem;max-width:800px;color:var(--text);line-height:1.8">' + bodyContent + '</div></div>';
+  const pageContent = '<div class="grid" id="grid" data-static="true"><div style="grid-column:1/-1;padding:3rem 2rem;max-width:800px;color:var(--text);line-height:1.8">' + bodyContent + '</div></div>';
   if (startIdx !== -1 && endIdx !== -1) {
     html = html.slice(0, startIdx) + startMarker + pageContent + html.slice(endIdx + endMarker.length);
   }
-  const aboutScript = '<script>window.__SSR_ABOUT__=true;</' + 'script>';
-  const headClose = html.indexOf('</head>');
-  if (headClose !== -1) html = html.slice(0, headClose) + aboutScript + html.slice(headClose);
+
   return html;
 }
 
