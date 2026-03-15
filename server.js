@@ -563,34 +563,7 @@ async function fetchJustFreshKicks() {
   }
 }
 
-async function fetchHipHopDX() {
-  try {
-    const res = await fetch('https://hiphopdx.com/rss/news.xml', {
-      signal: AbortSignal.timeout(15000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    let xml = await res.text();
-    xml = xml.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
-    const feed = await parser.parseString(xml);
-    if (feed.items?.length) {
-      console.log(`HipHopDX: ${feed.items.length} items`);
-      const articles = feed.items.slice(0, 20).map(item => ({
-        source: 'hiphopdx', sourceName: 'HipHopDX',
-        title: item.title || '', description: item.contentSnippet || '',
-        link: item.link || '', date: item.pubDate || item.isoDate || '',
-        image: extractImage(item)
-      }));
-      const needsImg = articles.filter(a => !a.image);
-      await Promise.allSettled(needsImg.map(async (a) => {
-        const meta = await fetchOgMeta(a.link);
-        if (meta.image) a.image = meta.image;
-      }));
-      return articles;
-    }
-  } catch (e) { console.error('HipHopDX:', e.message); }
-  return [];
-}
+
 
 
 async function fetchComplex(browser) {
@@ -772,7 +745,7 @@ async function fetchAllFeeds() {
     try {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
-        fetchSneakerNews(), fetchJustFreshKicks(), fetchHipHopDX(), fetchSoleRetriever(), fetchWWD()
+        fetchSneakerNews(), fetchJustFreshKicks(), fetchSoleRetriever(), fetchWWD()
       ]);
 
       // Single Chromium for all Playwright scrapers — pages run sequentially
@@ -790,7 +763,7 @@ async function fetchAllFeeds() {
         rssPromise,
         Promise.resolve()
       ]);
-      const [sneakernews, justfreshkicks, hiphopdx, soleretriever, wwd] = rssResults;
+      const [sneakernews, justfreshkicks, soleretriever, wwd] = rssResults;
 
       const wwdArticles = wwd.status === 'fulfilled' ? wwd.value : [];
       const wwdImagePromise = Promise.allSettled(wwdArticles.map(async (a) => {
@@ -802,7 +775,6 @@ async function fetchAllFeeds() {
         ...highsnobArticles,
         ...(sneakernews.status      === 'fulfilled' ? sneakernews.value      : []),
         ...(justfreshkicks.status === 'fulfilled' ? justfreshkicks.value : []),
-        ...(hiphopdx.status      === 'fulfilled' ? hiphopdx.value      : []),
         ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
         ...wwdArticles,
         ...complexArticles,
@@ -1058,9 +1030,9 @@ app.get('/about', (req, res) => {
   const endIdx = html.indexOf(endMarker);
   const aboutContent = '<div class="grid" id="grid"><div style="grid-column:1/-1;padding:3rem 2rem;max-width:700px">' +
     '<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1rem">About streetwear.news</h2>' +
-    '<p style="color:var(--text);line-height:1.8;margin-bottom:1rem">streetwear.news is the fastest streetwear news aggregator on the internet. We pull the latest sneaker drops, collab announcements, and streetwear news from the best publications in the game — Hypebeast, Complex, Highsnobiety, Sneaker News, HipHopDX, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks — and surface it all in one place, updated every 10 minutes.</p>' +
+    '<p style="color:var(--text);line-height:1.8;margin-bottom:1rem">streetwear.news is the fastest streetwear news aggregator on the internet. We pull the latest sneaker drops, collab announcements, and streetwear news from the best publications in the game — Hypebeast, Complex, Highsnobiety, Sneaker News, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks — and surface it all in one place, updated every 10 minutes.</p>' +
     '<p style="color:var(--muted);line-height:1.8;margin-bottom:1rem">No more checking 9 different sites. Everything you need to stay ahead of drops, collabs, and culture — right here.</p>' +
-    '<p style="color:var(--muted);line-height:1.8"><strong style="color:var(--text)">Sources:</strong> Hypebeast · Complex · Highsnobiety · Sneaker News · HipHopDX · Sole Retriever · WWD · Modern Notoriety · Just Fresh Kicks</p>' +
+    '<p style="color:var(--muted);line-height:1.8"><strong style="color:var(--text)">Sources:</strong> Hypebeast · Complex · Highsnobiety · Sneaker News · Sole Retriever · WWD · Modern Notoriety · Just Fresh Kicks</p>' +
     '</div></div>';
   if (startIdx !== -1 && endIdx !== -1) {
     html = html.slice(0, startIdx) + startMarker + aboutContent + html.slice(endIdx + endMarker.length);
