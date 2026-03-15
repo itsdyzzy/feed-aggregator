@@ -112,37 +112,7 @@
     .refresh-btn.spinning { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .category-bar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-      height: 44px;
-      flex-shrink: 0;
-    }
-    .category-bar::-webkit-scrollbar { display: none; }
-    .cat-pill {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 0.3rem 0.9rem;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.72rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-      flex-shrink: 0;
-      font-weight: 500;
-    }
-    .cat-pill:hover { border-color: var(--accent); color: var(--accent); }
-    .cat-pill.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+
 
     .controls {
       padding: 1.5rem 2rem;
@@ -501,14 +471,7 @@
 </header>
 
 <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Latest Streetwear News, Sneaker Drops, Collabs &amp; Releases</h2>
-<div class="category-bar">
-  <button class="cat-pill active" data-category="all" onclick="setCategory('all')">All</button>
-  <button class="cat-pill" data-category="fashion" onclick="setCategory('fashion')">Fashion</button>
-  <button class="cat-pill" data-category="sneakers" onclick="setCategory('sneakers')">Sneakers</button>
-  <button class="cat-pill" data-category="collabs" onclick="setCategory('collabs')">Collabs</button>
-  <button class="cat-pill" data-category="tech" onclick="setCategory('tech')">Tech</button>
-  <button class="cat-pill" data-category="culture" onclick="setCategory('culture')">Culture</button>
-</div>
+
 
 <div class="controls">
   <div class="search-wrap">
@@ -687,13 +650,7 @@
 
     let filtered = allArticles;
     if (activeFilter !== 'all') filtered = filtered.filter(a => a.source === activeFilter);
-    if (activeCategory !== 'all') {
-      const keywords = CATEGORY_KEYWORDS[activeCategory] || [];
-      filtered = filtered.filter(a => {
-        const text = (a.title + ' ' + (a.description || '')).toLowerCase();
-        return keywords.some(kw => text.includes(kw));
-      });
-    }
+
     if (query) filtered = filtered.filter(a =>
       a.title.toLowerCase().includes(query) || (a.description || '').toLowerCase().includes(query)
     );
