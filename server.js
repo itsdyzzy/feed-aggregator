@@ -1231,26 +1231,151 @@ app.get('/terms', (req, res) => {
 app.get('/privacy', (req, res) => {
   const html = renderStaticPage(
     'Privacy Policy',
-    'Privacy policy for streetwear.news. Learn how we handle your data.',
+    'Privacy policy for streetwear.news. Learn how we collect, use, and protect your data.',
     `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Privacy Policy</h2>
-    <p style="color:var(--muted);margin-bottom:1rem">Last updated: March 2026</p>
+<p style="color:var(--muted);margin-bottom:0.25rem"><strong style="color:var(--text)">Effective Date:</strong> March 15, 2026</p>
+<p style="color:var(--muted);margin-bottom:1rem"><strong style="color:var(--text)">Last Updated:</strong> March 15, 2026</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">STREETWEAR.NEWS ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you visit <strong style="color:var(--text)">streetwear.news</strong> (the "Site"). Please read this policy carefully. If you do not agree with its terms, please discontinue use of the Site.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. Information We Collect</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">streetwear.news does not require registration or collect personal information. We may collect anonymous usage data such as pages visited and time on site through standard server logs and analytics tools. This data is used solely to improve the service.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. Information We Collect</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">1.1 Information You Provide</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">streetwear.news does not require you to create an account or submit personal information to browse the Site. If you contact us via email, we may collect your name and email address solely for the purpose of responding to your inquiry.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">1.2 Information Collected Automatically</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">When you visit the Site, certain information may be collected automatically through your browser and device, including:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><strong style="color:var(--text)">Log Data:</strong> IP address, browser type and version, operating system, referring URLs, pages visited, and the date and time of your visit</li>
+<li><strong style="color:var(--text)">Device Information:</strong> Hardware model, operating system version, and unique device identifiers</li>
+<li><strong style="color:var(--text)">Usage Data:</strong> Pages you view, links you click, time spent on pages, and navigation patterns within the Site</li>
+<li><strong style="color:var(--text)">Location Data:</strong> General geographic location based on your IP address (country or city level only — we do not collect precise location data)</li>
+</ul>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">1.3 Cookies and Similar Technologies</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We and our third-party partners use cookies and similar tracking technologies to collect information about your browsing activity. See Section 3 for full details.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. Cookies</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">We may use cookies to improve your experience on the site. These are small text files stored on your device. You can disable cookies in your browser settings, though this may affect site functionality.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. How We Use Information</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We use the information we collect for the following purposes:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>To operate, maintain, and improve the Site and its features</li>
+<li>To analyze traffic patterns and understand how users interact with the Site</li>
+<li>To serve relevant advertisements through third-party ad networks</li>
+<li>To detect, prevent, and address technical issues, fraud, or abuse</li>
+<li>To respond to your inquiries or support requests</li>
+<li>To comply with applicable legal obligations</li>
+<li>To enforce our Terms &amp; Conditions</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We do not sell your personal information to third parties. We do not use your information to make automated decisions that produce legal or similarly significant effects on you.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Third-Party Links</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">Our site links to third-party websites. We are not responsible for the privacy practices of those sites and encourage you to review their privacy policies before providing any personal information.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Cookies and Tracking Technologies</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">3.1 What Are Cookies</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Cookies are small text files placed on your device when you visit a website. They are widely used to make websites work efficiently and to provide information to site operators. Some cookies are essential for the Site to function; others are used for analytics or advertising purposes.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">3.2 Types of Cookies We Use</h4>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><strong style="color:var(--text)">Essential Cookies:</strong> Required for basic site functionality such as page load performance and security.</li>
+<li><strong style="color:var(--text)">Analytics Cookies:</strong> Used by services like Google Analytics to collect anonymous data about how visitors use the Site, including pages visited and time on site. This data helps us improve the Site.</li>
+<li><strong style="color:var(--text)">Advertising Cookies:</strong> Placed by third-party ad networks such as Google AdSense to deliver personalized advertisements based on your browsing behavior across websites.</li>
+<li><strong style="color:var(--text)">Third-Party Cookies:</strong> Set by embedded content providers (such as social media platforms) when you interact with embedded posts or videos on the Site.</li>
+</ul>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">3.3 Managing Cookies</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You can control and manage cookies through your browser settings. Most browsers allow you to refuse cookies, delete existing cookies, or alert you when cookies are being set. Please note that disabling certain cookies may affect the functionality of the Site. For more information on managing cookies, visit <a href="https://www.allaboutcookies.org" target="_blank" rel="noopener" style="color:var(--accent)">allaboutcookies.org</a>.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">To opt out of Google's use of cookies for advertising, visit <a href="https://adssettings.google.com" target="_blank" rel="noopener" style="color:var(--accent)">Google Ads Settings</a> or <a href="https://optout.networkadvertising.org" target="_blank" rel="noopener" style="color:var(--accent)">NAI Opt-Out</a>.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Data Security</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">We take reasonable measures to protect any data we collect. However, no method of transmission over the internet is 100% secure and we cannot guarantee absolute security.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Third-Party Advertising</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">4.1 Google AdSense</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may use Google AdSense, a third-party advertising service provided by Google LLC. Google AdSense uses cookies to serve ads based on your prior visits to this and other websites. Google's use of advertising cookies enables it and its partners to serve ads to you based on your visit to our Site and other sites on the internet.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You may opt out of personalized advertising by visiting <a href="https://adssettings.google.com" target="_blank" rel="noopener" style="color:var(--accent)">Google Ads Settings</a>. Alternatively, you can opt out of a third-party vendor's use of cookies for personalized advertising by visiting <a href="https://www.aboutads.info" target="_blank" rel="noopener" style="color:var(--accent)">www.aboutads.info</a>.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">4.2 Other Ad Networks</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We may work with additional programmatic advertising partners including but not limited to Raptive, Mediavine, or similar networks. These partners may use cookies and tracking technologies to deliver targeted advertisements. Each partner's data practices are governed by their own privacy policies.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">4.3 Advertising Disclosure</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">All display advertisements are clearly distinguished from editorial content on the Site. We do not allow advertisers to influence our editorial coverage or content aggregation practices.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Changes to This Policy</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">We may update this privacy policy from time to time. We will notify users of significant changes by updating the date at the top of this page.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Analytics Services</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We may use Google Analytics, a web analytics service provided by Google LLC, to help us understand how users engage with the Site. Google Analytics collects information such as how often you visit the Site, what pages you view, and what other sites you visited prior to visiting ours. Google Analytics collects only the IP address assigned to you on the date you visit the Site, not your name or other personally identifying information.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We use the data collected by Google Analytics only to improve the Site. Google's ability to use and share information collected by Google Analytics about your visits is restricted by the <a href="https://marketingplatform.google.com/about/analytics/terms/us/" target="_blank" rel="noopener" style="color:var(--accent)">Google Analytics Terms of Service</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:var(--accent)">Google Privacy Policy</a>.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You may opt out of Google Analytics tracking by installing the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener" style="color:var(--accent)">Google Analytics Opt-out Browser Add-on</a>.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <p style="color:var(--muted);margin-top:2rem">Questions? Contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>`
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">6. Embedded Content from Other Websites</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may include embedded content from third-party platforms such as Instagram, YouTube, Twitter/X, or other social media services. Embedded content from other websites behaves in the exact same way as if you visited those websites directly.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">These third-party platforms may collect data about you, use cookies, embed additional third-party tracking, and monitor your interaction with the embedded content — including tracking your interaction if you have an account and are logged in to that platform. We have no control over the data practices of these third parties. We recommend reviewing the privacy policies of any third-party platform whose embedded content you interact with.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">7. Affiliate Links and Sponsored Content</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">7.1 Affiliate Links</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may contain affiliate links to third-party retailers and marketplaces including but not limited to StockX, GOAT, Nike, Adidas, Foot Locker, Farfetch, and similar platforms. When you click an affiliate link, the retailer may set cookies on your device to track the referral and any resulting purchase. STREETWEAR.NEWS may earn a commission on qualifying purchases at no additional cost to you.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Affiliate links are disclosed in accordance with FTC guidelines. The presence of affiliate links does not affect the editorial independence of content on the Site.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">7.2 Sponsored Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Any sponsored articles or paid partnerships published on the Site will be clearly labeled. Sponsored content may link to the sponsoring brand's website, which has its own privacy policy and data practices.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">8. Data Sharing and Disclosure</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We do not sell, trade, or rent your personal information to third parties. We may share information in the following limited circumstances:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><strong style="color:var(--text)">Service Providers:</strong> We may share data with trusted third-party service providers who assist in operating the Site (such as hosting providers, analytics services, and advertising networks), subject to confidentiality obligations.</li>
+<li><strong style="color:var(--text)">Legal Requirements:</strong> We may disclose information if required to do so by law, court order, or governmental authority, or if we believe in good faith that such disclosure is necessary to protect our rights, your safety, or the safety of others.</li>
+<li><strong style="color:var(--text)">Business Transfers:</strong> In the event of a merger, acquisition, or sale of assets, user data may be transferred as part of that transaction. We will notify users of any such change in ownership via a notice on the Site.</li>
+</ul>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">9. Data Retention</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We retain automatically collected data (such as server logs and analytics data) for as long as necessary to fulfill the purposes outlined in this policy, typically no longer than 26 months, in line with Google Analytics data retention defaults. Data shared with us via email inquiries is retained only as long as necessary to respond to your request and for a reasonable period thereafter.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You may request deletion of any personal data we hold about you by contacting us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a>.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">10. Your Rights</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">10.1 California Residents (CCPA)</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you are a California resident, you have the following rights under the California Consumer Privacy Act (CCPA):</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><strong style="color:var(--text)">Right to Know:</strong> You may request information about the categories and specific pieces of personal information we have collected about you.</li>
+<li><strong style="color:var(--text)">Right to Delete:</strong> You may request deletion of personal information we have collected from you, subject to certain exceptions.</li>
+<li><strong style="color:var(--text)">Right to Opt Out:</strong> You have the right to opt out of the sale of your personal information. We do not sell personal information.</li>
+<li><strong style="color:var(--text)">Right to Non-Discrimination:</strong> We will not discriminate against you for exercising any of your CCPA rights.</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">To exercise your CCPA rights, contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a>.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">10.2 European Users (GDPR)</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you are located in the European Economic Area (EEA), you have the following rights under the General Data Protection Regulation (GDPR):</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>The right to access personal data we hold about you</li>
+<li>The right to rectification of inaccurate personal data</li>
+<li>The right to erasure ("right to be forgotten")</li>
+<li>The right to restrict processing of your personal data</li>
+<li>The right to data portability</li>
+<li>The right to object to processing based on legitimate interests</li>
+<li>The right to withdraw consent at any time where processing is based on consent</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Our legal basis for processing data is legitimate interest in operating and improving the Site, and compliance with legal obligations. To exercise any GDPR rights, contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a>. You also have the right to lodge a complaint with your local data protection authority.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">10.3 All Users</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Regardless of your location, you may contact us at any time to request access to, correction of, or deletion of personal data we hold about you. We will respond to all requests within a reasonable timeframe.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">11. Children's Privacy</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a> and we will promptly delete such information. If we become aware that we have inadvertently collected personal information from a child under 13, we will take steps to delete it as soon as possible.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">12. Security of Information</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We implement reasonable technical and organizational measures to protect the information we collect against unauthorized access, disclosure, alteration, or destruction. These measures include secure HTTPS transmission, access controls, and regular review of our data practices.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">However, no method of transmission over the internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee absolute security. In the event of a data breach that affects your rights or freedoms, we will notify affected users and relevant authorities as required by applicable law.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">13. Third-Party Privacy Policies</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">This Privacy Policy applies only to streetwear.news. The Site contains links to and aggregates content from third-party websites whose privacy practices may differ from ours. We encourage you to review the privacy policies of any third-party sites you visit. Key third-party policies relevant to this Site include:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:var(--accent)">Google Privacy Policy</a> (AdSense, Analytics)</li>
+<li><a href="https://help.instagram.com/519522125107875" target="_blank" rel="noopener" style="color:var(--accent)">Meta / Instagram Privacy Policy</a></li>
+<li><a href="https://twitter.com/en/privacy" target="_blank" rel="noopener" style="color:var(--accent)">X (Twitter) Privacy Policy</a></li>
+</ul>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">14. Changes to This Privacy Policy</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We reserve the right to update this Privacy Policy at any time. When we make changes, we will update the "Last Updated" date at the top of this page. Your continued use of the Site after any changes are posted constitutes your acceptance of the updated policy. We encourage you to review this page periodically to stay informed about how we protect your information.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">15. Contact Information</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you have questions, concerns, or requests regarding this Privacy Policy or your personal data, please contact us at:</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8"><strong style="color:var(--text)">STREETWEAR.NEWS</strong><br/>Los Angeles, California<br/>Email: <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>`
   );
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
