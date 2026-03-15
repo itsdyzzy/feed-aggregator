@@ -296,8 +296,7 @@
       transition: background 0.2s;
       animation: fadeUp 0.4s ease both;
       cursor: pointer;
-      content-visibility: auto;
-      contain-intrinsic-size: 0 420px;
+
     }
     .card:hover { background: var(--surface); }
 
@@ -674,7 +673,7 @@
             <span class="card-date">${timeAgo(a.date)}</span>
           </div>
           ${a.image
-            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" width="640" height="360" onerror="this.style.display='none'">`
+            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" onerror="this.style.display='none'">`
             : `<div class="card-img-placeholder">${a.sourceName}</div>`
           }
           <div class="card-title">${a.title}</div>
