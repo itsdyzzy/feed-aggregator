@@ -56,12 +56,10 @@ const summaryCache = new Map(); // link -> generated summary, persists in memory
 async function generateSummary(article) {
   if (summaryCache.has(article.link)) return summaryCache.get(article.link);
   try {
-    const prompt = `Write a 2-sentence informative summary for this streetwear/sneaker news article. Be factual and concise. Do not start with "This article" or "The article". Just describe what the news is about.
+    const prompt = `You are writing a 2-sentence preview blurb for a streetwear news aggregator. Based only on the article title below, write a natural 2-sentence description of what this article is likely about. Write in plain text only — no markdown, no bullet points, no "Summary:" prefix, no hashtags. Do not mention that you are summarizing or that you lack access to the full article. Just write the 2 sentences directly.
 
 Article title: ${article.title}
-Source: ${article.sourceName}
-
-Summary:`;
+Source: ${article.sourceName}`;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
