@@ -48,6 +48,61 @@ function pruneSeenUrls() {
 }
 
 loadSeenUrls();
+
+// ─── AI Summary Generator ─────────────────────────────────────────────────────
+const summaryCache = new Map(); // link -> generated summary, persists in memory
+
+async function generateSummary(article) {
+  if (summaryCache.has(article.link)) return summaryCache.get(article.link);
+  try {
+    const prompt = `Write a 2-sentence informative summary for this streetwear/sneaker news article. Be factual and concise. Do not start with "This article" or "The article". Just describe what the news is about.
+
+Article title: ${article.title}
+Source: ${article.sourceName}
+
+Summary:`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 120,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) { console.error('Summary API error:', res.status); return null; }
+    const data = await res.json();
+    const summary = data.content?.[0]?.text?.trim() || null;
+    if (summary) summaryCache.set(article.link, summary);
+    return summary;
+  } catch(e) { console.error('Summary generation failed:', e.message); return null; }
+}
+
+async function enrichWithSummaries(articles) {
+  // Only process articles with no description that we haven't summarized yet
+  const needsSummary = articles.filter(a => 
+    !a.description && 
+    !summaryCache.has(a.link) &&
+    a.title && a.title.length > 10
+  );
+  if (needsSummary.length === 0) return;
+  console.log(`Generating AI summaries for ${needsSummary.length} articles...`);
+  // Process in batches of 5 to avoid rate limits
+  for (let i = 0; i < needsSummary.length; i += 5) {
+    const batch = needsSummary.slice(i, i + 5);
+    await Promise.allSettled(batch.map(async (a) => {
+      const summary = await generateSummary(a);
+      if (summary) a.description = summary;
+    }));
+    // Small delay between batches to be respectful of rate limits
+    if (i + 5 < needsSummary.length) await new Promise(r => setTimeout(r, 500));
+  }
+  console.log(`AI summaries complete.`);
+}
+
+
 const PORT = process.env.PORT || 3000;
 
 const parser = new Parser({
@@ -745,6 +800,10 @@ async function fetchAllFeeds() {
 
       const added = markUrlsSeen(articles);
       pruneSeenUrls();
+
+      // Generate AI summaries for new articles missing descriptions
+      await enrichWithSummaries(merged.filter(a => !seenUrls.has(a.link) || newArticles.some(n => n.link === a.link)));
+
       console.log(`Fetch complete: ${added} new URLs this cycle, ${merged.length} total in cache`);
 
       cachedArticles = merged.slice(0, 300);
