@@ -979,7 +979,10 @@ app.get('*', async (req, res) => {
         const l = (a.link||'').replace(/"/g,'&quot;');
         const s = (a.sourceName||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const c = (a.source||'').toLowerCase();
-        const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy">' : '<div class="card-img-placeholder">' + s + '</div>';
+        const imgIdx = ssrArticles.indexOf(a);
+        const imgPriority = imgIdx < 5 ? 'high' : 'low';
+        const imgLoading = imgIdx < 5 ? 'eager' : 'lazy';
+        const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="' + imgLoading + '" fetchpriority="' + imgPriority + '" width="640" height="360">' : '<div class="card-img-placeholder">' + s + '</div>';
         return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
       }).join('');
       const startMarker = '<!-- SSR_GRID_START -->';
