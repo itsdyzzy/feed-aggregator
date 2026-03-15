@@ -900,6 +900,7 @@ app.get('/sitemap.xml', (req, res) => {
     { loc: baseUrl + '/privacy', changefreq: 'yearly', priority: '0.3' },
     { loc: baseUrl + '/contact', changefreq: 'yearly', priority: '0.3' },
     { loc: baseUrl + '/advertising', changefreq: 'monthly', priority: '0.4' },
+    { loc: baseUrl + '/accessibility', changefreq: 'yearly', priority: '0.3' },
     ...brands.map(b => ({ loc: baseUrl + '/brand/' + b, changefreq: 'hourly', priority: '0.8' })),
     ...weekSlugs.map(s => ({ loc: baseUrl + '/weekly/' + s, changefreq: 'weekly', priority: '0.6' }))
   ];
@@ -1438,6 +1439,120 @@ app.get('/advertising', (req, res) => {
         <a href="mailto:ads@streetwear.news" style="color:var(--accent);font-size:0.9rem">ads@streetwear.news</a>
       </div>
     </div>`
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+
+// ─── Accessibility Statement ──────────────────────────────────────────────────
+app.get('/accessibility', (req, res) => {
+  const html = renderStaticPage(
+    'Accessibility Statement',
+    'Our commitment to making streetwear.news accessible to all users, including those with disabilities.',
+    `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Accessibility Statement</h2>
+<p style="color:var(--muted);margin-bottom:0.25rem"><strong style="color:var(--text)">Last Updated:</strong> March 15, 2026</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8;margin-top:1rem">STREETWEAR.NEWS is committed to making our website accessible and usable for everyone, including people with disabilities. This Accessibility Statement explains our approach, the standards we work toward, the features we have in place, and where we know limitations currently exist.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. Our Commitment to Accessibility</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We believe that access to news, culture, and information should not be limited by disability or circumstance. STREETWEAR.NEWS is designed to be as open and usable as possible for all visitors, regardless of the technology or assistive tools they use to browse the web.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We are actively working to improve the accessibility of this Site on an ongoing basis. Our goal is to meet or exceed the standards set out by the Web Content Accessibility Guidelines (WCAG) 2.1 at Level AA, which is the widely accepted benchmark for accessible web content.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. Accessibility Standards</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We use the <strong style="color:var(--text)">Web Content Accessibility Guidelines (WCAG) 2.1, Level AA</strong> as our primary reference standard. These guidelines are developed by the World Wide Web Consortium (W3C) and are organized around four core principles — content must be:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><strong style="color:var(--text)">Perceivable:</strong> Information and user interface components must be presentable to users in ways they can perceive, including via screen readers or other assistive technology.</li>
+<li><strong style="color:var(--text)">Operable:</strong> User interface components and navigation must be operable, including full keyboard navigation without requiring a mouse.</li>
+<li><strong style="color:var(--text)">Understandable:</strong> Information and the operation of the interface must be understandable, with clear language and predictable behavior.</li>
+<li><strong style="color:var(--text)">Robust:</strong> Content must be robust enough to be interpreted reliably by a wide variety of user agents and assistive technologies.</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We also strive to align with relevant provisions of the Americans with Disabilities Act (ADA) and Section 508 of the Rehabilitation Act where applicable.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Accessibility Features of This Website</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We have implemented the following features to improve the accessibility of streetwear.news:</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Structure and Navigation</h4>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>Semantic HTML elements are used throughout the Site, including proper heading hierarchy (H1, H2, H3) to aid screen reader navigation</li>
+<li>The Site includes a visible page title and descriptive meta tags to assist users and assistive technologies in understanding page content</li>
+<li>All interactive elements such as buttons and links are keyboard accessible</li>
+<li>The Site uses a logical, consistent layout across all pages to support predictable navigation</li>
+</ul>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Visual Design</h4>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>The Site uses high-contrast color combinations to improve readability for users with low vision or color blindness</li>
+<li>Text is rendered using relative units to support browser-level text scaling</li>
+<li>The Site does not use flashing content or animations that could trigger photosensitive conditions, with the exception of minor UI transitions</li>
+<li>Article card images include descriptive alt text attributes where available</li>
+</ul>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Content</h4>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>All external links open in a new tab and are labeled with context to help screen reader users understand their destination</li>
+<li>Article summaries are displayed in plain text, avoiding excessive formatting that could interfere with assistive technology</li>
+<li>The Site includes a skip-to-content mechanism via semantic landmark elements</li>
+<li>Page language is declared as English in the HTML to assist screen readers in applying correct pronunciation</li>
+</ul>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Performance</h4>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>The Site is optimized for fast load times, including lazy loading of off-screen images, which benefits users on slower connections or assistive devices</li>
+<li>Server-side rendering (SSR) ensures that core content is available in the HTML without requiring JavaScript, improving compatibility with certain assistive tools</li>
+</ul>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Known Limitations</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We are transparent about the areas where accessibility may currently be limited. We are actively working to address these over time:</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Third-Party and Aggregated Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">streetwear.news aggregates headlines, images, and summaries from third-party publishers including Hypebeast, Complex, Highsnobiety, Sneaker News, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks. We do not control the accessibility of content on those external websites. When you follow a link to an original article, you are subject to that publisher's own accessibility practices.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Images and Alt Text</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Article thumbnail images are sourced from third-party publishers. While we apply descriptive alt text using article titles where available, the quality and specificity of image descriptions may vary depending on the source. We are working to improve this over time.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Embedded Social Media Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may display embedded content from platforms such as Instagram, YouTube, or Twitter/X. These embeds are served directly by third-party platforms and may not fully conform to WCAG 2.1 Level AA standards. We do not have direct control over the accessibility of embedded third-party content.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Third-Party Advertising</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may display advertisements served through third-party networks such as Google AdSense. We do not control the accessibility of ad creatives delivered by these networks. If you encounter an advertisement that creates an accessibility barrier, please contact us and we will investigate.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">Older Browser Compatibility</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">While the Site is designed to work across modern browsers, some accessibility features may not function as intended in significantly outdated browser versions. We recommend using an up-to-date browser for the best experience.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Ongoing Improvements</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Accessibility is not a one-time fix — it is an ongoing commitment. We regularly review the Site against WCAG 2.1 guidelines and incorporate improvements as the Site evolves. Our current and planned accessibility improvements include:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>Improving color contrast ratios across muted text elements to better meet WCAG AA thresholds</li>
+<li>Adding a visible focus indicator for keyboard navigation throughout the Site</li>
+<li>Enhancing mobile accessibility including touch target sizing and gesture navigation</li>
+<li>Introducing a cookie consent and preference manager to give users greater control over tracking and advertising cookies</li>
+<li>Improving screen reader compatibility for the source filter dropdown and search functionality</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We welcome feedback from users who encounter accessibility barriers — your input directly informs our improvement priorities.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">6. Assistive Technology Compatibility</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">streetwear.news is designed to be compatible with the following assistive technologies:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li><strong style="color:var(--text)">Screen Readers:</strong> Including NVDA, JAWS, VoiceOver (macOS/iOS), and TalkBack (Android)</li>
+<li><strong style="color:var(--text)">Keyboard Navigation:</strong> All core functions can be accessed using a keyboard alone</li>
+<li><strong style="color:var(--text)">Browser Zoom:</strong> The Site supports up to 200% zoom without loss of content or functionality</li>
+<li><strong style="color:var(--text)">High Contrast Mode:</strong> The Site's dark color scheme is compatible with operating system high-contrast settings</li>
+</ul>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">7. Feedback and Assistance</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We genuinely want to hear from you if you experience any accessibility barriers on streetwear.news. Your feedback helps us identify issues we may have missed and prioritize improvements that make the biggest difference for real users.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you are having difficulty accessing any content or feature on the Site, please contact us and we will:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>Acknowledge your message within 2 business days</li>
+<li>Investigate the accessibility issue you have reported</li>
+<li>Provide an accessible alternative format for the content where possible</li>
+<li>Work to resolve the underlying issue in a future update</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We are committed to responding to accessibility feedback in a timely and constructive manner.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">8. Contact Information</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">To report an accessibility issue, request content in an alternative format, or ask questions about our accessibility practices, please contact us at:</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8"><strong style="color:var(--text)">STREETWEAR.NEWS</strong><br/>Los Angeles, California<br/>Email: <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Please include as much detail as possible about the accessibility barrier you encountered, including the page URL, the assistive technology you are using, and a description of the issue. This helps us investigate and resolve the problem as quickly as possible.</p>`
   );
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
