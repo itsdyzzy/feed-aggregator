@@ -797,6 +797,165 @@ app.get('/api/img', async (req, res) => {
   } catch(e) { res.status(500).end(); }
 });
 
+
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.send([
+    'User-agent: *',
+    'Allow: /',
+    'Sitemap: https://streetwear.news/sitemap.xml'
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const brands = ['nike','adidas','supreme','jordan','new-balance','vans','puma','crocs','reebok','palace'];
+  const baseUrl = 'https://streetwear.news';
+  const today = new Date().toISOString().split('T')[0];
+  const urls = [
+    { loc: baseUrl + '/', changefreq: 'always', priority: '1.0' },
+    { loc: baseUrl + '/about', changefreq: 'monthly', priority: '0.5' },
+    ...brands.map(b => ({ loc: baseUrl + '/brand/' + b, changefreq: 'hourly', priority: '0.8' }))
+  ];
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+    urls.map(u => '<url><loc>' + u.loc + '</loc><lastmod>' + today + '</lastmod><changefreq>' + u.changefreq + '</changefreq><priority>' + u.priority + '</priority></url>').join('') +
+    '</urlset>';
+  res.setHeader('Content-Type', 'application/xml');
+  res.send(xml);
+});
+
+app.get('/rss.xml', (req, res) => {
+  const articles = cachedArticles.slice(0, 20);
+  const escape = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const items = articles.map(a => `<item>
+    <title>${escape(a.title)}</title>
+    <link>${escape(a.link)}</link>
+    <description>${escape(a.description)}</description>
+    <pubDate>${a.date ? new Date(a.date).toUTCString() : ''}</pubDate>
+    <source url="${escape(a.link)}">${escape(a.sourceName)}</source>
+  </item>`).join('');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>streetwear.news — Latest Streetwear News &amp; Sneaker Drops</title>
+    <link>https://streetwear.news/</link>
+    <description>The fastest streetwear news aggregator. Latest drops, collabs, and releases from all major sources.</description>
+    <language>en-us</language>
+    <atom:link href="https://streetwear.news/rss.xml" rel="self" type="application/rss+xml"/>
+    ${items}
+  </channel>
+</rss>`;
+  res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+  res.send(xml);
+});
+
+const BRANDS = {
+  'nike': { name: 'Nike', keywords: ['nike', 'air max', 'air jordan', 'af1', 'air force', 'dunk', 'blazer', 'cortez'] },
+  'adidas': { name: 'Adidas', keywords: ['adidas', 'yeezy', 'ultraboost', 'nmd', 'superstar', 'stan smith', 'forum', 'samba'] },
+  'supreme': { name: 'Supreme', keywords: ['supreme'] },
+  'jordan': { name: 'Jordan', keywords: ['jordan', 'air jordan', 'jumpman'] },
+  'new-balance': { name: 'New Balance', keywords: ['new balance', 'nb ', '990', '991', '992', '993', '2002', '327', '550', '574'] },
+  'vans': { name: 'Vans', keywords: ['vans', 'old skool', 'sk8-hi', 'authentic', 'slip-on', 'era '] },
+  'puma': { name: 'Puma', keywords: ['puma'] },
+  'crocs': { name: 'Crocs', keywords: ['crocs', 'clog'] },
+  'reebok': { name: 'Reebok', keywords: ['reebok', 'club c', 'classic leather', 'instapump'] },
+  'palace': { name: 'Palace', keywords: ['palace'] }
+};
+
+app.get('/brand/:slug', async (req, res) => {
+  const slug = req.params.slug.toLowerCase();
+  const brand = BRANDS[slug];
+  if (!brand) return res.status(404).send('Brand not found');
+
+  if (cachedArticles.length === 0 && fetchInProgress) await fetchInProgress;
+
+  const articles = cachedArticles.filter(a => {
+    const text = (a.title + ' ' + (a.description||'')).toLowerCase();
+    return brand.keywords.some(kw => text.includes(kw));
+  });
+
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+
+  // Update title and meta for brand page
+  html = html.replace(
+    '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
+    '<title>' + brand.name + ' Sneaker News, Drops &amp; Collabs | streetwear.news</title>'
+  );
+  html = html.replace(
+    '<meta name="description"',
+    '<meta name="description" content="Latest ' + brand.name + ' sneaker news, drops, and collabs aggregated from Hypebeast, Complex, Sneaker News and more." data-brand-desc/><meta data-orig-desc name="description"'
+  );
+
+  // Inject brand schema
+  const brandSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    'name': brand.name + ' Sneaker News & Drops',
+    'description': 'Latest ' + brand.name + ' sneaker news, drops, and collabs from all major streetwear publications.',
+    'url': 'https://streetwear.news/brand/' + slug
+  };
+  html = html.slice(0, html.indexOf('</head>')) +
+    '<script type="application/ld+json">' + JSON.stringify(brandSchema) + '</' + 'script>' +
+    html.slice(html.indexOf('</head>'));
+
+  // Pre-render brand articles into grid
+  const ssrCards = articles.slice(0, 15).map(a => {
+    const t = (a.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const d = (a.description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const l = (a.link||'').replace(/"/g,'&quot;');
+    const s = (a.sourceName||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const c = (a.source||'').toLowerCase();
+    const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy">' : '<div class="card-img-placeholder">' + s + '</div>';
+    return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
+  }).join('');
+
+  const startMarker = '<!-- SSR_GRID_START -->';
+  const endMarker = '<!-- SSR_GRID_END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  if (startIdx !== -1 && endIdx !== -1) {
+    const gridTag = '<div class="grid" id="grid">';
+    // Add brand heading before grid
+    const brandHeading = '<h2 style="padding:1.5rem 2rem 0.5rem;font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--text)">' + brand.name + ' — Latest News &amp; Drops</h2>';
+    html = html.slice(0, startIdx) + brandHeading + startMarker + gridTag + ssrCards + '</div>' + html.slice(endIdx + endMarker.length);
+  }
+
+  // Inject JSON for client-side filtering
+  const jsonData = JSON.stringify(articles);
+  const scriptTag = '<script>window.__SSR_ARTICLES__=' + jsonData + ';window.__SSR_BRAND__="' + slug + '";</' + 'script>';
+  const headCloseIdx = html.indexOf('</head>');
+  if (headCloseIdx !== -1) {
+    html = html.slice(0, headCloseIdx) + scriptTag + html.slice(headCloseIdx);
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+app.get('/about', (req, res) => {
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+  html = html.replace(
+    '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
+    '<title>About streetwear.news — The Fastest Streetwear News Aggregator</title>'
+  );
+  const startMarker = '<!-- SSR_GRID_START -->';
+  const endMarker = '<!-- SSR_GRID_END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  const aboutContent = '<div class="grid" id="grid"><div style="grid-column:1/-1;padding:3rem 2rem;max-width:700px">' +
+    '<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1rem">About streetwear.news</h2>' +
+    '<p style="color:var(--text);line-height:1.8;margin-bottom:1rem">streetwear.news is the fastest streetwear news aggregator on the internet. We pull the latest sneaker drops, collab announcements, and streetwear news from the best publications in the game — Hypebeast, Complex, Highsnobiety, Sneaker News, HipHopDX, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks — and surface it all in one place, updated every 10 minutes.</p>' +
+    '<p style="color:var(--muted);line-height:1.8;margin-bottom:1rem">No more checking 9 different sites. Everything you need to stay ahead of drops, collabs, and culture — right here.</p>' +
+    '<p style="color:var(--muted);line-height:1.8"><strong style="color:var(--text)">Sources:</strong> Hypebeast · Complex · Highsnobiety · Sneaker News · HipHopDX · Sole Retriever · WWD · Modern Notoriety · Just Fresh Kicks</p>' +
+    '</div></div>';
+  if (startIdx !== -1 && endIdx !== -1) {
+    html = html.slice(0, startIdx) + startMarker + aboutContent + html.slice(endIdx + endMarker.length);
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
 app.get('*', async (req, res) => {
   try {
     if (cachedArticles.length === 0 && fetchInProgress) {
@@ -834,6 +993,33 @@ app.get('*', async (req, res) => {
       if (headCloseIdx !== -1) {
         html = html.slice(0, headCloseIdx) + scriptTag + html.slice(headCloseIdx);
         console.log('SSR head done, length=' + html.length);
+      }
+
+      // Step 3: Inject NewsArticle schema for SSR articles
+      const newsSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        'name': 'Latest Streetwear News',
+        'itemListElement': ssrArticles.map((a, i) => ({
+          '@type': 'ListItem',
+          'position': i + 1,
+          'item': {
+            '@type': 'NewsArticle',
+            'headline': a.title,
+            'url': a.link,
+            'image': a.image || '',
+            'datePublished': a.date,
+            'publisher': {
+              '@type': 'Organization',
+              'name': a.sourceName
+            }
+          }
+        }))
+      };
+      const schemaTag = '<script type="application/ld+json">' + JSON.stringify(newsSchema) + '</' + 'script>';
+      const bodyIdx = html.indexOf('<body>');
+      if (bodyIdx !== -1) {
+        html = html.slice(0, bodyIdx + 6) + schemaTag + html.slice(bodyIdx + 6);
       }
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
