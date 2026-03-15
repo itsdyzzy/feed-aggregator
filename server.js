@@ -953,6 +953,12 @@ app.get('/about', (req, res) => {
   if (startIdx !== -1 && endIdx !== -1) {
     html = html.slice(0, startIdx) + startMarker + aboutContent + html.slice(endIdx + endMarker.length);
   }
+  // Inject flag so JS knows this is the about page
+  const aboutScript = '<script>window.__SSR_ABOUT__=true;</' + 'script>';
+  const headClose = html.indexOf('</head>');
+  if (headClose !== -1) {
+    html = html.slice(0, headClose) + aboutScript + html.slice(headClose);
+  }
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
