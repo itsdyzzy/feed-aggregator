@@ -37,7 +37,6 @@
       --tag-high: #3caaff;
       --tag-complex: #ff8c00;
       --tag-sn: #ff6600;
-      --tag-hiphopdx: #9b59b6;
       --tag-complex: #ff8c00;
       --tag-soleretriever: #00aaff;
       --tag-modernnotoriety: #ff6b00;
@@ -319,7 +318,6 @@
     .source-tag.highsnobiety { color: var(--tag-high); border-color: var(--tag-high); }
     .source-tag.complex { color: var(--tag-complex); border-color: var(--tag-complex); }
     .source-tag.sneakernews { color: var(--tag-sn); border-color: var(--tag-sn); }
-    .source-tag.hiphopdx { color: var(--tag-hiphopdx); border-color: var(--tag-hiphopdx); }
     .source-tag.complex { color: var(--tag-complex); border-color: var(--tag-complex); }
     .source-tag.soleretriever { color: var(--tag-soleretriever); border-color: var(--tag-soleretriever); }
     .source-tag.modernnotoriety { color: var(--tag-modernnotoriety); border-color: var(--tag-modernnotoriety); }
@@ -490,11 +488,6 @@
           Sneaker News
           <span class="item-count" id="count-sneakernews"></span>
         </button>
-        <button class="dropdown-item" data-source="hiphopdx" onclick="setFilter('hiphopdx')">
-          <span class="item-dot" style="background:var(--tag-hiphopdx)"></span>
-          HipHopDX
-          <span class="item-count" id="count-hiphopdx"></span>
-        </button>
         <button class="dropdown-item" data-source="soleretriever" onclick="setFilter('soleretriever')">
           <span class="item-dot" style="background:var(--tag-soleretriever)"></span>
           Sole Retriever
@@ -522,7 +515,7 @@
 
 <div class="stats-bar" id="statsBar"><span>Loading feeds…</span></div>
 <div id="aboutBlurb" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;">
-  <strong style="color:var(--text)">streetwear.news</strong> aggregates the latest streetwear news, sneaker drops, and collab releases from Hypebeast, Complex, Highsnobiety, Sneaker News, HipHopDX, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks — updated every 10 minutes.
+  <strong style="color:var(--text)">streetwear.news</strong> aggregates the latest streetwear news, sneaker drops, and collab releases from Hypebeast, Complex, Highsnobiety, Sneaker News, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks — updated every 10 minutes.
 </div>
 <div id="errorBanner" style="display:none" class="error-banner"></div>
 
@@ -556,7 +549,7 @@
 
   const sourceLabels = {
     all: 'ALL SOURCES', hypebeast: 'HYPEBEAST', highsnobiety: 'HIGHSNOBIETY',
-    complex: 'COMPLEX', sneakernews: 'SNEAKER NEWS', hiphopdx: 'HIPHOPDX',
+    complex: 'COMPLEX', sneakernews: 'SNEAKER NEWS',
     soleretriever: 'SOLE RETRIEVER', modernnotoriety: 'MODERN NOTORIETY',
     wwd: 'WWD',
     justfreshkicks: 'JUST FRESH KICKS'
@@ -611,7 +604,7 @@
     );
 
     // Update stats
-    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, hiphopdx: 0, soleretriever: 0, modernnotoriety: 0, wwd: 0, justfreshkicks: 0 };
+    const counts = { hypebeast: 0, highsnobiety: 0, complex: 0, sneakernews: 0, soleretriever: 0, modernnotoriety: 0, wwd: 0, justfreshkicks: 0 };
     allArticles.forEach(a => { if (counts[a.source] !== undefined) counts[a.source]++; });
 
     // Update dropdown counts
@@ -628,7 +621,6 @@
       <span>Highsnobiety <strong>${counts.highsnobiety}</strong></span>
       <span>Complex <strong>${counts.complex}</strong></span>
       <span>Sneaker News <strong>${counts.sneakernews}</strong></span>
-      <span>HipHopDX <strong>${counts.hiphopdx}</strong></span>
       <span>Sole Retriever <strong>${counts.soleretriever}</strong></span>
       <span>Modern Notoriety <strong>${counts.modernnotoriety}</strong></span>
       <span>WWD <strong>${counts.wwd}</strong></span>
