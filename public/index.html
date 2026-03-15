@@ -765,11 +765,49 @@
     }
   }
 
-  // Load on page open — use SSR data instantly if available
-  if (window.__SSR_ARTICLES__ && window.__SSR_ARTICLES__.length > 0) {
+  // Load on page open
+  const isBrandPage = !!window.__SSR_BRAND__;
+  const isAboutPage = window.location.pathname === '/about';
+  const isSpecialPage = isBrandPage || isAboutPage;
+
+  if (isAboutPage) {
+    // About page — don't load articles at all, just show the static content
+    document.getElementById('statsBar').style.display = 'none';
+  } else if (isBrandPage) {
+    // Brand page — use SSR brand articles, don't replace with full feed
+    allArticles = window.__SSR_ARTICLES__ || [];
+    renderArticles();
+    // Refresh brand articles in background without replacing with all articles
+    fetch('/api/articles').then(r=>r.json()).then(data=>{
+      if (data.articles && data.articles.length > 0) {
+        const brand = window.__SSR_BRAND__;
+        const BRAND_KEYWORDS = {
+          'nike': ['nike', 'air max', 'air jordan', 'af1', 'air force', 'dunk', 'blazer', 'cortez'],
+          'adidas': ['adidas', 'yeezy', 'ultraboost', 'nmd', 'superstar', 'stan smith', 'forum', 'samba'],
+          'supreme': ['supreme'],
+          'jordan': ['jordan', 'air jordan', 'jumpman'],
+          'new-balance': ['new balance', 'nb ', '990', '991', '992', '993', '2002', '327', '550', '574'],
+          'vans': ['vans', 'old skool', 'sk8-hi', 'authentic', 'slip-on', 'era '],
+          'puma': ['puma'],
+          'crocs': ['crocs', 'clog'],
+          'reebok': ['reebok', 'club c', 'classic leather', 'instapump'],
+          'palace': ['palace']
+        };
+        const keywords = BRAND_KEYWORDS[brand] || [brand];
+        allArticles = data.articles.filter(a => {
+          const text = (a.title + ' ' + (a.description||'')).toLowerCase();
+          return keywords.some(kw => text.includes(kw));
+        });
+        visibleCount = PAGE_SIZE;
+        filteredArticles = [];
+        lastRenderedCount = 0;
+        renderArticles();
+      }
+    }).catch(()=>{});
+  } else if (window.__SSR_ARTICLES__ && window.__SSR_ARTICLES__.length > 0) {
+    // Homepage — use SSR data instantly, then refresh in background
     allArticles = window.__SSR_ARTICLES__;
     renderArticles();
-    // Then refresh in background to get latest
     fetch('/api/articles').then(r=>r.json()).then(data=>{
       if (data.articles && data.articles.length > 0) {
         allArticles = data.articles;
@@ -783,8 +821,8 @@
     loadArticles();
   }
 
-  // Auto-refresh every 15 minutes
-  setInterval(loadArticles, 15 * 60 * 1000);
+  // Auto-refresh every 15 minutes (homepage only)
+  if (!isSpecialPage) setInterval(loadArticles, 15 * 60 * 1000);
 </script>
 </body>
 </html>
