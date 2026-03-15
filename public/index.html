@@ -328,6 +328,8 @@
       object-fit: cover;
       background: var(--surface);
       display: block;
+      /* Prevent CLS — height is reserved by aspect-ratio before image loads */
+      contain: layout;
     }
 
     .card-img-placeholder {
@@ -805,16 +807,29 @@
       }
     }).catch(()=>{});
   } else if (window.__SSR_ARTICLES__ && window.__SSR_ARTICLES__.length > 0) {
-    // Homepage — use SSR data instantly, then refresh in background
+    // Homepage — render SSR articles instantly (no layout shift)
     allArticles = window.__SSR_ARTICLES__;
     renderArticles();
+    // Background refresh — only update if we have more/newer articles
     fetch('/api/articles').then(r=>r.json()).then(data=>{
       if (data.articles && data.articles.length > 0) {
-        allArticles = data.articles;
-        visibleCount = PAGE_SIZE;
-        filteredArticles = [];
-        lastRenderedCount = 0;
-        renderArticles();
+        const currentLinks = new Set(allArticles.map(a => a.link));
+        const hasNewArticles = data.articles.some(a => !currentLinks.has(a.link));
+        const hasMore = data.articles.length > allArticles.length;
+        if (hasNewArticles || hasMore) {
+          // New articles available — update smoothly without full redraw
+          allArticles = data.articles;
+          // Only reset render state if new articles appear at the top
+          const topNewArticle = data.articles[0];
+          const wasAlreadyFirst = allArticles.length > 0 && currentLinks.has(topNewArticle.link);
+          if (!wasAlreadyFirst) {
+            // Truly new content at top — do a clean redraw
+            visibleCount = PAGE_SIZE;
+            filteredArticles = [];
+            lastRenderedCount = 0;
+          }
+          renderArticles();
+        }
       }
     }).catch(()=>{});
   } else {
