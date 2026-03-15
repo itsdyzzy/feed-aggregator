@@ -758,10 +758,15 @@ async function fetchAllFeeds() {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
+  maxAge: '7d', // Cache static assets (CSS, JS, fonts, images) for 7 days
+  etag: true
+}));
 
 app.get('/api/articles', (req, res) => {
   // Always respond instantly with whatever is cached
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   res.json({ articles: cachedArticles, lastFetch });
   // If cache is stale, kick off background refresh (don't await — user already has response)
   if (Date.now() - lastFetch > CACHE_TTL) {
@@ -800,6 +805,7 @@ app.get('/api/img', async (req, res) => {
 
 app.get('/robots.txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
   res.send([
     'User-agent: *',
     'Allow: /',
@@ -808,6 +814,7 @@ app.get('/robots.txt', (req, res) => {
 });
 
 app.get('/sitemap.xml', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   const brands = ['nike','adidas','supreme','jordan','new-balance','vans','puma','crocs','reebok','palace'];
   const baseUrl = 'https://streetwear.news';
   const today = new Date().toISOString().split('T')[0];
@@ -825,6 +832,7 @@ app.get('/sitemap.xml', (req, res) => {
 });
 
 app.get('/rss.xml', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=600, stale-while-revalidate=60');
   const articles = cachedArticles.slice(0, 20);
   const escape = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const items = articles.map(a => `<item>
@@ -982,7 +990,7 @@ app.get('*', async (req, res) => {
         const imgIdx = ssrArticles.indexOf(a);
         const imgPriority = imgIdx < 5 ? 'high' : 'low';
         const imgLoading = imgIdx < 5 ? 'eager' : 'lazy';
-        const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="' + imgLoading + '" fetchpriority="' + imgPriority + '" width="640" height="360">' : '<div class="card-img-placeholder">' + s + '</div>';
+        const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="' + imgLoading + '" fetchpriority="' + imgPriority + '">' : '<div class="card-img-placeholder">' + s + '</div>';
         return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
       }).join('');
       const startMarker = '<!-- SSR_GRID_START -->';
