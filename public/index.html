@@ -768,7 +768,7 @@
 
   // Load on page open
   const isBrandPage = !!window.__SSR_BRAND__;
-  const isAboutPage = window.location.pathname === '/about';
+  const isAboutPage = window.__SSR_ABOUT__ || window.__STATIC_PAGE__ || window.location.pathname === '/about';
   const isSpecialPage = isBrandPage || isAboutPage;
 
   if (isAboutPage) {
