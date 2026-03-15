@@ -51,7 +51,45 @@ function pruneSeenUrls() {
 loadSeenUrls();
 
 // ─── AI Summary Generator ─────────────────────────────────────────────────────
-const summaryCache = new Map(); // link -> generated summary, persists in memory
+const summaryCache = new Map();
+
+// ─── Weekly digest helpers ────────────────────────────────────────────────────
+function getWeekSlug(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - d.getDay()); // start of week (Sunday)
+  return d.toISOString().split('T')[0]; // e.g. "2026-03-15"
+}
+
+function getWeekLabel(slug) {
+  const d = new Date(slug + 'T00:00:00Z');
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+function getWeeklyArticles(slug) {
+  const weekStart = new Date(slug + 'T00:00:00Z').getTime();
+  const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000;
+  // Get articles from this week
+  let articles = cachedArticles.filter(a => {
+    if (!a.date) return false;
+    const t = new Date(a.date).getTime();
+    return t >= weekStart && t < weekEnd;
+  });
+  // If no date-filtered articles (e.g. current week), use all cached
+  if (articles.length === 0) articles = cachedArticles;
+  // Take up to 8 per source for balance
+  const bySrc = {};
+  articles.forEach(a => {
+    if (!bySrc[a.source]) bySrc[a.source] = [];
+    if (bySrc[a.source].length < 8) bySrc[a.source].push(a);
+  });
+  // Flatten and sort by date
+  return Object.values(bySrc).flat().sort((a,b) => {
+    return (new Date(b.date||0).getTime()) - (new Date(a.date||0).getTime());
+  });
+}
+
+ // link -> generated summary, persists in memory
 
 async function generateSummary(article) {
   if (summaryCache.has(article.link)) return summaryCache.get(article.link);
@@ -876,10 +914,18 @@ app.get('/sitemap.xml', (req, res) => {
   const brands = ['nike','adidas','supreme','jordan','new-balance','vans','puma','crocs','reebok','palace'];
   const baseUrl = 'https://streetwear.news';
   const today = new Date().toISOString().split('T')[0];
+  // Generate last 12 weekly slugs
+  const weekSlugs = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - (d.getDay() + i * 7));
+    weekSlugs.push(d.toISOString().split('T')[0]);
+  }
   const urls = [
     { loc: baseUrl + '/', changefreq: 'always', priority: '1.0' },
     { loc: baseUrl + '/about', changefreq: 'monthly', priority: '0.5' },
-    ...brands.map(b => ({ loc: baseUrl + '/brand/' + b, changefreq: 'hourly', priority: '0.8' }))
+    ...brands.map(b => ({ loc: baseUrl + '/brand/' + b, changefreq: 'hourly', priority: '0.8' })),
+    ...weekSlugs.map(s => ({ loc: baseUrl + '/weekly/' + s, changefreq: 'weekly', priority: '0.6' }))
   ];
   const xml = '<?xml version="1.0" encoding="UTF-8"?>' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
@@ -1028,6 +1074,67 @@ app.get('/about', (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
+
+app.get('/weekly/:slug', async (req, res) => {
+  const slug = req.params.slug;
+  // Validate slug format YYYY-MM-DD
+  if (!/^d{4}-d{2}-d{2}$/.test(slug)) return res.status(404).send('Not found');
+
+  if (cachedArticles.length === 0 && fetchInProgress) await fetchInProgress;
+
+  const articles = getWeeklyArticles(slug);
+  const weekLabel = getWeekLabel(slug);
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+
+  // Update title and meta
+  html = html.replace(
+    '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
+    '<title>Streetwear News: Week of ' + weekLabel + ' | streetwear.news</title>'
+  );
+
+  // Inject weekly schema
+  const weekSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    'name': 'Streetwear News: Week of ' + weekLabel,
+    'description': 'The best streetwear news, sneaker drops, and collab releases for the week of ' + weekLabel + '.',
+    'url': 'https://streetwear.news/weekly/' + slug
+  };
+  html = html.slice(0, html.indexOf('</head>')) +
+    '<script type="application/ld+json">' + JSON.stringify(weekSchema) + '</' + 'script>' +
+    html.slice(html.indexOf('</head>'));
+
+  // Build SSR cards
+  const ssrCards = articles.slice(0, 30).map(a => {
+    const t = (a.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const d = (a.description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const l = (a.link||'').replace(/"/g,'&quot;');
+    const s = (a.sourceName||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const c = (a.source||'').toLowerCase();
+    const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy">' : '<div class="card-img-placeholder">' + s + '</div>';
+    return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
+  }).join('');
+
+  const startMarker = '<!-- SSR_GRID_START -->';
+  const endMarker = '<!-- SSR_GRID_END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  if (startIdx !== -1 && endIdx !== -1) {
+    const heading = '<h2 style="padding:1.5rem 2rem 0.5rem;font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--text)">Week of ' + weekLabel + ' &mdash; Streetwear News Digest</h2>';
+    html = html.slice(0, startIdx) + heading + startMarker + '<div class="grid" id="grid">' + ssrCards + '</div>' + html.slice(endIdx + endMarker.length);
+  }
+
+  // Inject JSON for client
+  const scriptTag = '<script>window.__SSR_ARTICLES__=' + JSON.stringify(articles) + ';window.__SSR_WEEKLY__="' + slug + '";</' + 'script>';
+  const headClose = html.indexOf('</head>');
+  if (headClose !== -1) html = html.slice(0, headClose) + scriptTag + html.slice(headClose);
+
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 app.get('*', async (req, res) => {
   try {
     if (cachedArticles.length === 0 && fetchInProgress) {
