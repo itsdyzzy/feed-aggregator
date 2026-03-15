@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+console.log('ANTHROPIC_API_KEY loaded:', process.env.ANTHROPIC_API_KEY ? 'YES (length=' + process.env.ANTHROPIC_API_KEY.length + ')' : 'NO - MISSING');
 
 // ─── Seen-URLs: persistent deduplication across fetch cycles ─────────────────
 const SEEN_URLS_FILE = path.join(__dirname, 'seen-urls.json');
