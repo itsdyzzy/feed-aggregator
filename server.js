@@ -896,6 +896,10 @@ app.get('/sitemap.xml', (req, res) => {
   const urls = [
     { loc: baseUrl + '/', changefreq: 'always', priority: '1.0' },
     { loc: baseUrl + '/about', changefreq: 'monthly', priority: '0.5' },
+    { loc: baseUrl + '/terms', changefreq: 'yearly', priority: '0.3' },
+    { loc: baseUrl + '/privacy', changefreq: 'yearly', priority: '0.3' },
+    { loc: baseUrl + '/contact', changefreq: 'yearly', priority: '0.3' },
+    { loc: baseUrl + '/advertising', changefreq: 'monthly', priority: '0.4' },
     ...brands.map(b => ({ loc: baseUrl + '/brand/' + b, changefreq: 'hourly', priority: '0.8' })),
     ...weekSlugs.map(s => ({ loc: baseUrl + '/weekly/' + s, changefreq: 'weekly', priority: '0.6' }))
   ];
@@ -1017,6 +1021,33 @@ app.get('/brand/:slug', async (req, res) => {
   res.send(html);
 });
 
+
+// ─── Static page renderer ─────────────────────────────────────────────────────
+function renderStaticPage(title, metaDesc, bodyContent) {
+  const indexPath = require('path').join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+  html = html.replace(
+    '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
+    '<title>' + title + ' | streetwear.news</title>'
+  );
+  html = html.replace(
+    '<meta name="description" content="The fastest streetwear news aggregator.',
+    '<meta name="description" content="' + metaDesc
+  );
+  const startMarker = '<!-- SSR_GRID_START -->';
+  const endMarker = '<!-- SSR_GRID_END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  const pageContent = '<div class="grid" id="grid"><div style="grid-column:1/-1;padding:3rem 2rem;max-width:800px;color:var(--text);line-height:1.8">' + bodyContent + '</div></div>';
+  if (startIdx !== -1 && endIdx !== -1) {
+    html = html.slice(0, startIdx) + startMarker + pageContent + html.slice(endIdx + endMarker.length);
+  }
+  const aboutScript = '<script>window.__SSR_ABOUT__=true;</' + 'script>';
+  const headClose = html.indexOf('</head>');
+  if (headClose !== -1) html = html.slice(0, headClose) + aboutScript + html.slice(headClose);
+  return html;
+}
+
 app.get('/about', (req, res) => {
   const indexPath = path.join(__dirname, 'public', 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
@@ -1043,6 +1074,127 @@ app.get('/about', (req, res) => {
   if (headClose !== -1) {
     html = html.slice(0, headClose) + aboutScript + html.slice(headClose);
   }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+
+// ─── Terms & Conditions ───────────────────────────────────────────────────────
+app.get('/terms', (req, res) => {
+  const html = renderStaticPage(
+    'Terms & Conditions',
+    'Terms and conditions for using streetwear.news, the fastest streetwear news aggregator.',
+    `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Terms &amp; Conditions</h2>
+    <p style="color:var(--muted);margin-bottom:1rem">Last updated: March 2026</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. About streetwear.news</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">streetwear.news is a news aggregation service that collects and displays links to articles published by third-party sources including Hypebeast, Complex, Highsnobiety, Sneaker News, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks. We do not claim ownership of any third-party content.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. Content &amp; Copyright</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">All article titles, images, and descriptions displayed on this site remain the property of their respective publishers. streetwear.news links to original sources and does not reproduce full article content. If you are a publisher and wish to have your content removed, please contact us at contact@streetwear.news.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Use of the Site</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">You may use streetwear.news for personal, non-commercial purposes. You may not scrape, reproduce, or redistribute the aggregated content of this site without permission. We reserve the right to block access to users who abuse the service.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Disclaimer</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">streetwear.news is provided "as is" without warranties of any kind. We are not responsible for the accuracy, completeness, or availability of third-party content. Links to external sites are provided for convenience and do not constitute endorsement.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Changes to Terms</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">We reserve the right to update these terms at any time. Continued use of the site after changes are posted constitutes acceptance of the revised terms.</p>
+
+    <p style="color:var(--muted);margin-top:2rem">Questions? Contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>`
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+// ─── Privacy Policy ───────────────────────────────────────────────────────────
+app.get('/privacy', (req, res) => {
+  const html = renderStaticPage(
+    'Privacy Policy',
+    'Privacy policy for streetwear.news. Learn how we handle your data.',
+    `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Privacy Policy</h2>
+    <p style="color:var(--muted);margin-bottom:1rem">Last updated: March 2026</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. Information We Collect</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">streetwear.news does not require registration or collect personal information. We may collect anonymous usage data such as pages visited and time on site through standard server logs and analytics tools. This data is used solely to improve the service.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. Cookies</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">We may use cookies to improve your experience on the site. These are small text files stored on your device. You can disable cookies in your browser settings, though this may affect site functionality.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Third-Party Links</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">Our site links to third-party websites. We are not responsible for the privacy practices of those sites and encourage you to review their privacy policies before providing any personal information.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Data Security</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">We take reasonable measures to protect any data we collect. However, no method of transmission over the internet is 100% secure and we cannot guarantee absolute security.</p>
+
+    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Changes to This Policy</h3>
+    <p style="color:var(--muted);margin-bottom:1rem">We may update this privacy policy from time to time. We will notify users of significant changes by updating the date at the top of this page.</p>
+
+    <p style="color:var(--muted);margin-top:2rem">Questions? Contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>`
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+// ─── Contact ──────────────────────────────────────────────────────────────────
+app.get('/contact', (req, res) => {
+  const html = renderStaticPage(
+    'Contact Us',
+    'Get in touch with the streetwear.news team for inquiries, partnerships, and content removal requests.',
+    `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Contact Us</h2>
+
+    <p style="color:var(--muted);margin-bottom:2rem">Have a question, partnership inquiry, or content removal request? Get in touch with us below.</p>
+
+    <div style="display:grid;gap:1.5rem;margin-bottom:2rem">
+      <div style="border:1px solid var(--border);padding:1.5rem">
+        <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--text);margin-bottom:0.5rem">General Inquiries</h3>
+        <p style="color:var(--muted)">For general questions about streetwear.news:</p>
+        <a href="mailto:contact@streetwear.news" style="color:var(--accent);font-size:0.9rem">contact@streetwear.news</a>
+      </div>
+      <div style="border:1px solid var(--border);padding:1.5rem">
+        <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--text);margin-bottom:0.5rem">Advertising &amp; Partnerships</h3>
+        <p style="color:var(--muted)">For advertising opportunities and brand partnerships:</p>
+        <a href="mailto:ads@streetwear.news" style="color:var(--accent);font-size:0.9rem">ads@streetwear.news</a>
+      </div>
+      <div style="border:1px solid var(--border);padding:1.5rem">
+        <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--text);margin-bottom:0.5rem">Content Removal</h3>
+        <p style="color:var(--muted)">If you are a publisher and would like your content removed from our aggregator:</p>
+        <a href="mailto:contact@streetwear.news" style="color:var(--accent);font-size:0.9rem">contact@streetwear.news</a>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:0.85rem">We typically respond within 1-2 business days.</p>`
+  );
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+// ─── Advertising ──────────────────────────────────────────────────────────────
+app.get('/advertising', (req, res) => {
+  const html = renderStaticPage(
+    'Advertise on streetwear.news',
+    'Reach a highly engaged streetwear and sneaker audience. Learn about advertising opportunities on streetwear.news.',
+    `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Advertise on streetwear.news</h2>
+
+    <p style="color:var(--muted);margin-bottom:2rem">streetwear.news reaches a highly engaged audience of streetwear enthusiasts, sneakerheads, and fashion-forward consumers who visit daily to stay on top of the latest drops, collabs, and culture.</p>
+
+    <div style="display:grid;gap:1.5rem;margin-bottom:2rem">
+      <div style="border:1px solid var(--border);padding:1.5rem">
+        <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--text);margin-bottom:0.5rem">Our Audience</h3>
+        <p style="color:var(--muted)">Streetwear enthusiasts and sneaker collectors who check the site daily for the latest news, drops, and collabs from brands like Nike, Adidas, Supreme, New Balance, and more.</p>
+      </div>
+      <div style="border:1px solid var(--border);padding:1.5rem">
+        <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--text);margin-bottom:0.5rem">Advertising Opportunities</h3>
+        <p style="color:var(--muted)">We offer display advertising, sponsored content, brand partnerships, and newsletter placements. All advertising is clearly labeled and non-intrusive.</p>
+      </div>
+      <div style="border:1px solid var(--border);padding:1.5rem">
+        <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--text);margin-bottom:0.5rem">Get in Touch</h3>
+        <p style="color:var(--muted);margin-bottom:0.5rem">To discuss advertising opportunities, media kit requests, or custom partnerships:</p>
+        <a href="mailto:ads@streetwear.news" style="color:var(--accent);font-size:0.9rem">ads@streetwear.news</a>
+      </div>
+    </div>`
+  );
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
