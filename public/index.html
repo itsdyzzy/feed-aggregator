@@ -17,7 +17,12 @@
   <meta name="twitter:image" content="https://streetwear.news/og-image.jpg"/>
   <link rel="canonical" href="https://streetwear.news/"/>
   <title>Streetwear News, Sneaker Drops & Collabs | streetwear.news</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <!-- Preconnect to Google Fonts to speed up DNS lookup -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <!-- Load fonts async — prevents render blocking -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/></noscript>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -291,6 +296,8 @@
       transition: background 0.2s;
       animation: fadeUp 0.4s ease both;
       cursor: pointer;
+      content-visibility: auto;
+      contain-intrinsic-size: 0 420px;
     }
     .card:hover { background: var(--surface); }
 
@@ -660,13 +667,14 @@
         // Only animate the very first batch — subsequent batches just appear
         div.style.animationDelay = lastRenderedCount === 0 ? Math.min(i * 0.04, 0.6) + 's' : '0s';
         div.setAttribute('onclick', `window.open('${a.link}','_blank')`);
+        const isAboveFold = i < 5;
         div.innerHTML = `
           <div class="card-meta">
             <span class="source-tag ${a.source}">${a.sourceName}</span>
             <span class="card-date">${timeAgo(a.date)}</span>
           </div>
           ${a.image
-            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="lazy" onerror="this.style.display='none'">`
+            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" width="640" height="360" onerror="this.style.display='none'">`
             : `<div class="card-img-placeholder">${a.sourceName}</div>`
           }
           <div class="card-title">${a.title}</div>
