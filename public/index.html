@@ -112,24 +112,37 @@
     .refresh-btn.spinning { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .ticker {
-      background: var(--accent);
-      color: #000;
-      overflow: hidden;
+    .category-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      height: 44px;
+      flex-shrink: 0;
+    }
+    .category-bar::-webkit-scrollbar { display: none; }
+    .cat-pill {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.3rem 0.9rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
       white-space: nowrap;
-      padding: 0.4rem 0;
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 0.9rem;
-      letter-spacing: 0.15em;
+      flex-shrink: 0;
+      font-weight: 500;
     }
-    .ticker-inner {
-      display: inline-block;
-      animation: ticker 40s linear infinite;
-    }
-    @keyframes ticker {
-      from { transform: translateX(100vw); }
-      to { transform: translateX(-100%); }
-    }
+    .cat-pill:hover { border-color: var(--accent); color: var(--accent); }
+    .cat-pill.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
 
     .controls {
       padding: 1.5rem 2rem;
@@ -488,8 +501,13 @@
 </header>
 
 <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Latest Streetwear News, Sneaker Drops, Collabs &amp; Releases</h2>
-<div class="ticker">
-  <div class="ticker-inner" id="tickerText">LOADING LATEST DROPS &nbsp;·&nbsp; HYPEBEAST &nbsp;·&nbsp; HIGHSNOBIETY &nbsp;·&nbsp; COMPLEX &nbsp;·&nbsp; STAY TUNED &nbsp;·&nbsp;&nbsp;</div>
+<div class="category-bar">
+  <button class="cat-pill active" data-category="all" onclick="setCategory('all')">All</button>
+  <button class="cat-pill" data-category="fashion" onclick="setCategory('fashion')">Fashion</button>
+  <button class="cat-pill" data-category="sneakers" onclick="setCategory('sneakers')">Sneakers</button>
+  <button class="cat-pill" data-category="collabs" onclick="setCategory('collabs')">Collabs</button>
+  <button class="cat-pill" data-category="tech" onclick="setCategory('tech')">Tech</button>
+  <button class="cat-pill" data-category="culture" onclick="setCategory('culture')">Culture</button>
 </div>
 
 <div class="controls">
@@ -570,6 +588,29 @@
 
 <script>
   let allArticles = [];
+
+  // ─── Category filter keywords ───────────────────────────────────────────────
+  const CATEGORY_KEYWORDS = {
+    fashion: ['fashion','style','collection','lookbook','runway','season','apparel','clothing','jacket','hoodie','shirt','pants','outfit','wear','drop','brand','designer','luxury','streetwear','editorial'],
+    sneakers: ['sneaker','shoe','footwear','nike','adidas','jordan','yeezy','dunk','air max','new balance','vans','puma','reebok','crocs','palace','boot','release','colorway','silhouette','sole','lace'],
+    collabs: ['collab','collaboration',' x ','partnership','joint','limited edition','capsule','co-design','co-branded','team up','teams up','together'],
+    tech: ['tech','app','ai','iphone','apple','google','samsung','software','gadget','digital','electric','car','autonomous','robot','gaming','virtual','augmented','metaverse','crypto','nft'],
+    culture: ['music','album','rapper','artist','film','movie','tv','series','trailer','culture','art','exhibit','gallery','sport','athlete','nba','nfl','celebrity','interview','feature','magazine']
+  };
+
+  let activeCategory = 'all';
+
+  function setCategory(cat) {
+    activeCategory = cat;
+    document.querySelectorAll('.cat-pill').forEach(b => {
+      b.classList.toggle('active', b.dataset.category === cat);
+    });
+    visibleCount = PAGE_SIZE;
+    filteredArticles = [];
+    lastRenderedCount = 0;
+    renderArticles();
+  }
+
   let activeFilter = 'all';
   let visibleCount = 15;
   const PAGE_SIZE = 15;
@@ -641,6 +682,13 @@
 
     let filtered = allArticles;
     if (activeFilter !== 'all') filtered = filtered.filter(a => a.source === activeFilter);
+    if (activeCategory !== 'all') {
+      const keywords = CATEGORY_KEYWORDS[activeCategory] || [];
+      filtered = filtered.filter(a => {
+        const text = (a.title + ' ' + (a.description || '')).toLowerCase();
+        return keywords.some(kw => text.includes(kw));
+      });
+    }
     if (query) filtered = filtered.filter(a =>
       a.title.toLowerCase().includes(query) || (a.description || '').toLowerCase().includes(query)
     );
@@ -730,9 +778,7 @@
       observeSentinel(filtered);
     }
 
-    // Update ticker
-    const titles = filtered.slice(0, 10).map(a => a.title).join(' &nbsp;·&nbsp; ');
-    document.getElementById('tickerText').innerHTML = titles + ' &nbsp;·&nbsp;&nbsp;';
+
   }
 
   let scrollObserver = null;
