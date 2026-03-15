@@ -1088,28 +1088,144 @@ app.get('/terms', (req, res) => {
     'Terms & Conditions',
     'Terms and conditions for using streetwear.news, the fastest streetwear news aggregator.',
     `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--accent);margin-bottom:1.5rem">Terms &amp; Conditions</h2>
-    <p style="color:var(--muted);margin-bottom:1rem">Last updated: March 2026</p>
+<p style="color:var(--muted);margin-bottom:0.25rem"><strong style="color:var(--text)">Effective Date:</strong> March 15, 2026</p>
+<p style="color:var(--muted);margin-bottom:2rem"><strong style="color:var(--text)">Last Updated:</strong> March 15, 2026</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. About streetwear.news</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">streetwear.news is a news aggregation service that collects and displays links to articles published by third-party sources including Hypebeast, Complex, Highsnobiety, Sneaker News, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks. We do not claim ownership of any third-party content.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">1. Acceptance of Terms</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">By accessing or using the website located at <strong style="color:var(--text)">streetwear.news</strong> (the "Site"), you agree to be bound by these Terms &amp; Conditions ("Terms"). These Terms constitute a legally binding agreement between you ("User," "you," or "your") and <strong style="color:var(--text)">STREETWEAR.NEWS</strong> ("we," "us," or "our"). If you do not agree to these Terms, you must discontinue use of the Site immediately.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Your continued use of the Site following any updates to these Terms constitutes your acceptance of the revised Terms. We recommend reviewing this page periodically.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. Content &amp; Copyright</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">All article titles, images, and descriptions displayed on this site remain the property of their respective publishers. streetwear.news links to original sources and does not reproduce full article content. If you are a publisher and wish to have your content removed, please contact us at contact@streetwear.news.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">2. Use of the Website</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">2.1 Eligibility</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site is intended for users who are at least 13 years of age. By using the Site, you represent that you are 13 years of age or older. Users under the age of 18 should review these Terms with a parent or guardian.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">2.2 Permitted Use</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You may access and use the Site for personal, non-commercial informational purposes. You agree to use the Site only in ways that comply with these Terms and all applicable local, state, national, and international laws and regulations.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">2.3 Prohibited Conduct</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You agree not to:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>Scrape, crawl, harvest, or systematically collect data or content from the Site without our prior written permission</li>
+<li>Use automated tools, bots, or scripts to access the Site in a manner that could damage, disable, or impair its performance</li>
+<li>Reproduce, republish, distribute, or commercially exploit any content from the Site without explicit written authorization</li>
+<li>Attempt to gain unauthorized access to any portion of the Site or its related systems</li>
+<li>Use the Site to transmit spam, malware, or any harmful or disruptive content</li>
+<li>Misrepresent your identity or affiliation in connection with your use of the Site</li>
+<li>Interfere with or disrupt the integrity or performance of the Site</li>
+</ul>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Use of the Site</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">You may use streetwear.news for personal, non-commercial purposes. You may not scrape, reproduce, or redistribute the aggregated content of this site without permission. We reserve the right to block access to users who abuse the service.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">3. Intellectual Property Rights</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">3.1 Our Original Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">All original content created and published by STREETWEAR.NEWS — including but not limited to original articles, editorial summaries, AI-generated article descriptions, site design, logos, graphics, and underlying code — is the exclusive intellectual property of STREETWEAR.NEWS and is protected by applicable copyright, trademark, and intellectual property laws.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">3.2 Third-Party Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site aggregates and displays headlines, summaries, images, and links sourced from third-party publications including but not limited to Hypebeast, Complex, Highsnobiety, Sneaker News, Sole Retriever, WWD, Modern Notoriety, and Just Fresh Kicks. All third-party content remains the exclusive intellectual property of its respective owners. STREETWEAR.NEWS does not claim ownership of any third-party content displayed on the Site.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">3.3 Restricted Use</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">You may not copy, reproduce, modify, distribute, transmit, display, perform, publish, license, create derivative works from, or sell any content obtained from the Site without the prior written consent of the applicable rights holder.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Disclaimer</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">streetwear.news is provided "as is" without warranties of any kind. We are not responsible for the accuracy, completeness, or availability of third-party content. Links to external sites are provided for convenience and do not constitute endorsement.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">4. Third-Party Content and External Links</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">4.1 External Links</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site contains links to third-party websites and publications. These links are provided solely for your convenience and informational purposes. STREETWEAR.NEWS does not endorse, control, or assume responsibility for the content, privacy practices, or accuracy of any third-party website. Clicking an external link is done entirely at your own risk.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">4.2 Third-Party Websites</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">When you click a link to an external site, you leave streetwear.news and are subject to the terms and privacy policies of that third-party site. We encourage you to review those policies before providing any personal information on external sites.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">4.3 No Endorsement</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The inclusion of any link to a third-party website does not imply endorsement by STREETWEAR.NEWS of that website or any association with its operators.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Changes to Terms</h3>
-    <p style="color:var(--muted);margin-bottom:1rem">We reserve the right to update these terms at any time. Continued use of the site after changes are posted constitutes acceptance of the revised terms.</p>
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">5. Content Aggregation Disclaimer</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">5.1 Nature of Aggregated Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">streetwear.news operates as a news aggregation platform. We collect, organize, and display publicly available headlines, article summaries, and thumbnail images from third-party publishers for the purpose of providing users with a centralized discovery experience. We link directly to the original source for all aggregated content.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">5.2 Accuracy Disclaimer</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">STREETWEAR.NEWS does not independently verify the accuracy, completeness, or timeliness of aggregated third-party content. All aggregated content reflects the views and reporting of the original publisher, not STREETWEAR.NEWS. We are not responsible for errors, omissions, or inaccuracies in third-party content.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">5.3 AI-Generated Summaries</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Some article descriptions displayed on the Site are generated using artificial intelligence and are based solely on article titles and publicly available metadata. These summaries are provided for informational convenience only and may not fully represent the content of the original article. We recommend clicking through to the original source for complete and accurate information.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">5.4 Content Removal Requests</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you are a publisher or rights holder and believe your content has been displayed in a manner that infringes your rights, please contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a>. We will review and respond to legitimate removal requests promptly.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
 
-    <p style="color:var(--muted);margin-top:2rem">Questions? Contact us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>`
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">6. Advertising and Sponsored Content</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">6.1 Display Advertising</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may display third-party advertisements served through advertising networks including but not limited to Google AdSense and other programmatic advertising partners. These advertisements are clearly distinguished from editorial content. STREETWEAR.NEWS is not responsible for the content of third-party advertisements or the products and services they promote.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">6.2 Affiliate Links</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site contains affiliate links to third-party retailers and marketplaces including but not limited to StockX, GOAT, Nike, Adidas, Foot Locker, Farfetch, and similar platforms. When you click an affiliate link and make a qualifying purchase, STREETWEAR.NEWS may earn a commission at no additional cost to you. Affiliate relationships do not influence our editorial coverage or the order in which content is displayed.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">6.3 Sponsored Content</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">The Site may from time to time publish sponsored articles, brand partnerships, or paid editorial placements. All sponsored content will be clearly labeled as "Sponsored," "Paid Partnership," or similar designation in compliance with applicable FTC guidelines and advertising disclosure requirements.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">6.4 FTC Disclosure Compliance</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">STREETWEAR.NEWS complies with the Federal Trade Commission's guidelines regarding endorsements and testimonials, including the disclosure of material connections between the Site and any brands, products, or services featured in sponsored or affiliate content.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">7. Limitation of Liability</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">To the fullest extent permitted by applicable law, STREETWEAR.NEWS, its operators, contributors, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising out of or related to your use of or inability to use the Site, including but not limited to:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>Loss of data or profits</li>
+<li>Reliance on information published on the Site</li>
+<li>Unauthorized access to or alteration of your data</li>
+<li>Any errors, inaccuracies, or omissions in content</li>
+<li>Any interruption or cessation of service</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">This limitation applies regardless of the legal theory under which such damages are sought, even if STREETWEAR.NEWS has been advised of the possibility of such damages. In jurisdictions that do not allow the exclusion or limitation of incidental or consequential damages, our liability shall be limited to the maximum extent permitted by law.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">8. Disclaimer of Warranties</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">THE SITE AND ALL CONTENT, SERVICES, AND FEATURES ARE PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. STREETWEAR.NEWS EXPRESSLY DISCLAIMS ALL WARRANTIES INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">We do not warrant that:</p>
+<ul style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>The Site will be uninterrupted, secure, or error-free</li>
+<li>Any content on the Site is accurate, complete, or current</li>
+<li>The Site or its servers are free of viruses or other harmful components</li>
+<li>Any defects will be corrected</li>
+</ul>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Your use of the Site is entirely at your own risk.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">9. DMCA / Copyright Policy</h3>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">9.1 Respect for Intellectual Property</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">STREETWEAR.NEWS respects the intellectual property rights of others and expects users and third parties to do the same.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">9.2 DMCA Takedown Notices</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you believe that content appearing on the Site infringes your copyright, please submit a written notice to us at <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a> containing the following information as required by the Digital Millennium Copyright Act (17 U.S.C. § 512):</p>
+<ol style="color:var(--muted);margin-bottom:1rem;padding-left:1.5rem;line-height:2">
+<li>A physical or electronic signature of the copyright owner or authorized agent</li>
+<li>Identification of the copyrighted work claimed to have been infringed</li>
+<li>Identification of the material on the Site that is claimed to be infringing, with sufficient detail to locate it</li>
+<li>Your contact information including name, address, telephone number, and email address</li>
+<li>A statement that you have a good faith belief that the use of the material is not authorized by the copyright owner, its agent, or the law</li>
+<li>A statement made under penalty of perjury that the information in the notice is accurate and that you are the copyright owner or authorized to act on their behalf</li>
+</ol>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">9.3 Response to Valid Notices</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Upon receipt of a valid DMCA notice, we will investigate and, where appropriate, promptly remove or disable access to the allegedly infringing content.</p>
+<h4 style="font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.05em;color:var(--text);margin:1rem 0 0.4rem">9.4 Counter-Notices</h4>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If you believe content was removed in error, you may submit a counter-notice to <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a> in accordance with 17 U.S.C. § 512(g).</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">10. Privacy</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">Your use of the Site is also governed by our <a href="/privacy" style="color:var(--accent)">Privacy Policy</a>, which is incorporated into these Terms by reference. By using the Site, you consent to the data practices described in the Privacy Policy.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">11. Modifications to the Terms</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">STREETWEAR.NEWS reserves the right to modify these Terms at any time at our sole discretion. When changes are made, we will update the "Last Updated" date at the top of this page. Your continued use of the Site after any changes are posted constitutes your acceptance of the revised Terms.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">12. Governing Law and Dispute Resolution</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">These Terms shall be governed by and construed in accordance with the laws of the <strong style="color:var(--text)">State of California</strong>, without regard to its conflict of law provisions. Any disputes arising from or relating to these Terms or your use of the Site shall be subject to the exclusive jurisdiction of the state and federal courts located in <strong style="color:var(--text)">Los Angeles County, California</strong>. You consent to the personal jurisdiction of such courts and waive any objection to the laying of venue in Los Angeles County.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">13. Severability</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">If any provision of these Terms is found to be invalid, illegal, or unenforceable under applicable law, that provision shall be modified to the minimum extent necessary to make it enforceable, or if modification is not possible, severed from these Terms. The remaining provisions shall continue in full force and effect.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">14. Entire Agreement</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">These Terms, together with the Privacy Policy, constitute the entire agreement between you and STREETWEAR.NEWS regarding your use of the Site and supersede all prior agreements, representations, or understandings relating to the same subject matter.</p>
+<hr style="border:none;border-top:1px solid var(--border);margin:2rem 0"/>
+
+<h3 style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;letter-spacing:0.05em;color:var(--text);margin:1.5rem 0 0.5rem">15. Contact Information</h3>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8">For questions, concerns, DMCA notices, or content removal requests, please contact us at:</p>
+<p style="color:var(--muted);margin-bottom:1rem;line-height:1.8"><strong style="color:var(--text)">STREETWEAR.NEWS</strong><br/>Los Angeles, California<br/>Email: <a href="mailto:contact@streetwear.news" style="color:var(--accent)">contact@streetwear.news</a></p>`
   );
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
+
 
 // ─── Privacy Policy ───────────────────────────────────────────────────────────
 app.get('/privacy', (req, res) => {
