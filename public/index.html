@@ -591,11 +591,16 @@
 
   // ─── Category filter keywords ───────────────────────────────────────────────
   const CATEGORY_KEYWORDS = {
-    fashion: ['fashion','style','collection','lookbook','runway','season','apparel','clothing','jacket','hoodie','shirt','pants','outfit','wear','drop','brand','designer','luxury','streetwear','editorial'],
-    sneakers: ['sneaker','shoe','footwear','nike','adidas','jordan','yeezy','dunk','air max','new balance','vans','puma','reebok','crocs','palace','boot','release','colorway','silhouette','sole','lace'],
-    collabs: ['collab','collaboration',' x ','partnership','joint','limited edition','capsule','co-design','co-branded','team up','teams up','together'],
-    tech: ['tech','app','ai','iphone','apple','google','samsung','software','gadget','digital','electric','car','autonomous','robot','gaming','virtual','augmented','metaverse','crypto','nft'],
-    culture: ['music','album','rapper','artist','film','movie','tv','series','trailer','culture','art','exhibit','gallery','sport','athlete','nba','nfl','celebrity','interview','feature','magazine']
+    // Fashion = clothing/apparel only, explicitly excludes sneaker brands
+    fashion: ['lookbook','runway','collection','apparel','clothing','jacket','hoodie','shirt','pants','shorts','dress','coat','knitwear','denim','outerwear','tailoring','menswear','womenswear','streetwear','capsule collection','ss26','fw26','ss25','fw25','spring summer','fall winter','editorial','fashion week','style guide'],
+    // Sneakers = footwear only
+    sneakers: ['sneaker','shoe','footwear','air max','air jordan','air force','dunk','yeezy','ultraboost','990','991','992','550','327','574','2002','old skool','sk8','chuck','colorway','silhouette','midsole','outsole','release date','on foot','retail price','stockx','goat','resell','restock','reissue','retro'],
+    // Collabs = explicit collaboration language only
+    collabs: ['collab','collaboration',' x ','co-design','co-branded','joint collection','capsule with','partnered with','team up','teams up','partnership','limited edition','exclusive drop'],
+    // Tech = genuine technology news only
+    tech: ['iphone','apple watch','macbook','android','samsung galaxy','google pixel','ai model','artificial intelligence','machine learning','app launch','software update','electric vehicle','tesla','autonomous','gaming console','playstation','xbox','nintendo','vr headset','augmented reality','cryptocurrency','blockchain','chatgpt','openai'],
+    // Culture = entertainment, art, music, sports only
+    culture: ['album','ep','single','music video','rapper','singer','producer','film','movie','trailer','tv series','netflix','hbo','streaming','art exhibition','gallery','museum','nba','nfl','mlb','athlete','championship','award show','grammy','oscar','interview','cover story','magazine feature']
   };
 
   let activeCategory = 'all';
