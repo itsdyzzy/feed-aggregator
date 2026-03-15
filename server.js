@@ -1078,7 +1078,7 @@ app.get('/about', (req, res) => {
 app.get('/weekly/:slug', async (req, res) => {
   const slug = req.params.slug;
   // Validate slug format YYYY-MM-DD
-  if (!/^d{4}-d{2}-d{2}$/.test(slug)) return res.status(404).send('Not found');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(slug)) return res.status(404).send('Not found');
 
   if (cachedArticles.length === 0 && fetchInProgress) await fetchInProgress;
 
