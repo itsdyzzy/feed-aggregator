@@ -871,6 +871,123 @@ app.get('/api/img', async (req, res) => {
 });
 
 
+// ─── Admin: manually add a single article by URL ─────────────────────────────
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'sw-admin-2026';
+
+app.use(express.json());
+
+app.post('/admin/add-article', async (req, res) => {
+  const { url, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!url || !url.startsWith('http')) return res.status(400).json({ error: 'Invalid URL' });
+  // Check for duplicate
+  if (cachedArticles.some(a => a.link === url)) return res.status(409).json({ error: 'Article already in feed' });
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const html = await res.text();
+    const hostname = new URL(url).hostname.replace('www.', '');
+    const sourceName = hostname.split('.')[0].charAt(0).toUpperCase() + hostname.split('.')[0].slice(1);
+
+    const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                  || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    const image = imgMatch?.[1]?.startsWith('http') ? imgMatch[1] : null;
+
+    const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+                    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)
+                    || html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch?.[1]?.trim() || hostname;
+
+    const descMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+                   || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i)
+                   || html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    const description = descMatch?.[1]?.trim() || '';
+
+    const dateMatch = html.match(/<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i)
+                   || html.match(/"datePublished"\s*:\s*"([^"]+)"/i);
+    const date = dateMatch?.[1] || null;
+
+    const article = {
+      source: 'manual',
+      sourceName,
+      title,
+      description,
+      link: url,
+      date: date || new Date().toISOString(),
+      image,
+      manual: true
+    };
+    cachedArticles.unshift(article);
+    markUrlsSeen([article]);
+    console.log('Manually added article:', article.title);
+    res.json({ success: true, article });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/admin', (req, res) => {
+  const pw = req.query.pw || '';
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>streetwear.news — Admin</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #eee; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .box { background: #1a1a1a; border: 1px solid #333; padding: 2rem; border-radius: 8px; width: 100%; max-width: 500px; }
+    h2 { margin: 0 0 1.5rem; color: #fff; font-size: 1.2rem; letter-spacing: 0.05em; }
+    input { width: 100%; box-sizing: border-box; padding: 0.75rem; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 1rem; margin-bottom: 0.75rem; }
+    button { width: 100%; padding: 0.75rem; background: #e63; border: none; color: #fff; font-size: 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #f74; }
+    #status { margin-top: 1rem; padding: 0.75rem; border-radius: 4px; display: none; font-size: 0.9rem; }
+    .success { background: #1a3a1a; border: 1px solid #3a7a3a; color: #7f7; }
+    .error { background: #3a1a1a; border: 1px solid #7a3a3a; color: #f77; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>STREETWEAR.NEWS — ADD ARTICLE</h2>
+    <input type="password" id="pw" placeholder="Password" value="${pw}"/>
+    <input type="url" id="url" placeholder="https://example.com/article..." />
+    <button onclick="addArticle()">Add to Feed</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    async function addArticle() {
+      const url = document.getElementById('url').value.trim();
+      const password = document.getElementById('pw').value.trim();
+      const status = document.getElementById('status');
+      if (!url) { showStatus('Please enter a URL', false); return; }
+      showStatus('Adding...', null);
+      try {
+        const res = await fetch('/admin/add-article', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showStatus('✓ Added: ' + data.article.title, true);
+          document.getElementById('url').value = '';
+        } else {
+          showStatus('Error: ' + data.error, false);
+        }
+      } catch(e) { showStatus('Error: ' + e.message, false); }
+    }
+    function showStatus(msg, success) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = success === true ? 'success' : success === false ? 'error' : '';
+      el.style.display = 'block';
+    }
+    document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') addArticle(); });
+  </script>
+</body>
+</html>`;
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
+
 app.get('/robots.txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Cache-Control', 'public, max-age=86400');
