@@ -881,6 +881,11 @@ app.get('/robots.txt', (req, res) => {
   ].join('\n'));
 });
 
+app.get('/ads.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.send('google.com, pub-6720370763893882, DIRECT, f08c47fec0942fa0');
+});
+
 app.get('/sitemap.xml', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=3600');
   const brands = ['nike','adidas','supreme','jordan','new-balance','vans','puma','crocs','reebok','palace'];
