@@ -876,7 +876,15 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'sw-admin-2026';
 
 app.use(express.json());
 
+app.options('/admin/add-article', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(204);
+});
+
 app.post('/admin/add-article', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
   const { url, password } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
   if (!url || !url.startsWith('http')) return res.status(400).json({ error: 'Invalid URL' });
