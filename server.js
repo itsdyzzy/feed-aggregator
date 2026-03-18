@@ -585,7 +585,7 @@ async function fetchComplex(browser) {
           document.querySelectorAll('a[href]').forEach(a => {
             const href = a.href || '';
             if (!href.includes('complex.com')) return;
-            if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/[a-z0-9-]/)) return;
+            if (!href.match(/complex\.com\/(sneakers|style|music|pop-culture|sports)\/(a\/)?[a-z0-9-]/)) return;
             const lines = a.innerText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 15);
             const title = lines[0] || '';
             if (!title || title.length < 10) return;
