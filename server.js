@@ -389,12 +389,21 @@ async function fetchHypebeast(browser) {
       .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
       .slice(0, 40);
 
-    // Fetch og:image for any still missing images
+    // Fetch og:image for any still missing images — use plain HTTP first, then browser fallback
     const needsImg = deduped.filter(a => !a.image);
     await Promise.allSettled(needsImg.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image) a.image = meta.image;
     }));
+    // For articles still missing images, use Playwright browser (bypasses Hypebeast bot detection)
+    const stillMissing = deduped.filter(a => !a.image);
+    if (stillMissing.length > 0) {
+      console.log(`Hypebeast: ${stillMissing.length} articles still missing images, trying browser fetch...`);
+      await Promise.allSettled(stillMissing.map(async (a) => {
+        const meta = await fetchOgMetaViaBrowser(browser, a.link);
+        if (meta.image) a.image = meta.image;
+      }));
+    }
 
     // Proxy images through our server to bypass CDN hotlink protection
     for (const a of deduped) {
