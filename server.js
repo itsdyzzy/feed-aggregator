@@ -584,17 +584,20 @@ async function fetchComplex(browser) {
         return await page.evaluate((isStyle) => {
           const results = [];
           if (isStyle) {
-            document.querySelectorAll('a[href]').forEach(a => {
-              const href = a.href || '';
-              if (!href.includes('complex.com')) return;
-              if (!href.match(/complex\.com\/style\/(a\/)?[a-z0-9-]/)) return;
-              const lines = a.innerText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 15);
-              const title = lines[0] || '';
+            // Style page uses MegaFeedCardContainer with title in <p> inside <a>
+            document.querySelectorAll('[class*="MegaFeedCardContainer"], [class*="FeedCardContainer"]').forEach(card => {
+              // Find the article link — the one with a full article path
+              const links = Array.from(card.querySelectorAll('a[href]'));
+              const articleLink = links.find(a => /complex\.com\/style\/a\/[a-z0-9-]+\/[a-z0-9-]/.test(a.href));
+              if (!articleLink) return;
+              const href = articleLink.href;
+              // Title is in a <p> inside the article link
+              const titleEl = articleLink.querySelector('p');
+              const title = titleEl?.innerText?.trim() || articleLink.innerText?.trim().split('\n').find(l => l.length > 15) || '';
               if (!title || title.length < 10) return;
-              const card = a.closest('article,[class*="card"],[class*="item"],[class*="post"]');
-              const timeEl = card ? card.querySelector('time') : null;
-              const img = card ? card.querySelector('img') : null;
-              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl ? (timeEl.getAttribute('datetime') || '') : '', image: img?.src?.startsWith('http') ? img.src : null });
+              const img = card.querySelector('img');
+              const timeEl = card.querySelector('time');
+              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl?.getAttribute('datetime') || '', image: img?.src?.startsWith('http') ? img.src : null });
             });
           } else {
             // Sneakers page: original logic untouched
