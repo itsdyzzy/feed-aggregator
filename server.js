@@ -584,19 +584,17 @@ async function fetchComplex(browser) {
         return await page.evaluate((isStyle) => {
           const results = [];
           if (isStyle) {
-            // Style page: articles are in a list layout, title is in a sibling/parent element not inside <a>
             document.querySelectorAll('a[href]').forEach(a => {
               const href = a.href || '';
+              if (!href.includes('complex.com')) return;
               if (!href.match(/complex\.com\/style\/(a\/)?[a-z0-9-]/)) return;
-              // Try to get title from: the link text, nearest heading, or parent container heading
-              const parent = a.closest('li, article, [class*="card"], [class*="item"], [class*="post"], div');
-              const headingEl = parent ? parent.querySelector('h1,h2,h3,h4,[class*="title"],[class*="heading"]') : null;
-              const linkText = a.innerText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 15)[0] || '';
-              const title = (headingEl?.innerText?.trim() || linkText || '').split('\n')[0].trim();
+              const lines = a.innerText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 15);
+              const title = lines[0] || '';
               if (!title || title.length < 10) return;
-              const img = parent ? parent.querySelector('img') : null;
-              const timeEl = parent ? parent.querySelector('time') : null;
-              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl?.getAttribute('datetime') || '', image: img?.src?.startsWith('http') ? img.src : null });
+              const card = a.closest('article,[class*="card"],[class*="item"],[class*="post"]');
+              const timeEl = card ? card.querySelector('time') : null;
+              const img = card ? card.querySelector('img') : null;
+              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl ? (timeEl.getAttribute('datetime') || '') : '', image: img?.src?.startsWith('http') ? img.src : null });
             });
           } else {
             // Sneakers page: original logic untouched
