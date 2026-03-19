@@ -360,16 +360,17 @@ async function fetchHypebeast(browser) {
       'Accept-Language': 'en-US,en;q=0.9',
     });
     await page.goto('https://hypebeast.com/latest', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
 
-    // Scroll down to trigger lazy-load for more articles and images
+    // Scroll down slowly to trigger lazy-load for more articles and images
     await page.setViewportSize({ width: 1280, height: 900 });
-    for (let i = 1; i <= 8; i++) {
+    for (let i = 1; i <= 10; i++) {
       await page.evaluate((pct) => {
         if (document.body) window.scrollTo(0, document.body.scrollHeight * pct);
-      }, i * 0.125);
-      await page.waitForTimeout(300);
+      }, i * 0.1);
+      await page.waitForTimeout(500);
     }
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     const results = await page.evaluate(() => {
       const articles = [];
@@ -406,10 +407,18 @@ async function fetchHypebeast(browser) {
 
     console.log(`Hypebeast /latest: ${results.length} items, ${results.filter(r=>r.image).length} with images`);
 
-    // Fetch og:meta for ALL missing images and dates (not capped — images are critical for HB)
-    await Promise.allSettled(results.filter(r => !r.image || !r.date).map(async (a) => {
+    // For missing images, use browser-based fetch (Hypebeast blocks plain HTTP requests)
+    const missingImg = results.filter(r => !r.image).slice(0, 10);
+    if (missingImg.length > 0) {
+      await Promise.allSettled(missingImg.map(async (a) => {
+        const meta = await fetchOgMetaViaBrowser(browser, a.link);
+        if (meta.image) a.image = meta.image;
+        if (meta.date && !a.date) a.date = meta.date;
+      }));
+    }
+    // For dates only (no browser needed), use plain fetch
+    await Promise.allSettled(results.filter(r => !r.date).map(async (a) => {
       const meta = await fetchOgMeta(a.link);
-      if (meta.image && !a.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
     }));
 
