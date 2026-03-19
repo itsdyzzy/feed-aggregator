@@ -587,19 +587,30 @@ async function fetchComplex(browser) {
         }
         return await page.evaluate((isStyle) => {
           const results = [];
+          // Parse "1 HOUR AGO", "2 HOURS AGO", "3 DAYS AGO" etc into ISO date string
+          function parseRelativeTime(str) {
+            if (!str) return '';
+            const m = str.match(/(\d+)\s+(MINUTE|HOUR|DAY|WEEK)S?\s+AGO/i);
+            if (!m) return '';
+            const n = parseInt(m[1]);
+            const unit = m[2].toUpperCase();
+            const ms = { MINUTE: 60000, HOUR: 3600000, DAY: 86400000, WEEK: 604800000 }[unit] || 0;
+            return new Date(Date.now() - n * ms).toISOString();
+          }
           if (isStyle) {
             // Style page: MegaFeedCardContainer has innerText like "STYLE\n\nTitle Here\n\nDescription\n\nAuthor\nTime"
             document.querySelectorAll('[class*="MegaFeedCardContainer"]').forEach(card => {
               const articleLink = Array.from(card.querySelectorAll('a[href]')).find(a => /complex\.com\/style\/a\//.test(a.href));
               if (!articleLink) return;
               const href = articleLink.href;
-              // Split innerText into non-empty lines, skip "STYLE"/"SNEAKERS" category label, grab first real title line
               const lines = card.innerText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-              const title = lines.find(l => l.length > 15 && !/^(STYLE|SNEAKERS|MUSIC|POP CULTURE|SPORTS|\d+ (HOURS?|DAYS?|MINUTES?) AGO)$/i.test(l)) || '';
+              const title = lines.find(l => l.length > 15 && !/^(STYLE|SNEAKERS|MUSIC|POP CULTURE|SPORTS|\d+ (HOURS?|DAYS?|MINUTES?|WEEKS?) AGO)$/i.test(l)) || '';
               if (!title || title.length < 10) return;
+              // Last line is usually the time string
+              const timeLine = lines[lines.length - 1] || '';
+              const date = parseRelativeTime(timeLine);
               const img = card.querySelector('img');
-              const timeEl = card.querySelector('time');
-              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date: timeEl?.getAttribute('datetime') || '', image: img?.src?.startsWith('http') ? img.src : null });
+              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date, image: img?.src?.startsWith('http') ? img.src : null });
             });
           } else {
             // Sneakers page: original logic untouched
@@ -655,7 +666,7 @@ async function fetchComplex(browser) {
     }
 
 
-    const final = deduped.slice(0, 40);
+    const final = deduped.slice(0, 60);
     // Fetch og:meta for all articles missing a date (minimize requests, cap at 10)
     const needsMeta = final.filter(a => !a.date).slice(0, 10);
     await Promise.allSettled(needsMeta.map(async (a) => {
