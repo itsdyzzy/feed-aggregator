@@ -352,6 +352,7 @@ function sanitizeRssFeed(xml) {
 }
 
 async function fetchHypebeast(browser) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
   const page = await browser.newPage();
   try {
     await page.setExtraHTTPHeaders({
@@ -418,8 +419,12 @@ async function fetchHypebeast(browser) {
     }
 
     return results;
-  } catch(e) { console.error('Hypebeast error:', e.message); return []; }
-  finally { await page.close(); }
+  } catch(e) {
+    console.error(`Hypebeast error (attempt ${attempt}):`, e.message);
+    if (attempt === 2) return [];
+  } finally { await page.close(); }
+  }
+  return [];
 }
 
 async function fetchHighsnobiety(browser) {
@@ -514,11 +519,24 @@ async function fetchSneakerNews() {
         image: isPlaceholder(img) ? null : img
       };
     });
-    // Fetch og:image for articles with missing or placeholder images
+    // Fetch og:image for articles with missing or placeholder images using Chrome headers
     const needsImg = articles.filter(a => !a.image);
     await Promise.allSettled(needsImg.map(async (a) => {
-      const meta = await fetchOgMeta(a.link);
-      if (meta.image) a.image = meta.image;
+      try {
+        const r = await fetch(a.link, {
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.google.com/'
+          }
+        });
+        const html = await r.text();
+        const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        if (imgMatch?.[1]?.startsWith('http')) a.image = imgMatch[1];
+      } catch(e) { /* skip */ }
     }));
     console.log('Sneaker News: ' + articles.length + ' items');
     return articles;
