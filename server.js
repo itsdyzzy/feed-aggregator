@@ -580,7 +580,11 @@ async function fetchComplex(browser) {
       try {
         await page.setExtraHTTPHeaders({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' });
         await page.goto(section, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForTimeout(2500);
+        if (isStyle) {
+          try { await page.waitForSelector('[class*="MegaFeedCardContainer"]', { timeout: 8000 }); } catch(e) { /* fallback to timeout */ await page.waitForTimeout(4000); }
+        } else {
+          await page.waitForTimeout(2500);
+        }
         return await page.evaluate((isStyle) => {
           const results = [];
           if (isStyle) {
