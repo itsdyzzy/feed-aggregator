@@ -626,6 +626,33 @@ async function fetchComplex(browser) {
     const allResults = sectionResults.flat();
     const seen = new Set();
     const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 30);
+
+    // If style articles are missing, try rss2json as fallback
+    const styleCount = deduped.filter(a => a.link && a.link.includes('/style/')).length;
+    if (styleCount === 0) {
+      console.log('Complex style: Playwright got 0 style articles, trying rss2json fallback...');
+      const styleFeeds = [
+        'https://www.complex.com/style/rss',
+        'https://www.complex.com/style/feed',
+        'https://assets.complex.com/feeds/channels/style.xml',
+        'https://assets.complex.com/feeds/channels/style-feed.xml',
+      ];
+      for (const feedUrl of styleFeeds) {
+        const r2j = await fetchViaRss2json(feedUrl, 'complex', 'Complex').catch(() => null);
+        if (r2j && r2j.length > 0) {
+          console.log(`Complex style via rss2json (${feedUrl}): ${r2j.length} items`);
+          deduped.push(...r2j.slice(0, 15));
+          break;
+        }
+        const direct = await fetchDirectFeed(feedUrl, 'complex', 'Complex').catch(() => null);
+        if (direct && direct.length > 0) {
+          console.log(`Complex style via direct feed (${feedUrl}): ${direct.length} items`);
+          deduped.push(...direct.slice(0, 15));
+          break;
+        }
+      }
+    }
+
     // Fetch og:meta for all articles missing a date (minimize requests, cap at 10)
     const needsMeta = deduped.filter(a => !a.date).slice(0, 10);
     await Promise.allSettled(needsMeta.map(async (a) => {
