@@ -625,10 +625,11 @@ async function fetchComplex(browser) {
 
     const allResults = sectionResults.flat();
     const seen = new Set();
-    const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; }).slice(0, 30);
+    const deduped = allResults.filter(a => { if (seen.has(a.title)) return false; seen.add(a.title); return true; });
 
     // If style articles are missing, try rss2json as fallback
     const styleCount = deduped.filter(a => a.link && a.link.includes('/style/')).length;
+    console.log(`Complex: ${deduped.length} total, ${styleCount} style articles`);
     if (styleCount === 0) {
       console.log('Complex style: Playwright got 0 style articles, trying rss2json fallback...');
       const styleFeeds = [
@@ -653,15 +654,17 @@ async function fetchComplex(browser) {
       }
     }
 
+
+    const final = deduped.slice(0, 40);
     // Fetch og:meta for all articles missing a date (minimize requests, cap at 10)
-    const needsMeta = deduped.filter(a => !a.date).slice(0, 10);
+    const needsMeta = final.filter(a => !a.date).slice(0, 10);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
       if (meta.date && !a.date) a.date = meta.date;
     }));
-    console.log('Complex scraped: ' + deduped.length + ' items');
-    return deduped;
+    console.log('Complex scraped: ' + final.length + ' items');
+    return final;
   } catch(e) { console.error('Complex scrape error:', e.message); return []; }
 }
 
