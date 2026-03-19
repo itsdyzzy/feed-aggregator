@@ -228,7 +228,7 @@ async function fetchViaRss2json(feedUrl, source, sourceName) {
     const data = JSON.parse(text);
     if (data.status === 'ok' && data.items?.length) {
       console.log(`${sourceName} via rss2json: ${data.items.length} items`);
-      return data.items.slice(0, 20).map(item => ({
+      return data.items.slice(0, 40).map(item => ({
         source, sourceName,
         title: item.title || '',
         description: item.description ? item.description.replace(/<[^>]+>/g, '').slice(0, 200) : '',
@@ -258,7 +258,7 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log(`${sourceName} direct: ${feed.items.length} items`);
-        return feed.items.slice(0, 20).map((item, i) => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || preExtracted[i]?.description || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) || preExtracted[i]?.image || null }));
+        return feed.items?.slice(0, 40).map((item, i) => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || preExtracted[i]?.description || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) || preExtracted[i]?.image || null }));
       }
     } catch(e) { console.error(`${sourceName} strict parse failed (${e.message}), trying lenient`); }
 
@@ -267,7 +267,7 @@ async function fetchDirectFeed(feedUrl, source, sourceName) {
       const feed = await lenientParser.parseString(raw);
       if (feed.items?.length) {
         console.log(`${sourceName} lenient: ${feed.items.length} items`);
-        return feed.items.slice(0, 20).map((item, i) => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || preExtracted[i]?.description || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) || preExtracted[i]?.image || null }));
+        return feed.items?.slice(0, 40).map((item, i) => ({ source, sourceName, title: item.title || '', description: item.contentSnippet || preExtracted[i]?.description || '', link: item.link || '', date: item.pubDate || item.isoDate || '', image: extractImage(item) || preExtracted[i]?.image || null }));
       }
     } catch(e) { console.error(`${sourceName} lenient parse failed: ${e.message}`); }
 
@@ -451,7 +451,7 @@ async function fetchHighsnobiety(browser) {
         articles.push({ source: 'highsnobiety', sourceName: 'Highsnobiety', title, description: '', link: href, date, image: image || null });
       });
       const seen = new Set();
-      return articles.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+      return articles.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 40);
     });
 
     console.log(`Highsnobiety scraped: ${results.length} items`);
@@ -479,7 +479,7 @@ async function fetchHighsnobiety(browser) {
       const raw = await res.text();
       const feed = await parser.parseString(sanitizeRssFeed(raw));
       if (feed.items?.length) {
-        return feed.items.slice(0, 20).map(item => ({
+        return feed.items?.slice(0, 40).map(item => ({
           source: 'highsnobiety', sourceName: 'Highsnobiety',
           title: item.title || '', description: item.contentSnippet || '',
           link: item.link || '', date: item.pubDate || item.isoDate || '',
@@ -502,7 +502,7 @@ async function fetchSneakerNews() {
     const preExtracted = preExtractFromRaw(raw);
     const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
-    const items = feed.items?.slice(0, 20) || [];
+    const items = feed.items?.slice(0, 40) || [];
     const isPlaceholder = (url) => !url || /ksfin|placeholder|default-img|blank/i.test(url) || url.startsWith('data:');
     const articles = items.map((item, i) => {
       const img = extractImage(item) || preExtracted[i]?.image || null;
@@ -541,7 +541,7 @@ async function fetchJustFreshKicks() {
     const preExtracted = preExtractFromRaw(raw);
     const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
-    const items = feed.items?.slice(0, 20) || [];
+    const items = feed.items?.slice(0, 40) || [];
     const articles = items.map((item, i) => ({
       source: 'justfreshkicks', sourceName: 'Just Fresh Kicks',
       title: item.title || '',
@@ -610,7 +610,12 @@ async function fetchComplex(browser) {
               const timeLine = lines[lines.length - 1] || '';
               const date = parseRelativeTime(timeLine);
               const img = card.querySelector('img');
-              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date, image: img?.src?.startsWith('http') ? img.src : null });
+              const imgSrc = img?.src?.startsWith('http') ? img.src
+                : img?.dataset?.src?.startsWith('http') ? img.dataset.src
+                : img?.dataset?.lazySrc?.startsWith('http') ? img.dataset.lazySrc
+                : img?.srcset ? img.srcset.split(',')[0].trim().split(' ')[0]
+                : null;
+              results.push({ source: 'complex', sourceName: 'Complex', title, description: '', link: href, date, image: imgSrc || null });
             });
           } else {
             // Sneakers page: original logic untouched
@@ -667,8 +672,8 @@ async function fetchComplex(browser) {
 
 
     const final = deduped.slice(0, 60);
-    // Fetch og:meta for all articles missing a date (minimize requests, cap at 10)
-    const needsMeta = final.filter(a => !a.date).slice(0, 10);
+    // Fetch og:meta for articles missing date or image (cap at 15)
+    const needsMeta = final.filter(a => !a.date || !a.image).slice(0, 15);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
@@ -702,7 +707,7 @@ async function fetchModernNotoriety(browser) {
         results.push({ source: 'modernnotoriety', sourceName: 'Modern Notoriety', title, description: '', link: href, date: timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '', image: img?.src?.startsWith('http') ? img.src : null });
       });
       const seen = new Set();
-      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 20);
+      return results.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 40);
     });
     // Fetch meta for all articles missing a date — cap at 5
     const needsMeta = results.filter(a => !a.date).slice(0, 5);
@@ -773,7 +778,7 @@ async function fetchSoleRetriever() {
       const feed = await parser.parseString(xml);
       if (feed.items?.length) {
         console.log('Sole Retriever RSS (' + feedUrl + '): ' + feed.items.length + ' items');
-        return feed.items.slice(0, 20).map(item => ({
+        return feed.items?.slice(0, 40).map(item => ({
           source: 'soleretriever', sourceName: 'Sole Retriever',
           title: item.title || '', description: item.contentSnippet || '',
           link: item.link || '', date: item.pubDate || item.isoDate || '',
