@@ -411,7 +411,8 @@ async function fetchHypebeast(browser) {
     }
 
     console.log(`Hypebeast RSS: ${deduped.length} items, ${deduped.filter(r=>r.image).length} with images`);
-    return deduped;
+    if (deduped.length > 0) return deduped;
+    console.log('Hypebeast RSS returned 0 items, falling back to Playwright...');
   } catch(e) {
     console.error('Hypebeast RSS error:', e.message);
   }
