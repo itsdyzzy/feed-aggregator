@@ -588,16 +588,14 @@ async function fetchComplex(browser) {
         return await page.evaluate((isStyle) => {
           const results = [];
           if (isStyle) {
-            // Style page uses MegaFeedCardContainer with title in <p> inside <a>
-            document.querySelectorAll('[class*="MegaFeedCardContainer"], [class*="FeedCardContainer"]').forEach(card => {
-              // Find the article link — the one with a full article path
-              const links = Array.from(card.querySelectorAll('a[href]'));
-              const articleLink = links.find(a => /complex\.com\/style\/a\/[a-z0-9-]+\/[a-z0-9-]/.test(a.href));
+            // Style page: MegaFeedCardContainer has innerText like "STYLE\n\nTitle Here\n\nDescription\n\nAuthor\nTime"
+            document.querySelectorAll('[class*="MegaFeedCardContainer"]').forEach(card => {
+              const articleLink = Array.from(card.querySelectorAll('a[href]')).find(a => /complex\.com\/style\/a\//.test(a.href));
               if (!articleLink) return;
               const href = articleLink.href;
-              // Title is in a <p> inside the article link
-              const titleEl = articleLink.querySelector('p');
-              const title = titleEl?.innerText?.trim() || articleLink.innerText?.trim().split('\n').find(l => l.length > 15) || '';
+              // Split innerText into non-empty lines, skip "STYLE"/"SNEAKERS" category label, grab first real title line
+              const lines = card.innerText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+              const title = lines.find(l => l.length > 15 && !/^(STYLE|SNEAKERS|MUSIC|POP CULTURE|SPORTS|\d+ (HOURS?|DAYS?|MINUTES?) AGO)$/i.test(l)) || '';
               if (!title || title.length < 10) return;
               const img = card.querySelector('img');
               const timeEl = card.querySelector('time');
