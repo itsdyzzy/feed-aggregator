@@ -352,6 +352,62 @@ function sanitizeRssFeed(xml) {
 }
 
 async function fetchHypebeast(browser) {
+  // Try RSS feeds first — more reliable than Playwright scraping
+  const feeds = [
+    'https://hypebeast.com/footwear/feed',
+    'https://hypebeast.com/fashion/feed',
+    'https://hypebeast.com/style/feed',
+  ];
+  try {
+    const feedResults = await Promise.allSettled(feeds.map(async (feedUrl) => {
+      const res = await fetch(feedUrl, {
+        signal: AbortSignal.timeout(15000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const raw = await res.text();
+      const preExtracted = preExtractFromRaw(raw);
+      const xml = sanitizeRssFeed(raw);
+      const feed = await parser.parseString(xml);
+      return (feed.items || []).slice(0, 20).map((item, i) => ({
+        source: 'hypebeast', sourceName: 'Hypebeast',
+        title: item.title || '',
+        description: item.contentSnippet || preExtracted[i]?.description || '',
+        link: item.link || '',
+        date: item.pubDate || item.isoDate || '',
+        image: extractImage(item) || preExtracted[i]?.image || null
+      }));
+    }));
+
+    const allItems = feedResults
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value);
+
+    const seen = new Set();
+    const deduped = allItems
+      .filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; })
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+      .slice(0, 40);
+
+    // Fetch og:image for any still missing images
+    const needsImg = deduped.filter(a => !a.image);
+    await Promise.allSettled(needsImg.map(async (a) => {
+      const meta = await fetchOgMeta(a.link);
+      if (meta.image) a.image = meta.image;
+    }));
+
+    // Proxy images through our server to bypass CDN hotlink protection
+    for (const a of deduped) {
+      if (a.image) a.image = '/api/img?url=' + encodeURIComponent(a.image);
+    }
+
+    console.log(`Hypebeast RSS: ${deduped.length} items, ${deduped.filter(r=>r.image).length} with images`);
+    return deduped;
+  } catch(e) {
+    console.error('Hypebeast RSS error:', e.message);
+  }
+
+  // Fallback to Playwright if RSS fails
   for (let attempt = 1; attempt <= 2; attempt++) {
   const page = await browser.newPage();
   try {
@@ -361,8 +417,6 @@ async function fetchHypebeast(browser) {
     });
     await page.goto('https://hypebeast.com/latest', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
-
-    // Scroll down slowly to trigger lazy-load for more articles and images
     await page.setViewportSize({ width: 1280, height: 900 });
     for (let i = 1; i <= 10; i++) {
       await page.evaluate((pct) => {
@@ -371,7 +425,6 @@ async function fetchHypebeast(browser) {
       await page.waitForTimeout(500);
     }
     await page.waitForTimeout(2000);
-
     const results = await page.evaluate(() => {
       const articles = [];
       document.querySelectorAll('a[href]').forEach(a => {
@@ -385,7 +438,6 @@ async function fetchHypebeast(browser) {
         if (!title || title.length < 10) return;
         const timeEl = card.querySelector('time');
         const img = card.querySelector('img');
-        // Try every possible image attribute
         const imgSrc = (img?.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
           : img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
           || img?.dataset?.srcset?.split(' ')[0]
@@ -404,29 +456,10 @@ async function fetchHypebeast(browser) {
         return true;
       }).slice(0, 40);
     });
-
     console.log(`Hypebeast /latest: ${results.length} items, ${results.filter(r=>r.image).length} with images`);
-
-    // For missing images, use browser-based fetch (Hypebeast blocks plain HTTP requests)
-    const missingImg = results.filter(r => !r.image).slice(0, 10);
-    if (missingImg.length > 0) {
-      await Promise.allSettled(missingImg.map(async (a) => {
-        const meta = await fetchOgMetaViaBrowser(browser, a.link);
-        if (meta.image) a.image = meta.image;
-        if (meta.date && !a.date) a.date = meta.date;
-      }));
-    }
-    // For dates only (no browser needed), use plain fetch
-    await Promise.allSettled(results.filter(r => !r.date).map(async (a) => {
-      const meta = await fetchOgMeta(a.link);
-      if (meta.date && !a.date) a.date = meta.date;
-    }));
-
-    // Rewrite through image proxy to bypass CDN hotlink protection
     for (const a of results) {
       if (a.image) a.image = '/api/img?url=' + encodeURIComponent(a.image);
     }
-
     return results;
   } catch(e) {
     console.error(`Hypebeast error (attempt ${attempt}):`, e.message);
