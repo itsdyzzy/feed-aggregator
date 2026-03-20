@@ -633,21 +633,22 @@
       width: 100%; height: 100%;
       object-fit: cover;
       filter: contrast(1.05) saturate(1.1);
-      -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
-      mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
     }
     .hero-right::after {
       content: '';
       position: absolute;
       inset: 0;
       background: linear-gradient(90deg, #0A0A0A 0%, transparent 35%);
+      z-index: 1;
+      pointer-events: none;
     }
     .hero-img-fade {
       position: absolute;
-      inset: 0;
+      bottom: 0; left: 0; right: 0;
+      height: 120px;
       z-index: 2;
       pointer-events: none;
-      background: linear-gradient(180deg, transparent 65%, #0A0A0A 100%);
+      background: linear-gradient(to top, #0A0A0A 0%, transparent 100%);
     }
     /* Carousel dots */
     .hero-dots {
@@ -1002,6 +1003,7 @@
     <div class="loader-text">Fetching latest articles</div>
   </div>
 <!-- SSR_GRID_END -->
+</div><!-- end grid -->
 
 </div><!-- end main-feed -->
 
