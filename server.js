@@ -10,6 +10,39 @@ const fs = require('fs');
 const app = express();
 console.log('ANTHROPIC_API_KEY loaded:', process.env.ANTHROPIC_API_KEY ? 'YES (length=' + process.env.ANTHROPIC_API_KEY.length + ')' : 'NO - MISSING');
 
+// ─── Featured Articles ────────────────────────────────────────────────────────
+const FEATURED_FILE = path.join(__dirname, 'featured.json');
+let featuredArticles = [];
+function loadFeatured() {
+  try { if (fs.existsSync(FEATURED_FILE)) featuredArticles = JSON.parse(fs.readFileSync(FEATURED_FILE, 'utf8')); } catch(e) {}
+}
+function saveFeatured() {
+  try { fs.writeFileSync(FEATURED_FILE, JSON.stringify(featuredArticles), 'utf8'); } catch(e) {}
+}
+loadFeatured();
+
+// ─── Ticker Text ──────────────────────────────────────────────────────────────
+const TICKER_FILE = path.join(__dirname, 'ticker.json');
+let tickerText = 'POWERED BY STAYGROUNDEAD: THE LATEST IN FASHION, STREETWEAR, CULTURE';
+function loadTicker() {
+  try { if (fs.existsSync(TICKER_FILE)) tickerText = JSON.parse(fs.readFileSync(TICKER_FILE, 'utf8')).text || tickerText; } catch(e) {}
+}
+function saveTicker() {
+  try { fs.writeFileSync(TICKER_FILE, JSON.stringify({ text: tickerText }), 'utf8'); } catch(e) {}
+}
+loadTicker();
+
+// ─── Email Subscribers ────────────────────────────────────────────────────────
+const EMAILS_FILE = path.join(__dirname, 'emails.json');
+let emailSubscribers = [];
+function loadEmails() {
+  try { if (fs.existsSync(EMAILS_FILE)) emailSubscribers = JSON.parse(fs.readFileSync(EMAILS_FILE, 'utf8')); } catch(e) {}
+}
+function saveEmails() {
+  try { fs.writeFileSync(EMAILS_FILE, JSON.stringify(emailSubscribers), 'utf8'); } catch(e) {}
+}
+loadEmails();
+
 // ─── Seen-URLs: persistent deduplication across fetch cycles ─────────────────
 const SEEN_URLS_FILE = path.join(__dirname, 'seen-urls.json');
 let seenUrls = new Set();
@@ -980,6 +1013,93 @@ app.get('/api/articles', (req, res) => {
   }
 });
 
+app.get('/api/featured', (req, res) => {
+  res.json({ featured: featuredArticles });
+});
+
+app.get('/api/ticker', (req, res) => {
+  res.json({ text: tickerText });
+});
+
+app.post('/api/subscribe', express.json(), (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) return res.status(400).json({ error: 'Invalid email' });
+  if (emailSubscribers.includes(email)) return res.json({ success: true }); // already subscribed
+  emailSubscribers.push(email);
+  saveEmails();
+  console.log('New subscriber:', email);
+  res.json({ success: true });
+});
+
+// ─── Upcoming Drops (scraped from Sole Retriever) ─────────────────────────────
+let cachedDrops = [];
+let lastDropsFetch = 0;
+const DROPS_TTL = 60 * 60 * 1000; // 1 hour
+
+app.get('/api/drops', async (req, res) => {
+  if (Date.now() - lastDropsFetch < DROPS_TTL && cachedDrops.length > 0) {
+    return res.json({ drops: cachedDrops });
+  }
+  try {
+    const r = await fetch('https://www.soleretriever.com/sneaker-release-dates', {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html' }
+    });
+    const html = await r.text();
+    const drops = [];
+    // Parse release date entries — Sole Retriever uses structured data
+    const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
+    if (jsonLdMatch) {
+      for (const block of jsonLdMatch) {
+        try {
+          const json = JSON.parse(block.replace(/<script[^>]*>|<\/script>/g, ''));
+          if (Array.isArray(json)) {
+            json.forEach(item => {
+              if (item.name && item.startDate) {
+                const d = new Date(item.startDate);
+                drops.push({
+                  name: item.name,
+                  date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  price: item.offers?.price ? '$' + item.offers.price : '',
+                  image: item.image || null,
+                  link: item.url || ''
+                });
+              }
+            });
+          }
+        } catch(e) {}
+      }
+    }
+    // Fallback: parse HTML table/list
+    if (drops.length === 0) {
+      const rows = html.matchAll(/<tr[^>]*>[\s\S]*?<\/tr>/gi);
+      for (const row of rows) {
+        const nameMatch = row[0].match(/class="[^"]*name[^"]*"[^>]*>([^<]+)</i);
+        const dateMatch = row[0].match(/class="[^"]*date[^"]*"[^>]*>([^<]+)</i);
+        const priceMatch = row[0].match(/\$[\d,]+/);
+        const imgMatch = row[0].match(/src="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i);
+        if (nameMatch && dateMatch) {
+          drops.push({
+            name: nameMatch[1].trim(),
+            date: dateMatch[1].trim(),
+            price: priceMatch ? priceMatch[0] : '',
+            image: imgMatch ? imgMatch[1] : null
+          });
+        }
+      }
+    }
+    if (drops.length > 0) {
+      cachedDrops = drops.slice(0, 100);
+      lastDropsFetch = Date.now();
+      console.log(`Drops: ${cachedDrops.length} items fetched`);
+    }
+    res.json({ drops: cachedDrops });
+  } catch(e) {
+    console.error('Drops fetch error:', e.message);
+    res.json({ drops: cachedDrops });
+  }
+});
+
 app.get('/api/refresh', async (req, res) => {
   lastFetch = 0;
   await fetchAllFeeds();
@@ -1055,10 +1175,9 @@ app.post('/admin/fetch-meta', async (req, res) => {
 // Step 2: actually save the article with user-confirmed fields
 app.post('/admin/add-article', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const { url, password, title, description, image, sourceName } = req.body;
+  const { url, password, title, description, image, sourceName, featured, headline, highlightWord, duration } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
   if (!url || !url.startsWith('http')) return res.status(400).json({ error: 'Invalid URL' });
-  if (cachedArticles.some(a => a.link === url)) return res.status(409).json({ error: 'Article already in feed' });
   const hostname = new URL(url).hostname.replace('www.', '');
   const article = {
     source: 'manual',
@@ -1070,8 +1189,26 @@ app.post('/admin/add-article', async (req, res) => {
     image: image || null,
     manual: true
   };
-  cachedArticles.unshift(article);
-  markUrlsSeen([article]);
+  // Add to grid if not already there
+  if (!cachedArticles.some(a => a.link === url)) {
+    cachedArticles.unshift(article);
+    markUrlsSeen([article]);
+  }
+  // Add to featured if checkbox was checked
+  if (featured) {
+    const featuredItem = {
+      ...article,
+      headline: headline || title || hostname,
+      highlightWord: highlightWord || '',
+      duration: parseInt(duration) || 6,
+      addedAt: new Date().toISOString()
+    };
+    // Remove existing featured with same URL to avoid duplicates
+    featuredArticles = featuredArticles.filter(f => f.link !== url);
+    featuredArticles.push(featuredItem);
+    saveFeatured();
+    console.log('Featured article set:', featuredItem.headline);
+  }
   console.log('Manually added article:', article.title);
   res.json({ success: true, article });
 });
@@ -1083,6 +1220,23 @@ app.options('/admin/fetch-meta', (req, res) => {
   res.sendStatus(204);
 });
 
+app.post('/admin/unfeature', (req, res) => {
+  const { url, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  featuredArticles = featuredArticles.filter(f => f.link !== url);
+  saveFeatured();
+  res.json({ success: true });
+});
+
+app.post('/admin/update-ticker', (req, res) => {
+  const { text, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Text required' });
+  tickerText = text.trim();
+  saveTicker();
+  res.json({ success: true });
+});
+
 app.get('/admin', (req, res) => {
   const html = `<!DOCTYPE html>
 <html>
@@ -1091,139 +1245,236 @@ app.get('/admin', (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: sans-serif; background: #111; color: #eee; display: flex; align-items: flex-start; justify-content: center; min-height: 100vh; margin: 0; padding: 2rem 1rem; }
-    .box { background: #1a1a1a; border: 1px solid #333; padding: 2rem; border-radius: 8px; width: 100%; max-width: 540px; }
-    h2 { margin: 0 0 1.5rem; color: #fff; font-size: 1.1rem; letter-spacing: 0.08em; }
-    label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 0.3rem; letter-spacing: 0.05em; text-transform: uppercase; }
-    input, textarea { width: 100%; padding: 0.7rem; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 0.95rem; margin-bottom: 1rem; font-family: sans-serif; }
-    textarea { resize: vertical; min-height: 70px; }
-    input:focus, textarea:focus { outline: none; border-color: #e63; }
-    .btn { width: 100%; padding: 0.8rem; border: none; color: #fff; font-size: 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 0.5rem; }
-    .btn-fetch { background: #555; }
-    .btn-fetch:hover { background: #666; }
-    .btn-add { background: #e63; }
-    .btn-add:hover { background: #f74; }
-    .btn-add:disabled { background: #555; cursor: not-allowed; }
-    #status { padding: 0.75rem; border-radius: 4px; font-size: 0.9rem; margin-top: 0.5rem; display: none; }
+    body { font-family: sans-serif; background: #0a0a0a; color: #eee; margin: 0; padding: 2rem 1rem; }
+    .container { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+    h1 { font-size: 1.1rem; letter-spacing: 0.1em; color: #CCFF00; margin-bottom: 0.25rem; }
+    .box { background: #1a1a1a; border: 1px solid #2a2a2a; padding: 1.5rem; }
+    .box-title { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #2a2a2a; }
+    label { display: block; font-size: 0.7rem; color: #888; margin-bottom: 0.25rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    input, textarea, select { width: 100%; padding: 0.65rem; background: #222; border: 1px solid #333; color: #fff; font-size: 0.9rem; margin-bottom: 0.75rem; font-family: sans-serif; outline: none; }
+    input:focus, textarea:focus, select:focus { border-color: #CCFF00; }
+    textarea { resize: vertical; min-height: 60px; }
+    .btn { width: 100%; padding: 0.75rem; border: none; color: #000; font-size: 0.85rem; font-weight: bold; letter-spacing: 0.08em; cursor: pointer; margin-bottom: 0.5rem; }
+    .btn-primary { background: #CCFF00; }
+    .btn-primary:hover { background: #fff; }
+    .btn-secondary { background: #333; color: #eee; }
+    .btn-secondary:hover { background: #444; }
+    .btn-danger { background: #FF3D00; color: #fff; width: auto; padding: 0.4rem 0.75rem; font-size: 0.75rem; }
+    .btn-danger:hover { background: #ff6b3d; }
+    #status { padding: 0.65rem; font-size: 0.85rem; display: none; margin-top: 0.5rem; }
     .success { background: #1a3a1a; border: 1px solid #3a7a3a; color: #7f7; }
     .error { background: #3a1a1a; border: 1px solid #7a3a3a; color: #f77; }
     .info { background: #1a2a3a; border: 1px solid #3a5a7a; color: #7af; }
-    #meta-fields { display: none; border-top: 1px solid #333; margin-top: 0.5rem; padding-top: 1.5rem; }
-    #img-preview { max-width: 100%; border-radius: 4px; margin-bottom: 1rem; display: none; }
+    #meta-fields { display: none; border-top: 1px solid #2a2a2a; margin-top: 0.5rem; padding-top: 1rem; }
+    #img-preview { max-width: 100%; margin-bottom: 0.75rem; display: none; border: 1px solid #2a2a2a; }
+    .featured-toggle { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; cursor: pointer; }
+    .featured-toggle input[type=checkbox] { width: auto; margin: 0; cursor: pointer; accent-color: #CCFF00; }
+    .featured-toggle span { font-size: 0.8rem; color: #CCFF00; letter-spacing: 0.05em; }
+    #featured-options { display: none; background: #111; border: 1px solid #CCFF0033; padding: 1rem; margin-bottom: 0.75rem; }
+    .featured-list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #2a2a2a; }
+    .featured-list-item:last-child { border-bottom: none; }
+    .featured-list-thumb { width: 48px; height: 36px; object-fit: cover; background: #222; flex-shrink: 0; }
+    .featured-list-info { flex: 1; min-width: 0; }
+    .featured-list-name { font-size: 0.8rem; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .featured-list-meta { font-size: 0.7rem; color: #888; margin-top: 2px; }
+    .pw-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .pw-row input { margin-bottom: 0; flex: 1; }
+    .pw-save { background: #333; border: none; color: #eee; padding: 0 1rem; font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
+    .pw-save:hover { background: #444; }
   </style>
 </head>
 <body>
+<div class="container">
+  <h1>STREETWEAR.NEWS — ADMIN</h1>
+
+  <!-- Password (global) -->
   <div class="box">
-    <h2>STREETWEAR.NEWS — ADD ARTICLE</h2>
-
+    <div class="box-title">Authentication</div>
     <label>Password</label>
-    <input type="password" id="pw" placeholder="Password"/>
+    <input type="password" id="pw" placeholder="Enter password"/>
+  </div>
 
+  <!-- Add Article -->
+  <div class="box">
+    <div class="box-title">Add Article</div>
     <label>Article URL</label>
     <input type="url" id="url" placeholder="https://example.com/article..."/>
-
-    <button class="btn btn-fetch" onclick="fetchMeta()">Fetch Article Info</button>
+    <button class="btn btn-secondary" onclick="fetchMeta()">Fetch Article Info</button>
 
     <div id="meta-fields">
       <img id="img-preview" src="" alt="preview"/>
-      <label>Title</label>
+      <label>Headline (shown in hero if featured)</label>
       <input type="text" id="title" placeholder="Article title"/>
       <label>Description</label>
       <textarea id="description" placeholder="Short description..."></textarea>
-      <label>Image URL</label>
+      <label>Image URL (use your own high-res for hero)</label>
       <input type="url" id="image" placeholder="https://..." oninput="previewImg(this.value)"/>
       <label>Source Name</label>
       <input type="text" id="sourceName" placeholder="e.g. Hypebeast"/>
-      <button class="btn btn-add" id="addBtn" onclick="addArticle()">Add to Feed</button>
-    </div>
 
+      <label class="featured-toggle">
+        <input type="checkbox" id="featuredCheck" onchange="toggleFeaturedOptions()"/>
+        <span>⭐ Feature this article as hero</span>
+      </label>
+
+      <div id="featured-options">
+        <label>Highlight Word (the neon outlined word in headline)</label>
+        <input type="text" id="highlightWord" placeholder="Auto-picks longest word — override here"/>
+        <label>Hero Duration</label>
+        <select id="duration">
+          <option value="2">2 Hours</option>
+          <option value="4">4 Hours</option>
+          <option value="6" selected>6 Hours</option>
+          <option value="8">8 Hours</option>
+          <option value="12">12 Hours</option>
+          <option value="24">24 Hours</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" id="addBtn" onclick="addArticle()">Add to Feed</button>
+    </div>
     <div id="status"></div>
   </div>
-  <script>
-    async function fetchMeta() {
-      const url = document.getElementById('url').value.trim();
-      const password = document.getElementById('pw').value.trim();
-      if (!url) { showStatus('Please enter a URL', 'error'); return; }
-      if (!password) { showStatus('Please enter your password', 'error'); return; }
-      showStatus('Fetching article info...', 'info');
-      try {
-        const r = await fetch('/admin/fetch-meta', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, password })
-        });
-        const data = await r.json();
-        if (r.status === 409) { showStatus('This article is already in the feed.', 'error'); return; }
-        if (r.status === 401) { showStatus('Wrong password.', 'error'); return; }
-        document.getElementById('title').value = data.title || '';
-        document.getElementById('description').value = data.description || '';
-        document.getElementById('image').value = data.image || '';
-        document.getElementById('sourceName').value = data.sourceName || '';
-        previewImg(data.image || '');
-        document.getElementById('meta-fields').style.display = 'block';
-        if (!data.title) {
-          showStatus('Could not auto-fetch info (site blocked it). Fill in the fields manually.', 'info');
-        } else {
-          showStatus('Info fetched! Review and click Add to Feed.', 'info');
-        }
-      } catch(e) {
-        document.getElementById('meta-fields').style.display = 'block';
-        showStatus('Could not reach site. Fill in the fields manually.', 'info');
-      }
-    }
 
-    async function addArticle() {
-      const url = document.getElementById('url').value.trim();
-      const password = document.getElementById('pw').value.trim();
-      const title = document.getElementById('title').value.trim();
-      const description = document.getElementById('description').value.trim();
-      const image = document.getElementById('image').value.trim();
-      const sourceName = document.getElementById('sourceName').value.trim();
-      if (!title) { showStatus('Please enter a title', 'error'); return; }
-      showStatus('Adding...', 'info');
-      try {
-        const r = await fetch('/admin/add-article', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, password, title, description, image, sourceName })
-        });
-        const data = await r.json();
-        if (data.success) {
-          showStatus('✓ Added: ' + data.article.title, 'success');
-          document.getElementById('url').value = '';
-          document.getElementById('title').value = '';
-          document.getElementById('description').value = '';
-          document.getElementById('image').value = '';
-          document.getElementById('sourceName').value = '';
-          document.getElementById('meta-fields').style.display = 'none';
-          document.getElementById('img-preview').style.display = 'none';
-        } else {
-          showStatus('Error: ' + data.error, 'error');
-        }
-      } catch(e) { showStatus('Error: ' + e.message, 'error'); }
-    }
+  <!-- Featured Articles -->
+  <div class="box">
+    <div class="box-title">Featured Articles (Hero Carousel)</div>
+    <div id="featuredList"><div style="color:#555;font-size:0.8rem;">Loading...</div></div>
+  </div>
 
-    function previewImg(src) {
-      const el = document.getElementById('img-preview');
-      if (src && src.startsWith('http')) { el.src = src; el.style.display = 'block'; }
-      else { el.style.display = 'none'; }
-    }
+  <!-- Ticker -->
+  <div class="box">
+    <div class="box-title">Ticker Text</div>
+    <label>Use | to separate multiple segments. Example: SEGMENT ONE | SEGMENT TWO</label>
+    <textarea id="tickerText" rows="3" placeholder="POWERED BY STAYGROUNDEAD: THE LATEST IN FASHION, STREETWEAR, CULTURE"></textarea>
+    <button class="btn btn-primary" onclick="saveTicker()">Save Ticker</button>
+    <div id="tickerStatus" style="display:none;padding:0.5rem;font-size:0.8rem;"></div>
+  </div>
 
-    function showStatus(msg, type) {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.className = type;
-      el.style.display = 'block';
-    }
+</div>
+<script>
+  function pw() { return document.getElementById('pw').value.trim(); }
 
-    document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') fetchMeta(); });
-  </script>
+  // Load ticker current value
+  fetch('/api/ticker').then(r=>r.json()).then(d => { document.getElementById('tickerText').value = d.text || ''; });
+
+  // Load featured articles
+  async function loadFeatured() {
+    const res = await fetch('/api/featured');
+    const data = await res.json();
+    const list = document.getElementById('featuredList');
+    if (!data.featured || data.featured.length === 0) {
+      list.innerHTML = '<div style="color:#555;font-size:0.8rem;">No featured articles set.</div>';
+      return;
+    }
+    list.innerHTML = data.featured.map(f => \`
+      <div class="featured-list-item">
+        \${f.image ? \`<img class="featured-list-thumb" src="\${f.image}" onerror="this.style.display='none'">\` : '<div class="featured-list-thumb"></div>'}
+        <div class="featured-list-info">
+          <div class="featured-list-name">\${f.headline || f.title}</div>
+          <div class="featured-list-meta">\${f.duration}hr slot · \${f.sourceName}</div>
+        </div>
+        <button class="btn btn-danger" onclick="unfeature('\${f.link.replace(/'/g, "\\\\'")}')">Unfeature</button>
+      </div>\`).join('');
+  }
+  loadFeatured();
+
+  async function unfeature(url) {
+    const res = await fetch('/admin/unfeature', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
+    const data = await res.json();
+    if (data.success) loadFeatured();
+    else alert('Error: ' + (data.error || 'Failed'));
+  }
+
+  async function saveTicker() {
+    const text = document.getElementById('tickerText').value.trim();
+    const s = document.getElementById('tickerStatus');
+    const res = await fetch('/admin/update-ticker', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, password: pw() }) });
+    const data = await res.json();
+    s.style.display = 'block';
+    s.style.color = data.success ? '#CCFF00' : '#f77';
+    s.textContent = data.success ? '✓ Ticker updated!' : 'Error: ' + data.error;
+  }
+
+  function toggleFeaturedOptions() {
+    document.getElementById('featured-options').style.display = document.getElementById('featuredCheck').checked ? 'block' : 'none';
+  }
+
+  async function fetchMeta() {
+    const url = document.getElementById('url').value.trim();
+    if (!url) { showStatus('Please enter a URL', 'error'); return; }
+    if (!pw()) { showStatus('Please enter your password', 'error'); return; }
+    showStatus('Fetching article info...', 'info');
+    try {
+      const r = await fetch('/admin/fetch-meta', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
+      const data = await r.json();
+      if (r.status === 401) { showStatus('Wrong password.', 'error'); return; }
+      document.getElementById('title').value = data.title || '';
+      document.getElementById('description').value = data.description || '';
+      document.getElementById('image').value = data.image || '';
+      document.getElementById('sourceName').value = data.sourceName || '';
+      // Auto-pick highlight word (longest word in title)
+      const words = (data.title || '').split(' ').filter(w => w.length > 3);
+      document.getElementById('highlightWord').value = words.length ? words.reduce((a,b) => b.length > a.length ? b : a, '') : '';
+      previewImg(data.image || '');
+      document.getElementById('meta-fields').style.display = 'block';
+      showStatus(data.title ? 'Info fetched! Review and click Add to Feed.' : 'Could not auto-fetch — fill in manually.', 'info');
+    } catch(e) {
+      document.getElementById('meta-fields').style.display = 'block';
+      showStatus('Could not reach site. Fill in manually.', 'info');
+    }
+  }
+
+  async function addArticle() {
+    const url = document.getElementById('url').value.trim();
+    const title = document.getElementById('title').value.trim();
+    const description = document.getElementById('description').value.trim();
+    const image = document.getElementById('image').value.trim();
+    const sourceName = document.getElementById('sourceName').value.trim();
+    const featured = document.getElementById('featuredCheck').checked;
+    const highlightWord = document.getElementById('highlightWord').value.trim();
+    const duration = document.getElementById('duration').value;
+    if (!title) { showStatus('Please enter a title', 'error'); return; }
+    showStatus('Adding...', 'info');
+    try {
+      const r = await fetch('/admin/add-article', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw(), title, description, image, sourceName, featured, headline: title, highlightWord, duration }) });
+      const data = await r.json();
+      if (data.success) {
+        showStatus('✓ Added' + (featured ? ' + Featured!' : '!'), 'success');
+        document.getElementById('url').value = '';
+        document.getElementById('title').value = '';
+        document.getElementById('description').value = '';
+        document.getElementById('image').value = '';
+        document.getElementById('sourceName').value = '';
+        document.getElementById('featuredCheck').checked = false;
+        document.getElementById('featured-options').style.display = 'none';
+        document.getElementById('meta-fields').style.display = 'none';
+        document.getElementById('img-preview').style.display = 'none';
+        if (featured) loadFeatured();
+      } else { showStatus('Error: ' + data.error, 'error'); }
+    } catch(e) { showStatus('Error: ' + e.message, 'error'); }
+  }
+
+  function previewImg(src) {
+    const el = document.getElementById('img-preview');
+    if (src && src.startsWith('http')) { el.src = src; el.style.display = 'block'; }
+    else { el.style.display = 'none'; }
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = type;
+    el.style.display = 'block';
+  }
+
+  document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') fetchMeta(); });
+</script>
 </body>
 </html>`;
   res.setHeader('Content-Type', 'text/html');
   res.send(html);
 });
-
 app.get('/robots.txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
   res.setHeader('Cache-Control', 'public, max-age=86400');
