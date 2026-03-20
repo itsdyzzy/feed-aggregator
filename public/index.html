@@ -43,6 +43,8 @@
       --accent: #e8ff00;
       --text: #f0f0f0;
       --muted: #555;
+      --neon: #CCFF00;
+      --hot: #FF3D00;
       --tag-hype: #ff3c3c;
       --tag-high: #3caaff;
       --tag-complex: #ff9500;
@@ -539,6 +541,305 @@
       .social-icons svg { width: 13px; height: 13px; }
       .card-title { font-size: 1rem; }
     }
+
+    /* ─── Hero Featured Section ───────────────────────────────────────────────── */
+    .hero-section {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 520px;
+      overflow: hidden;
+      background: #0A0A0A;
+    }
+    .hero-left {
+      position: relative;
+      padding: 56px 48px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      z-index: 2;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--neon);
+      margin-bottom: 20px;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .hero-pulse {
+      width: 8px; height: 8px;
+      background: var(--hot);
+      border-radius: 50%;
+      animation: heroPulse 1.5s ease infinite;
+      flex-shrink: 0;
+    }
+    @keyframes heroPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.5); }
+    }
+    .hero-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(52px, 7vw, 100px);
+      line-height: 0.92;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+    .hero-title .hero-highlight {
+      -webkit-text-stroke: 2px var(--neon);
+      color: transparent;
+      text-shadow: 0 0 40px rgba(204,255,0,0.25);
+      display: block;
+    }
+    .hero-desc {
+      font-size: 15px;
+      line-height: 1.65;
+      color: #888;
+      max-width: 400px;
+      margin-bottom: 32px;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #000;
+      background: var(--neon);
+      padding: 14px 28px;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      width: fit-content;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .hero-cta:hover { background: #fff; transform: translateX(4px); }
+    .hero-right {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-right img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      filter: contrast(1.05) saturate(1.1);
+    }
+    .hero-right::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #0A0A0A 0%, transparent 35%);
+    }
+    /* Carousel dots */
+    .hero-dots {
+      position: absolute;
+      bottom: 20px;
+      left: 48px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .hero-dot {
+      width: 24px; height: 3px;
+      background: rgba(255,255,255,0.25);
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .hero-dot.active { background: var(--neon); }
+    @media (max-width: 768px) {
+      .hero-section { grid-template-columns: 1fr; min-height: auto; }
+      .hero-right { height: 260px; }
+      .hero-right::after { background: linear-gradient(180deg, transparent 50%, #0A0A0A 100%); }
+      .hero-left { padding: 32px 24px; }
+      .hero-dots { left: 24px; }
+    }
+
+    /* ─── Ticker ──────────────────────────────────────────────────────────────── */
+    .ticker-wrap {
+      background: var(--hot);
+      color: #fff;
+      padding: 11px 0;
+      overflow: hidden;
+      position: relative;
+    }
+    .ticker-inner {
+      display: flex;
+      gap: 0;
+      animation: ticker 30s linear infinite;
+      white-space: nowrap;
+      width: max-content;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+    }
+    .ticker-inner:hover { animation-play-state: paused; }
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ticker-sep { color: rgba(255,255,255,0.5); margin: 0 16px; }
+
+    /* ─── Below-fold layout: grid + sidebar ──────────────────────────────────── */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 0;
+      align-items: start;
+    }
+    .main-feed { min-width: 0; }
+    .sidebar {
+      border-left: 1px solid var(--border);
+      position: sticky;
+      top: 64px;
+      max-height: calc(100vh - 64px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+    @media (max-width: 1024px) {
+      .main-layout { grid-template-columns: 1fr; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); position: static; max-height: none; }
+    }
+
+    /* ─── Upcoming Drops ──────────────────────────────────────────────────────── */
+    .drops-section { padding: 24px 20px; }
+    .drops-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      color: var(--neon);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .drops-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .drop-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .drop-item:last-child { border-bottom: none; }
+    .drop-thumb {
+      width: 48px; height: 48px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+    .drop-thumb-placeholder {
+      width: 48px; height: 48px;
+      background: var(--surface);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; color: var(--muted); letter-spacing: 0.05em;
+      text-align: center;
+    }
+    .drop-info { flex: 1; min-width: 0; }
+    .drop-name {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .drop-price {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .drop-date {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--hot);
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .drops-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0 0;
+      margin-top: 8px;
+    }
+    .drops-page-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 12px;
+      font-size: 11px;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drops-page-btn:hover:not(:disabled) { border-color: var(--neon); color: var(--neon); }
+    .drops-page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .drops-page-info { font-size: 11px; color: var(--muted); font-family: 'DM Sans', sans-serif; }
+
+    /* ─── Email Signup ────────────────────────────────────────────────────────── */
+    .email-section {
+      padding: 24px 20px;
+      border-top: 1px solid var(--border);
+      background: rgba(204,255,0,0.03);
+    }
+    .email-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .email-sub {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 14px;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .email-form { display: flex; flex-direction: column; gap: 8px; }
+    .email-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .email-input:focus { border-color: var(--neon); }
+    .email-input::placeholder { color: var(--muted); }
+    .email-btn {
+      width: 100%;
+      background: var(--neon);
+      border: none;
+      color: #000;
+      padding: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .email-btn:hover { background: #fff; }
+    .email-msg { font-size: 11px; color: var(--neon); font-family: 'DM Sans', sans-serif; display: none; }
   </style>
 
   <script type="application/ld+json">
@@ -557,6 +858,19 @@
   </script>
 </head>
 <body>
+
+<!-- ─── Hero Featured Section ─────────────────────────────────────────────── -->
+<div id="heroSection" style="display:none">
+  <div class="hero-section" id="heroSlider">
+    <!-- slides injected by JS -->
+  </div>
+  <!-- Ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker-inner" id="tickerInner">
+      <!-- content injected by JS -->
+    </div>
+  </div>
+</div>
 
 <header>
   <a href="/" style="text-decoration:none">
@@ -591,6 +905,8 @@
 <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Latest Streetwear News, Sneaker Drops, Collabs &amp; Releases</h2>
 
 
+<div class="main-layout">
+<div class="main-feed">
 <div class="controls">
   <div class="search-wrap">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -666,6 +982,33 @@
     <div class="loader-text">Fetching latest articles</div>
   </div>
 <!-- SSR_GRID_END -->
+
+</div><!-- end main-feed -->
+
+<aside class="sidebar">
+  <!-- Upcoming Drops -->
+  <div class="drops-section">
+    <div class="drops-title">Upcoming Drops</div>
+    <div id="dropsList"><div style="color:var(--muted);font-size:11px;font-family:'DM Sans',sans-serif;">Loading drops...</div></div>
+    <div class="drops-pagination" id="dropsPagination" style="display:none">
+      <button class="drops-page-btn" id="dropsPrev" onclick="dropsPage(-1)">← Prev</button>
+      <span class="drops-page-info" id="dropsPageInfo"></span>
+      <button class="drops-page-btn" id="dropsNext" onclick="dropsPage(1)">Next →</button>
+    </div>
+  </div>
+  <!-- Email Signup -->
+  <div class="email-section">
+    <div class="email-title">GET THE DROP</div>
+    <div class="email-sub">Real-time alerts on sneaker drops, collabs, and culture. No spam, just heat.</div>
+    <div class="email-form">
+      <input type="email" class="email-input" id="emailInput" placeholder="your@email.com"/>
+      <button class="email-btn" onclick="submitEmail()">Subscribe →</button>
+      <div class="email-msg" id="emailMsg"></div>
+    </div>
+  </div>
+</aside>
+
+</div><!-- end main-layout -->
 
 <script>
   let allArticles = [];
@@ -1005,6 +1348,138 @@
 
   // Auto-refresh every 15 minutes (homepage only)
   if (!isSpecialPage) setInterval(loadArticles, 15 * 60 * 1000);
+
+  // ─── Hero Carousel ───────────────────────────────────────────────────────────
+  let featuredArticles = [];
+  let heroIndex = 0;
+  let heroTimer = null;
+
+  function renderHero() {
+    if (!featuredArticles.length) { document.getElementById('heroSection').style.display = 'none'; return; }
+    document.getElementById('heroSection').style.display = 'block';
+    const slider = document.getElementById('heroSlider');
+    const f = featuredArticles[heroIndex];
+
+    // Split title for highlight word
+    const words = (f.headline || f.title || '').split(' ');
+    const highlightWord = f.highlightWord || words.reduce((a,b) => b.length > a.length ? b : a, '');
+    const titleHtml = words.map(w => w.toUpperCase() === highlightWord.toUpperCase()
+      ? `<span class="hero-highlight">${w}</span>`
+      : w
+    ).join(' ');
+
+    slider.innerHTML = `
+      <div class="hero-left">
+        <div class="hero-eyebrow"><span class="hero-pulse"></span> Breaking · Just In</div>
+        <div class="hero-title">${titleHtml}</div>
+        <div class="hero-desc">${f.description || ''}</div>
+        <a class="hero-cta" href="${f.link}" target="_blank" rel="noopener">Read The Story →</a>
+        ${featuredArticles.length > 1 ? `<div class="hero-dots">${featuredArticles.map((_,i) => `<div class="hero-dot${i===heroIndex?' active':''}" onclick="goHero(${i})"></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="hero-right">
+        <img src="${f.image || ''}" alt="${(f.headline||f.title||'').replace(/"/g,'')}" onerror="this.style.display='none'"/>
+      </div>`;
+
+    // Schedule next slide
+    if (heroTimer) clearTimeout(heroTimer);
+    if (featuredArticles.length > 1) {
+      const duration = (f.duration || 6) * 3600000;
+      heroTimer = setTimeout(() => {
+        heroIndex = (heroIndex + 1) % featuredArticles.length;
+        renderHero();
+      }, duration);
+    }
+  }
+
+  function goHero(i) { heroIndex = i; renderHero(); }
+
+  async function loadFeatured() {
+    try {
+      const res = await fetch('/api/featured');
+      const data = await res.json();
+      featuredArticles = data.featured || [];
+      renderHero();
+    } catch(e) { console.error('Failed to load featured:', e); }
+  }
+  loadFeatured();
+
+  // ─── Ticker ──────────────────────────────────────────────────────────────────
+  async function loadTicker() {
+    try {
+      const res = await fetch('/api/ticker');
+      const data = await res.json();
+      const text = data.text || 'POWERED BY STAYGROUNDEAD: THE LATEST IN FASHION, STREETWEAR, CULTURE';
+      // Repeat text to fill marquee
+      const segment = text.split('|').map(s => s.trim()).filter(Boolean)
+        .map(s => `<span>${s}</span><span class="ticker-sep">+</span>`).join('');
+      const doubled = segment + segment; // duplicate for seamless loop
+      document.getElementById('tickerInner').innerHTML = doubled;
+    } catch(e) {}
+  }
+  loadTicker();
+
+  // ─── Upcoming Drops ──────────────────────────────────────────────────────────
+  let allDrops = [];
+  let dropsCurrentPage = 0;
+  const DROPS_PER_PAGE = 10;
+
+  function renderDrops() {
+    const list = document.getElementById('dropsList');
+    const pagination = document.getElementById('dropsPagination');
+    if (!allDrops.length) { list.innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:\'DM Sans\',sans-serif;padding:8px 0">No upcoming drops found.</div>'; return; }
+
+    const start = dropsCurrentPage * DROPS_PER_PAGE;
+    const page = allDrops.slice(start, start + DROPS_PER_PAGE);
+
+    list.innerHTML = page.map(d => `
+      <div class="drop-item">
+        ${d.image ? `<img class="drop-thumb" src="${d.image}" alt="${d.name}" onerror="this.style.display='none'">` : `<div class="drop-thumb-placeholder">NO IMG</div>`}
+        <div class="drop-info">
+          <div class="drop-name">${d.name}</div>
+          ${d.price ? `<div class="drop-price">${d.price}</div>` : ''}
+        </div>
+        <div class="drop-date">${d.date}</div>
+      </div>`).join('');
+
+    const totalPages = Math.ceil(allDrops.length / DROPS_PER_PAGE);
+    if (totalPages > 1) {
+      pagination.style.display = 'flex';
+      document.getElementById('dropsPageInfo').textContent = `${dropsCurrentPage + 1} / ${totalPages}`;
+      document.getElementById('dropsPrev').disabled = dropsCurrentPage === 0;
+      document.getElementById('dropsNext').disabled = dropsCurrentPage >= totalPages - 1;
+    } else {
+      pagination.style.display = 'none';
+    }
+  }
+
+  function dropsPage(dir) {
+    const totalPages = Math.ceil(allDrops.length / DROPS_PER_PAGE);
+    dropsCurrentPage = Math.max(0, Math.min(totalPages - 1, dropsCurrentPage + dir));
+    renderDrops();
+  }
+
+  async function loadDrops() {
+    try {
+      const res = await fetch('/api/drops');
+      const data = await res.json();
+      allDrops = data.drops || [];
+      renderDrops();
+    } catch(e) { document.getElementById('dropsList').innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:\'DM Sans\',sans-serif;">Could not load drops.</div>'; }
+  }
+  loadDrops();
+
+  // ─── Email Signup ─────────────────────────────────────────────────────────────
+  async function submitEmail() {
+    const email = document.getElementById('emailInput').value.trim();
+    const msg = document.getElementById('emailMsg');
+    if (!email || !email.includes('@')) { msg.style.display='block'; msg.style.color='#ff6b6b'; msg.textContent='Please enter a valid email.'; return; }
+    try {
+      const res = await fetch('/api/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email}) });
+      const data = await res.json();
+      if (data.success) { msg.style.display='block'; msg.style.color='var(--neon)'; msg.textContent='You\'re in. Stay tuned.'; document.getElementById('emailInput').value=''; }
+      else { msg.style.display='block'; msg.style.color='#ff6b6b'; msg.textContent = data.error || 'Something went wrong.'; }
+    } catch(e) { msg.style.display='block'; msg.style.color='#ff6b6b'; msg.textContent='Could not subscribe. Try again.'; }
+  }
 </script>
 
 <footer style="border-top:1px solid var(--border);padding:1.5rem 2rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;background:var(--bg);">
