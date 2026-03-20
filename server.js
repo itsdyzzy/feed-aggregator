@@ -1040,62 +1040,120 @@ app.get('/api/drops', async (req, res) => {
   if (Date.now() - lastDropsFetch < DROPS_TTL && cachedDrops.length > 0) {
     return res.json({ drops: cachedDrops });
   }
+  let browser;
   try {
-    const r = await fetch('https://www.soleretriever.com/sneaker-release-dates', {
-      signal: AbortSignal.timeout(15000),
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html' }
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
-    const html = await r.text();
-    const drops = [];
-    // Parse release date entries — Sole Retriever uses structured data
-    const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
-    if (jsonLdMatch) {
-      for (const block of jsonLdMatch) {
-        try {
-          const json = JSON.parse(block.replace(/<script[^>]*>|<\/script>/g, ''));
-          if (Array.isArray(json)) {
-            json.forEach(item => {
-              if (item.name && item.startDate) {
-                const d = new Date(item.startDate);
-                drops.push({
-                  name: item.name,
-                  date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                  price: item.offers?.price ? '$' + item.offers.price : '',
-                  image: item.image || null,
-                  link: item.url || ''
-                });
-              }
-            });
-          }
-        } catch(e) {}
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    });
+    const page = await context.newPage();
+    await page.goto('https://www.soleretriever.com/sneaker-release-dates', {
+      waitUntil: 'networkidle',
+      timeout: 30000
+    });
+    // Wait for React/Next.js hydration
+    await page.waitForTimeout(4000);
+
+    const drops = await page.evaluate(() => {
+      const results = [];
+      // Try multiple selector strategies
+      const selectors = [
+        'a[href*="/sneakers/"]',
+        'a[href*="/release-dates/"]',
+        '[data-testid*="release"]',
+        '[data-testid*="product"]',
+        '.release-card', '.release-item',
+        'article',
+        '[class*="Release"]', '[class*="release"]',
+        '[class*="Card"]', '[class*="card"]',
+        '[class*="Product"]', '[class*="product"]',
+      ];
+      let cards = [];
+      for (const sel of selectors) {
+        const found = document.querySelectorAll(sel);
+        if (found.length >= 3) { cards = Array.from(found); break; }
       }
-    }
-    // Fallback: parse HTML table/list
-    if (drops.length === 0) {
-      const rows = html.matchAll(/<tr[^>]*>[\s\S]*?<\/tr>/gi);
-      for (const row of rows) {
-        const nameMatch = row[0].match(/class="[^"]*name[^"]*"[^>]*>([^<]+)</i);
-        const dateMatch = row[0].match(/class="[^"]*date[^"]*"[^>]*>([^<]+)</i);
-        const priceMatch = row[0].match(/\$[\d,]+/);
-        const imgMatch = row[0].match(/src="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i);
-        if (nameMatch && dateMatch) {
-          drops.push({
-            name: nameMatch[1].trim(),
-            date: dateMatch[1].trim(),
-            price: priceMatch ? priceMatch[0] : '',
-            image: imgMatch ? imgMatch[1] : null
-          });
+      // Fallback: find containers with many children that have images
+      if (cards.length < 3) {
+        for (const container of document.querySelectorAll('div, section, ul')) {
+          const children = Array.from(container.children);
+          if (children.length >= 5) {
+            const withImages = children.filter(c => c.querySelector('img'));
+            if (withImages.length >= 3) { cards = withImages; break; }
+          }
         }
       }
-    }
-    if (drops.length > 0) {
-      cachedDrops = drops.slice(0, 100);
+      for (const card of cards.slice(0, 40)) {
+        try {
+          const img = card.querySelector('img');
+          const link = card.tagName === 'A' ? card : (card.closest('a') || card.querySelector('a'));
+          const allText = (card.innerText || '').trim();
+          if (!allText || allText.length < 3) continue;
+          const lines = allText.split('\n').map(l => l.trim()).filter(Boolean);
+          const priceMatch = allText.match(/\$\d[\d,]*/);
+          const dateMatch = allText.match(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:[,\s]+\d{4})?/i)
+            || allText.match(/\d{1,2}\/\d{1,2}(?:\/\d{2,4})?/);
+          let name = '';
+          for (const line of lines) {
+            if (line.length > name.length && !line.match(/^\$/) && line.length > 3 && line.length < 120) name = line;
+          }
+          if (!name && lines.length > 0) name = lines[0];
+          if (!name || name.length < 4) continue;
+          results.push({
+            name: name.slice(0, 100),
+            image: img ? (img.src || img.dataset?.src || '') : '',
+            date: dateMatch ? dateMatch[0] : '',
+            price: priceMatch ? priceMatch[0] : '',
+            link: link ? link.href : ''
+          });
+        } catch(e) {}
+      }
+      return results;
+    });
+
+    await browser.close();
+    browser = null;
+
+    // Deduplicate
+    const seen = new Set();
+    const unique = drops.filter(d => {
+      const key = d.name.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (unique.length > 0) {
+      cachedDrops = unique.slice(0, 100);
       lastDropsFetch = Date.now();
-      console.log(`Drops: ${cachedDrops.length} items fetched`);
+      console.log(`Drops: ${cachedDrops.length} items scraped via Playwright`);
     }
     res.json({ drops: cachedDrops });
   } catch(e) {
-    console.error('Drops fetch error:', e.message);
+    console.error('Drops Playwright error:', e.message);
+    if (browser) { try { await browser.close(); } catch(_) {} }
+    // Fallback: try RSS
+    try {
+      const parser = new Parser();
+      const feed = await parser.parseURL('https://www.soleretriever.com/feed');
+      const rssDrops = feed.items.slice(0, 30).map(item => ({
+        name: item.title || 'Unknown',
+        image: (item.enclosure && item.enclosure.url) || '',
+        date: item.pubDate ? new Date(item.pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+        price: '',
+        link: item.link || ''
+      }));
+      if (rssDrops.length > 0) {
+        cachedDrops = rssDrops;
+        lastDropsFetch = Date.now();
+        console.log(`Drops: ${cachedDrops.length} items via RSS fallback`);
+      }
+    } catch(rssErr) {
+      console.error('Drops RSS fallback error:', rssErr.message);
+    }
     res.json({ drops: cachedDrops });
   }
 });
