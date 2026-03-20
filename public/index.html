@@ -779,17 +779,21 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .drop-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
     .drop-price {
       font-size: 11px;
       color: var(--muted);
-      margin-top: 2px;
     }
     .drop-date {
       font-size: 11px;
       font-weight: 700;
       color: var(--hot);
       white-space: nowrap;
-      flex-shrink: 0;
       font-family: 'DM Sans', sans-serif;
     }
     .drops-pagination {
@@ -1473,9 +1477,11 @@
         ${d.image ? `<img class="drop-thumb" src="${d.image}" alt="${d.name}" onerror="this.style.display='none'">` : `<div class="drop-thumb-placeholder">NO IMG</div>`}
         <div class="drop-info">
           <div class="drop-name">${d.name}</div>
-          ${d.price ? `<div class="drop-price">${d.price}</div>` : ''}
+          <div class="drop-meta-row">
+            ${d.price ? `<span class="drop-price">${d.price}</span>` : ''}
+            ${d.date ? `<span class="drop-date">${d.date}</span>` : ''}
+          </div>
         </div>
-        <div class="drop-date">${d.date}</div>
       </div>`).join('');
 
     if (dropsVisible < allDrops.length) {
