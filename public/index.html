@@ -690,7 +690,7 @@
     .ticker-inner {
       display: flex;
       gap: 0;
-      animation: tickerScroll 10s linear infinite;
+      animation: tickerScroll 60s linear infinite;
       white-space: nowrap;
       width: max-content;
       font-family: 'Bebas Neue', sans-serif;
@@ -1450,7 +1450,7 @@
       // Repeat text to fill marquee
       const segment = text.split('|').map(s => s.trim()).filter(Boolean)
         .map(s => `<span>${s}</span><span class="ticker-sep">+</span>`).join('');
-      document.getElementById('tickerInner').innerHTML = segment.repeat(550);
+      document.getElementById('tickerInner').innerHTML = segment.repeat(10);
     } catch(e) {}
   }
   loadTicker();
