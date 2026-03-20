@@ -1050,99 +1050,110 @@ app.get('/api/drops', async (req, res) => {
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
     const page = await context.newPage();
-    await page.goto('https://www.soleretriever.com/sneaker-release-dates', {
-      waitUntil: 'networkidle',
-      timeout: 30000
-    });
-    // Wait for React/Next.js hydration
-    await page.waitForTimeout(4000);
 
-    const drops = await page.evaluate(() => {
-      const results = [];
+    const allDrops = [];
+    const MAX_PAGES = 20;
 
-      // Strategy: find all links that contain both an image AND a price or date
-      // This filters out navigation links which don't have prices/dates
-      const allLinks = document.querySelectorAll('a[href*="/sneakers/"]');
-      let cards = [];
+    for (let p = 1; p <= MAX_PAGES; p++) {
+      const url = p === 1
+        ? 'https://www.soleretriever.com/sneaker-release-dates'
+        : `https://www.soleretriever.com/sneaker-release-dates?page=${p}`;
 
-      for (const link of allLinks) {
-        const text = (link.innerText || '').trim();
-        const hasImage = !!link.querySelector('img');
-        const hasPrice = /\$\d/.test(text);
-        const hasDate = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}/i.test(text)
-                     || /\d{4}/.test(text);
-        // Real release cards have an image + either a price or a date
-        if (hasImage && (hasPrice || hasDate)) {
-          cards.push(link);
-        }
-      }
+      try {
+        await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+        await page.waitForTimeout(3000);
 
-      // If that didn't work, try finding grid children with images and prices
-      if (cards.length < 3) {
-        for (const container of document.querySelectorAll('div, section, ul')) {
-          const children = Array.from(container.children);
-          if (children.length >= 5) {
-            const releaseCards = children.filter(c => {
-              const t = (c.innerText || '');
-              return c.querySelector('img') && (/\$\d/.test(t) || /20\d{2}/.test(t));
-            });
-            if (releaseCards.length >= 3) { cards = releaseCards; break; }
-          }
-        }
-      }
+        const pageDrops = await page.evaluate(() => {
+          const results = [];
+          const allLinks = document.querySelectorAll('a[href*="/sneakers/"]');
+          let cards = [];
 
-      for (const card of cards.slice(0, 50)) {
-        try {
-          const img = card.querySelector('img');
-          const link = card.tagName === 'A' ? card : (card.closest('a') || card.querySelector('a'));
-          const allText = (card.innerText || '').trim();
-          if (!allText || allText.length < 3) continue;
-          const lines = allText.split('\n').map(l => l.trim()).filter(Boolean);
-
-          // Extract price (e.g. "$150" or "$150 · KJ5019")
-          const priceMatch = allText.match(/\$\d[\d,]*/);
-
-          // Extract date (e.g. "March 20, 2026")
-          const dateMatch = allText.match(/(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:[,\s]+\d{4})?/i);
-
-          // Extract name: find the longest line that isn't a date, price, or badge text
-          const skipWords = ['upcoming', 'released', 'price tbd'];
-          let name = '';
-          for (const line of lines) {
-            const lower = line.toLowerCase();
-            if (line.length > 5
-                && !lower.match(/^\$/)
-                && !skipWords.includes(lower)
-                && !lower.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)
-                && line.length < 120
-                && line.length > name.length) {
-              name = line;
+          for (const link of allLinks) {
+            const text = (link.innerText || '').trim();
+            const hasImage = !!link.querySelector('img');
+            const hasPrice = /\$\d/.test(text) || /price tbd/i.test(text);
+            const hasDate = /(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}/i.test(text)
+                         || /\d{4}/.test(text) || /holiday/i.test(text);
+            if (hasImage && (hasPrice || hasDate)) {
+              cards.push(link);
             }
           }
-          if (!name && lines.length > 0) name = lines[0];
-          if (!name || name.length < 4) continue;
 
-          // Clean up price — extract just the dollar amount
-          const cleanPrice = priceMatch ? priceMatch[0] : '';
+          if (cards.length < 3) {
+            for (const container of document.querySelectorAll('div, section, ul')) {
+              const children = Array.from(container.children);
+              if (children.length >= 5) {
+                const releaseCards = children.filter(c => {
+                  const t = (c.innerText || '');
+                  return c.querySelector('img') && (/\$\d/.test(t) || /20\d{2}/.test(t));
+                });
+                if (releaseCards.length >= 3) { cards = releaseCards; break; }
+              }
+            }
+          }
 
-          results.push({
-            name: name.slice(0, 100),
-            image: img ? (img.src || img.dataset?.src || '') : '',
-            date: dateMatch ? dateMatch[0] : '',
-            price: cleanPrice === 'Price TBD' ? 'TBD' : cleanPrice,
-            link: link ? link.href : ''
-          });
-        } catch(e) {}
+          for (const card of cards.slice(0, 60)) {
+            try {
+              const img = card.querySelector('img');
+              const link = card.tagName === 'A' ? card : (card.closest('a') || card.querySelector('a'));
+              const allText = (card.innerText || '').trim();
+              if (!allText || allText.length < 3) continue;
+              const lines = allText.split('\n').map(l => l.trim()).filter(Boolean);
+
+              const priceMatch = allText.match(/\$\d[\d,]*/);
+              const dateMatch = allText.match(/(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:[,\s]+\d{4})?/i)
+                || allText.match(/Holiday\s+\d{4}/i);
+
+              const skipWords = ['upcoming', 'released', 'price tbd', 'releases'];
+              let name = '';
+              for (const line of lines) {
+                const lower = line.toLowerCase();
+                if (line.length > 5
+                    && !lower.match(/^\$/)
+                    && !skipWords.includes(lower)
+                    && !lower.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)
+                    && !lower.match(/^(january|february|march|april|may|june|july|august|september|october|november|december)/i)
+                    && !lower.match(/^holiday/i)
+                    && line.length < 120
+                    && line.length > name.length) {
+                  name = line;
+                }
+              }
+              if (!name && lines.length > 0) name = lines[0];
+              if (!name || name.length < 4) continue;
+
+              const cleanPrice = priceMatch ? priceMatch[0] : (/price tbd/i.test(allText) ? 'TBD' : '');
+
+              results.push({
+                name: name.slice(0, 100),
+                image: img ? (img.src || img.dataset?.src || '') : '',
+                date: dateMatch ? dateMatch[0] : '',
+                price: cleanPrice,
+                link: link ? link.href : ''
+              });
+            } catch(e) {}
+          }
+          return results;
+        });
+
+        allDrops.push(...pageDrops);
+        console.log(`Drops page ${p}: found ${pageDrops.length} items (total: ${allDrops.length})`);
+
+        // If page returned 0 results, we've hit the end
+        if (pageDrops.length === 0) break;
+
+      } catch(pageErr) {
+        console.error(`Drops page ${p} error:`, pageErr.message);
+        break; // Stop paginating on error
       }
-      return results;
-    });
+    }
 
     await browser.close();
     browser = null;
 
     // Deduplicate
     const seen = new Set();
-    const unique = drops.filter(d => {
+    const unique = allDrops.filter(d => {
       const key = d.name.toLowerCase().replace(/\s+/g, ' ').trim();
       if (seen.has(key)) return false;
       seen.add(key);
@@ -1150,9 +1161,9 @@ app.get('/api/drops', async (req, res) => {
     });
 
     if (unique.length > 0) {
-      cachedDrops = unique.slice(0, 100);
+      cachedDrops = unique;
       lastDropsFetch = Date.now();
-      console.log(`Drops: ${cachedDrops.length} items scraped via Playwright`);
+      console.log(`Drops: ${cachedDrops.length} total items scraped across pages`);
     }
     res.json({ drops: cachedDrops });
   } catch(e) {
