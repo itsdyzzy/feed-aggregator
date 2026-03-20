@@ -690,7 +690,7 @@
     .ticker-inner {
       display: flex;
       gap: 0;
-      animation: tickerScroll 60s linear infinite;
+      animation: tickerScroll 25s linear infinite;
       white-space: nowrap;
       width: max-content;
       font-family: 'Bebas Neue', sans-serif;
@@ -1016,9 +1016,7 @@
     <div class="drops-title">Upcoming Drops</div>
     <div id="dropsList"><div style="color:var(--muted);font-size:11px;font-family:'DM Sans',sans-serif;">Loading drops...</div></div>
     <div class="drops-pagination" id="dropsPagination" style="display:none">
-      <button class="drops-page-btn" id="dropsPrev" onclick="dropsPage(-1)">← Prev</button>
-      <span class="drops-page-info" id="dropsPageInfo"></span>
-      <button class="drops-page-btn" id="dropsNext" onclick="dropsPage(1)">Next →</button>
+      <button class="drops-page-btn" id="dropsLoadMore" onclick="dropsLoadMore()" style="width:100%">Load More ↓</button>
     </div>
   </div>
   <!-- Email Signup -->
@@ -1450,25 +1448,24 @@
       // Repeat text to fill marquee
       const segment = text.split('|').map(s => s.trim()).filter(Boolean)
         .map(s => `<span>${s}</span><span class="ticker-sep">+</span>`).join('');
-      document.getElementById('tickerInner').innerHTML = segment.repeat(10);
+      document.getElementById('tickerInner').innerHTML = segment.repeat(20);
     } catch(e) {}
   }
   loadTicker();
 
   // ─── Upcoming Drops ──────────────────────────────────────────────────────────
   let allDrops = [];
-  let dropsCurrentPage = 0;
-  const DROPS_PER_PAGE = 10;
+  let dropsVisible = 10;
+  const DROPS_STEP = 10;
 
   function renderDrops() {
     const list = document.getElementById('dropsList');
     const pagination = document.getElementById('dropsPagination');
-    if (!allDrops.length) { list.innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:\'DM Sans\',sans-serif;padding:8px 0">No upcoming drops found.</div>'; return; }
+    if (!allDrops.length) { list.innerHTML = '<div style="color:var(--muted);font-size:11px;font-family:\'DM Sans\',sans-serif;padding:8px 0">No upcoming drops found.</div>'; pagination.style.display = 'none'; return; }
 
-    const start = dropsCurrentPage * DROPS_PER_PAGE;
-    const page = allDrops.slice(start, start + DROPS_PER_PAGE);
+    const visible = allDrops.slice(0, dropsVisible);
 
-    list.innerHTML = page.map(d => `
+    list.innerHTML = visible.map(d => `
       <div class="drop-item">
         ${d.image ? `<img class="drop-thumb" src="${d.image}" alt="${d.name}" onerror="this.style.display='none'">` : `<div class="drop-thumb-placeholder">NO IMG</div>`}
         <div class="drop-info">
@@ -1478,20 +1475,15 @@
         <div class="drop-date">${d.date}</div>
       </div>`).join('');
 
-    const totalPages = Math.ceil(allDrops.length / DROPS_PER_PAGE);
-    if (totalPages > 1) {
+    if (dropsVisible < allDrops.length) {
       pagination.style.display = 'flex';
-      document.getElementById('dropsPageInfo').textContent = `${dropsCurrentPage + 1} / ${totalPages}`;
-      document.getElementById('dropsPrev').disabled = dropsCurrentPage === 0;
-      document.getElementById('dropsNext').disabled = dropsCurrentPage >= totalPages - 1;
     } else {
       pagination.style.display = 'none';
     }
   }
 
-  function dropsPage(dir) {
-    const totalPages = Math.ceil(allDrops.length / DROPS_PER_PAGE);
-    dropsCurrentPage = Math.max(0, Math.min(totalPages - 1, dropsCurrentPage + dir));
+  function dropsLoadMore() {
+    dropsVisible += DROPS_STEP;
     renderDrops();
   }
 
