@@ -633,12 +633,23 @@
       width: 100%; height: 100%;
       object-fit: cover;
       filter: contrast(1.05) saturate(1.1);
+      z-index: 0;
     }
     .hero-right::after {
       content: '';
       position: absolute;
       inset: 0;
-      z-index: 1;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, #0A0A0A 0%, transparent 35%),
+        linear-gradient(180deg, transparent 60%, #0A0A0A 100%);
+    }
+    .hero-img-fade {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
       background:
         linear-gradient(90deg, #0A0A0A 0%, transparent 35%),
         linear-gradient(180deg, transparent 60%, #0A0A0A 100%);
@@ -1392,6 +1403,7 @@
       </div>
       <div class="hero-right">
         <img src="${f.image || ''}" alt="${(f.headline||f.title||'').replace(/"/g,'')}" onerror="this.style.display='none'"/>
+        <div class="hero-img-fade"></div>
       </div>`;
 
     // Schedule next slide
