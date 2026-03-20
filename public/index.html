@@ -1450,12 +1450,7 @@
       // Repeat text to fill marquee
       const segment = text.split('|').map(s => s.trim()).filter(Boolean)
         .map(s => `<span>${s}</span><span class="ticker-sep">+</span>`).join('');
-      // Insert one copy, measure its width, then repeat enough to fill 3x viewport
-      const ticker = document.getElementById('tickerInner');
-      ticker.innerHTML = segment;
-      const oneWidth = ticker.scrollWidth;
-      const copies = Math.ceil((window.innerWidth * 3) / oneWidth) + 1;
-      ticker.innerHTML = segment.repeat(copies);
+      document.getElementById('tickerInner').innerHTML = segment.repeat(50);
     } catch(e) {}
   }
   loadTicker();
