@@ -553,7 +553,7 @@
     }
     .hero-left {
       position: relative;
-      padding: 56px 48px;
+      padding: 56px 48px 64px;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
@@ -866,19 +866,6 @@
 </head>
 <body>
 
-<!-- ─── Hero Featured Section ─────────────────────────────────────────────── -->
-<div id="heroSection" style="display:none">
-  <div class="hero-section" id="heroSlider">
-    <!-- slides injected by JS -->
-  </div>
-  <!-- Ticker -->
-  <div class="ticker-wrap">
-    <div class="ticker-inner" id="tickerInner">
-      <!-- content injected by JS -->
-    </div>
-  </div>
-</div>
-
 <header>
   <a href="/" style="text-decoration:none">
     <h1 class="logo">
@@ -908,6 +895,19 @@
     <button class="refresh-btn" id="refreshBtn" onclick="refresh()">↻ Refresh</button>
   </div>
 </header>
+
+<!-- ─── Hero Featured Section ─────────────────────────────────────────────── -->
+<div id="heroSection" style="display:none">
+  <div class="hero-section" id="heroSlider">
+    <!-- slides injected by JS -->
+  </div>
+  <!-- Ticker -->
+  <div class="ticker-wrap" style="margin-top:8px;">
+    <div class="ticker-inner" id="tickerInner">
+      <!-- content injected by JS -->
+    </div>
+  </div>
+</div>
 
 <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">Latest Streetwear News, Sneaker Drops, Collabs &amp; Releases</h2>
 
