@@ -558,6 +558,7 @@
       flex-direction: column;
       justify-content: flex-end;
       z-index: 2;
+      overflow: hidden;
     }
     .hero-eyebrow {
       display: inline-flex;
@@ -627,12 +628,14 @@
     .hero-right {
       position: relative;
       overflow: hidden;
+      align-self: stretch;
     }
     .hero-right img {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
       filter: contrast(1.05) saturate(1.1);
+      z-index: 0;
     }
     .hero-right::after {
       content: '';
@@ -645,8 +648,8 @@
     .hero-img-fade {
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      height: 120px;
-      z-index: 2;
+      height: 150px;
+      z-index: 3;
       pointer-events: none;
       background: linear-gradient(to top, #0A0A0A 0%, transparent 100%);
     }
@@ -1402,6 +1405,18 @@
         <img src="${f.image || ''}" alt="${(f.headline||f.title||'').replace(/"/g,'')}" onerror="this.style.display='none'"/>
         <div class="hero-img-fade"></div>
       </div>`;
+
+    // Auto-shrink title to fit within hero-left
+    const titleEl = slider.querySelector('.hero-title');
+    const leftEl = slider.querySelector('.hero-left');
+    if (titleEl && leftEl) {
+      let fontSize = parseFloat(getComputedStyle(titleEl).fontSize);
+      const minSize = 28;
+      while (leftEl.scrollHeight > leftEl.clientHeight && fontSize > minSize) {
+        fontSize -= 2;
+        titleEl.style.fontSize = fontSize + 'px';
+      }
+    }
 
     // Schedule next slide
     if (heroTimer) clearTimeout(heroTimer);
