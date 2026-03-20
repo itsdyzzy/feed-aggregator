@@ -551,6 +551,15 @@
       overflow: hidden;
       background: #0A0A0A;
     }
+    .hero-section::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 80px;
+      background: linear-gradient(180deg, transparent, #0A0A0A);
+      z-index: 3;
+      pointer-events: none;
+    }
     .hero-left {
       position: relative;
       padding: 56px 48px 64px;
@@ -638,7 +647,9 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, #0A0A0A 0%, transparent 35%);
+      background:
+        linear-gradient(90deg, #0A0A0A 0%, transparent 35%),
+        linear-gradient(180deg, transparent 60%, #0A0A0A 100%);
     }
     /* Carousel dots */
     .hero-dots {
