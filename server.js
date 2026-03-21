@@ -1035,11 +1035,11 @@ app.post('/api/subscribe', express.json(), (req, res) => {
 let cachedDrops = [];
 let lastDropsFetch = 0;
 const DROPS_TTL = 60 * 60 * 1000; // 1 hour
+let dropsRefreshing = false;
 
-app.get('/api/drops', async (req, res) => {
-  if (Date.now() - lastDropsFetch < DROPS_TTL && cachedDrops.length > 0) {
-    return res.json({ drops: cachedDrops });
-  }
+async function refreshDropsInBackground() {
+  if (dropsRefreshing) return; // prevent overlapping scrapes
+  dropsRefreshing = true;
   let browser;
   try {
     browser = await chromium.launch({
@@ -1052,7 +1052,7 @@ app.get('/api/drops', async (req, res) => {
     const page = await context.newPage();
 
     const allDrops = [];
-    const MAX_PAGES = 20;
+    const MAX_PAGES = 5;
 
     for (let p = 1; p <= MAX_PAGES; p++) {
       const url = p === 1
@@ -1139,12 +1139,11 @@ app.get('/api/drops', async (req, res) => {
         allDrops.push(...pageDrops);
         console.log(`Drops page ${p}: found ${pageDrops.length} items (total: ${allDrops.length})`);
 
-        // If page returned 0 results, we've hit the end
         if (pageDrops.length === 0) break;
 
       } catch(pageErr) {
         console.error(`Drops page ${p} error:`, pageErr.message);
-        break; // Stop paginating on error
+        break;
       }
     }
 
@@ -1163,9 +1162,8 @@ app.get('/api/drops', async (req, res) => {
     if (unique.length > 0) {
       cachedDrops = unique;
       lastDropsFetch = Date.now();
-      console.log(`Drops: ${cachedDrops.length} total items scraped across pages`);
+      console.log(`Drops: ${cachedDrops.length} total items scraped across ${MAX_PAGES} pages`);
     }
-    res.json({ drops: cachedDrops });
   } catch(e) {
     console.error('Drops Playwright error:', e.message);
     if (browser) { try { await browser.close(); } catch(_) {} }
@@ -1188,8 +1186,24 @@ app.get('/api/drops', async (req, res) => {
     } catch(rssErr) {
       console.error('Drops RSS fallback error:', rssErr.message);
     }
-    res.json({ drops: cachedDrops });
+  } finally {
+    dropsRefreshing = false;
   }
+}
+
+app.get('/api/drops', async (req, res) => {
+  // Always return cache instantly — never make visitors wait
+  if (cachedDrops.length > 0) {
+    res.json({ drops: cachedDrops });
+    // If stale, refresh in background
+    if (Date.now() - lastDropsFetch >= DROPS_TTL) {
+      refreshDropsInBackground();
+    }
+    return;
+  }
+  // First ever request with empty cache — scrape now
+  await refreshDropsInBackground();
+  res.json({ drops: cachedDrops });
 });
 
 app.get('/api/refresh', async (req, res) => {
@@ -2399,8 +2413,15 @@ app.listen(PORT, () => {
   console.log('Feed aggregator running on port ' + PORT);
   // Initial fetch on boot
   fetchAllFeeds().catch(console.error);
-  // Background refresh every 10 minutes — keeps cache warm regardless of traffic
+  // Pre-fetch drops 15 seconds after boot (gives server time to fully start)
+  setTimeout(() => {
+    console.log('Pre-fetching drops cache...');
+    refreshDropsInBackground();
+  }, 15000);
+  // Background refresh every 10 minutes — keeps article cache warm
   setInterval(() => fetchAllFeeds().catch(console.error), 10 * 60 * 1000);
+  // Auto-refresh drops every hour in background — no visitor ever waits
+  setInterval(() => refreshDropsInBackground(), 60 * 60 * 1000);
 });
 
 
