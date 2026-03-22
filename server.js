@@ -458,16 +458,18 @@ async function fetchHypebeast(browser) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
     });
-    await page.goto('https://hypebeast.com/latest', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
+    await page.goto('https://hypebeast.com/latest', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.waitForTimeout(3000);
     await page.setViewportSize({ width: 1280, height: 900 });
     for (let i = 1; i <= 10; i++) {
       await page.evaluate((pct) => {
         if (document.body) window.scrollTo(0, document.body.scrollHeight * pct);
       }, i * 0.1);
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(600);
     }
-    await page.waitForTimeout(2000);
+    // Scroll back to top and wait for all lazy images to load
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(3000);
     const results = await page.evaluate(() => {
       const articles = [];
       document.querySelectorAll('a[href]').forEach(a => {
@@ -481,10 +483,32 @@ async function fetchHypebeast(browser) {
         if (!title || title.length < 10) return;
         const timeEl = card.querySelector('time');
         const img = card.querySelector('img');
-        const imgSrc = (img?.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
-          : img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
-          || img?.dataset?.srcset?.split(' ')[0]
-          || img?.srcset?.split(' ')[0] || null;
+        let imgSrc = null;
+        if (img) {
+          imgSrc = (img.src?.startsWith('http') && !img.src.includes('data:')) ? img.src
+            : img.dataset?.src || img.dataset?.lazySrc || img.dataset?.original
+            || img.getAttribute('data-src') || img.getAttribute('data-lazy-src')
+            || img.getAttribute('data-original-src') || img.getAttribute('data-image')
+            || img.dataset?.srcset?.split(' ')[0]
+            || img.srcset?.split(' ')[0] || null;
+        }
+        // Fallback: check <picture> <source> elements
+        if (!imgSrc) {
+          const source = card.querySelector('picture source[srcset]');
+          if (source) imgSrc = source.getAttribute('srcset').split(' ')[0];
+        }
+        // Fallback: check any element with background-image
+        if (!imgSrc) {
+          const bgEl = card.querySelector('[style*="background-image"]');
+          if (bgEl) {
+            const bgMatch = bgEl.style.backgroundImage?.match(/url\(["']?([^"')]+)["']?\)/);
+            if (bgMatch) imgSrc = bgMatch[1];
+          }
+        }
+        // Fallback: check data attributes on the card or link itself
+        if (!imgSrc) {
+          imgSrc = a.dataset?.image || a.dataset?.thumbnail || card.dataset?.image || null;
+        }
         articles.push({
           source: 'hypebeast', sourceName: 'Hypebeast',
           title, description: '', link: href,
@@ -981,8 +1005,8 @@ async function fetchAllFeeds() {
       const added = markUrlsSeen(articles);
       pruneSeenUrls();
 
-      // Generate AI summaries for new articles missing descriptions
-      await enrichWithSummaries(merged.filter(a => !seenUrls.has(a.link) || newArticles.some(n => n.link === a.link)));
+      // Generate AI summaries for ANY articles missing descriptions
+      await enrichWithSummaries(merged);
 
       console.log(`Fetch complete: ${added} new URLs this cycle, ${merged.length} total in cache`);
 
@@ -996,6 +1020,15 @@ async function fetchAllFeeds() {
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+
+// Redirect www to non-www and ensure HTTPS (belt-and-suspenders with Cloudflare)
+app.use((req, res, next) => {
+  const host = req.headers.host || '';
+  if (host.startsWith('www.')) {
+    return res.redirect(301, 'https://streetwear.news' + req.url);
+  }
+  next();
+});
 
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
@@ -2335,9 +2368,8 @@ app.get('/weekly/:slug', async (req, res) => {
 
 app.get('*', async (req, res) => {
   try {
-    if (cachedArticles.length === 0 && fetchInProgress) {
-      await fetchInProgress;
-    }
+    // Never block response waiting for feeds — serve immediately with whatever is cached
+    // This prevents AdsBot-Google and other crawlers from timing out
     const indexPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(indexPath, 'utf8');
     if (cachedArticles.length > 0) {
