@@ -987,14 +987,30 @@ async function fetchAllFeeds() {
       });
 
       // Deduplicate: merge newly scraped articles with existing cache
-      // New articles = not yet seen ever; existing cache articles are kept as-is
-      const cachedLinks = new Set(cachedArticles.map(a => a.link));
-      const newArticles = articles.filter(a => !seenUrls.has(a.link) || cachedLinks.has(a.link));
+      // Prefer cached version if it has a description (AI summary), otherwise use fresh scrape
+      const cachedByLink = new Map(cachedArticles.map(a => [a.link, a]));
+      const newArticles = articles.filter(a => !seenUrls.has(a.link) || cachedByLink.has(a.link));
 
-      // Merge new + cached, dedupe by link
-      const merged = [...newArticles];
+      // Merge: for each article, keep the version with the most data
+      const merged = [];
+      const mergedLinks = new Set();
+      for (const a of newArticles) {
+        const cached = cachedByLink.get(a.link);
+        if (cached && cached.description && !a.description) {
+          // Cached version has AI summary, fresh scrape doesn't — keep cached but update image/date if needed
+          if (a.image && !cached.image) cached.image = a.image;
+          if (a.date && (!cached.date || new Date(a.date) > new Date(cached.date))) cached.date = a.date;
+          merged.push(cached);
+        } else {
+          merged.push(a);
+        }
+        mergedLinks.add(a.link);
+      }
       for (const a of cachedArticles) {
-        if (!merged.some(m => m.link === a.link)) merged.push(a);
+        if (!mergedLinks.has(a.link)) {
+          merged.push(a);
+          mergedLinks.add(a.link);
+        }
       }
       merged.sort((a, b) => {
         const da = a.date ? new Date(a.date).getTime() : 0;
