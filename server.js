@@ -934,10 +934,20 @@ async function fetchAllFeeds() {
     console.log('Fetch already in progress, reusing...');
     return fetchInProgress;
   }
+
+  // Wrap the entire fetch in a timeout so it can never hang forever
+  const FETCH_TIMEOUT = 120000; // 2 minutes max
+
   fetchInProgress = (async () => {
     console.log('Fetching all feeds...');
     let browser;
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('fetchAllFeeds timed out after 2 minutes')), FETCH_TIMEOUT);
+    });
+
     try {
+      const fetchWork = (async () => {
       // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
         fetchSneakerNews(), fetchJustFreshKicks(), fetchSoleRetriever(), fetchWWD()
@@ -1029,8 +1039,18 @@ async function fetchAllFeeds() {
       cachedArticles = merged.slice(0, 300);
       lastFetch = Date.now();
       return cachedArticles;
-    } catch(e) { console.error('fetchAllFeeds:', e); return cachedArticles; }
-    finally { if (browser) await browser.close(); fetchInProgress = null; }
+      })(); // end fetchWork
+
+      // Race between actual work and timeout
+      const result = await Promise.race([fetchWork, timeoutPromise]);
+      clearTimeout(timeoutId);
+      return result;
+    } catch(e) {
+      clearTimeout(timeoutId);
+      console.error('fetchAllFeeds:', e.message);
+      return cachedArticles;
+    }
+    finally { if (browser) { try { await browser.close(); } catch(_) {} } fetchInProgress = null; }
   })();
   return fetchInProgress;
 }
