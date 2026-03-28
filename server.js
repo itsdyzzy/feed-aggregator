@@ -1055,6 +1055,136 @@ async function fetchAllFeeds() {
   return fetchInProgress;
 }
 
+// ─── YouTube Videos ──────────────────────────────────────────────────────────
+const YOUTUBE_CHANNELS = [
+  '2cool2Blog', '8oone', '9MagTV', '99percentis', '1981EST',
+  'aaronmaldonado4070', 'AaronnRamirez', 'AbstractBlack',
+  'AcneStudiosOfficial', 'ACSSneakers', 'adidas', 'adidasOriginals',
+  'Advisry', 'a_eon.16', 'againstlab', 'aimeleondore',
+  'lordzevallos', 'allurbancentral', 'AmokKidz', 'Apple',
+  'Archdigest', 'asspizza730', 'atozy'
+];
+
+let cachedVideos = [];
+let lastVideosFetch = 0;
+const VIDEOS_TTL = 30 * 60 * 1000; // 30 minutes
+let videosRefreshing = false;
+
+// Resolve @handle to channel ID by fetching the channel page
+const channelIdCache = new Map();
+const CHANNEL_ID_FILE = path.join(__dirname, 'channel-ids.json');
+
+function loadChannelIds() {
+  try {
+    if (fs.existsSync(CHANNEL_ID_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CHANNEL_ID_FILE, 'utf8'));
+      for (const [k, v] of Object.entries(data)) channelIdCache.set(k, v);
+      console.log(`Loaded ${channelIdCache.size} cached channel IDs`);
+    }
+  } catch(e) {}
+}
+function saveChannelIds() {
+  try {
+    fs.writeFileSync(CHANNEL_ID_FILE, JSON.stringify(Object.fromEntries(channelIdCache)), 'utf8');
+  } catch(e) {}
+}
+loadChannelIds();
+
+async function resolveChannelId(handle) {
+  if (channelIdCache.has(handle)) return channelIdCache.get(handle);
+  try {
+    const res = await fetch(`https://www.youtube.com/@${handle}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(10000)
+    });
+    const html = await res.text();
+    // Extract channel ID from meta tag or canonical URL
+    const match = html.match(/channel_id=([A-Za-z0-9_-]+)/)
+      || html.match(/"channelId":"([A-Za-z0-9_-]+)"/)
+      || html.match(/youtube\.com\/channel\/([A-Za-z0-9_-]+)/);
+    if (match) {
+      channelIdCache.set(handle, match[1]);
+      saveChannelIds();
+      return match[1];
+    }
+  } catch(e) { console.error(`Failed to resolve @${handle}:`, e.message); }
+  return null;
+}
+
+async function fetchAllVideos() {
+  if (videosRefreshing) return;
+  videosRefreshing = true;
+  console.log('Fetching YouTube videos...');
+  try {
+    const videoParser = new Parser({
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+
+    // Resolve all handles to channel IDs
+    const channelIds = [];
+    for (const handle of YOUTUBE_CHANNELS) {
+      const id = await resolveChannelId(handle);
+      if (id) channelIds.push({ handle, id });
+    }
+    console.log(`Resolved ${channelIds.length}/${YOUTUBE_CHANNELS.length} channel IDs`);
+
+    // Fetch all RSS feeds in parallel (batches of 10 to avoid overwhelming)
+    const allVideos = [];
+    for (let i = 0; i < channelIds.length; i += 10) {
+      const batch = channelIds.slice(i, i + 10);
+      const results = await Promise.allSettled(
+        batch.map(async ({ handle, id }) => {
+          try {
+            const feed = await videoParser.parseURL(
+              `https://www.youtube.com/feeds/videos.xml?channel_id=${id}`
+            );
+            const channelName = feed.title ? feed.title.replace(/ - Topic$/, '') : handle;
+            return (feed.items || []).slice(0, 10).map(item => ({
+              title: item.title || '',
+              link: item.link || '',
+              date: item.pubDate || item.isoDate || '',
+              channel: channelName,
+              channelHandle: handle,
+              thumbnail: `https://i.ytimg.com/vi/${(item.id || '').replace('yt:video:', '')}/hqdefault.jpg`,
+              videoId: (item.id || '').replace('yt:video:', '')
+            }));
+          } catch(e) {
+            return [];
+          }
+        })
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') allVideos.push(...r.value);
+      }
+    }
+
+    // Sort by date (newest first)
+    allVideos.sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return (isNaN(db) ? 0 : db) - (isNaN(da) ? 0 : da);
+    });
+
+    // Deduplicate by video ID
+    const seen = new Set();
+    const unique = allVideos.filter(v => {
+      if (!v.videoId || seen.has(v.videoId)) return false;
+      seen.add(v.videoId);
+      return true;
+    });
+
+    if (unique.length > 0) {
+      cachedVideos = unique;
+      lastVideosFetch = Date.now();
+      console.log(`Videos: ${cachedVideos.length} total from ${channelIds.length} channels`);
+    }
+  } catch(e) {
+    console.error('Video fetch error:', e.message);
+  } finally {
+    videosRefreshing = false;
+  }
+}
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // Redirect www to non-www and ensure HTTPS (belt-and-suspenders with Cloudflare)
@@ -1088,6 +1218,24 @@ app.get('/api/featured', (req, res) => {
 
 app.get('/api/ticker', (req, res) => {
   res.json({ text: tickerText });
+});
+
+app.get('/api/videos', async (req, res) => {
+  // Always return cache instantly
+  if (cachedVideos.length > 0) {
+    res.json({ videos: cachedVideos });
+    if (Date.now() - lastVideosFetch >= VIDEOS_TTL) {
+      fetchAllVideos(); // refresh in background
+    }
+    return;
+  }
+  // First request with empty cache
+  await fetchAllVideos();
+  res.json({ videos: cachedVideos });
+});
+
+app.get('/videos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'videos.html'));
 });
 
 app.post('/api/subscribe', express.json(), (req, res) => {
@@ -2486,10 +2634,17 @@ app.listen(PORT, () => {
     console.log('Pre-fetching drops cache...');
     refreshDropsInBackground();
   }, 15000);
+  // Pre-fetch videos 20 seconds after boot
+  setTimeout(() => {
+    console.log('Pre-fetching videos...');
+    fetchAllVideos();
+  }, 20000);
   // Background refresh every 10 minutes — keeps article cache warm
   setInterval(() => fetchAllFeeds().catch(console.error), 10 * 60 * 1000);
   // Auto-refresh drops every hour in background — no visitor ever waits
   setInterval(() => refreshDropsInBackground(), 60 * 60 * 1000);
+  // Auto-refresh videos every 30 minutes
+  setInterval(() => fetchAllVideos(), 30 * 60 * 1000);
 });
 
 
