@@ -210,7 +210,7 @@
     /* ─── Video Grid ──────────────────────────────────────────────────────── */
     .video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 1px;
       background: var(--border);
       padding-top: 1px;
@@ -218,10 +218,10 @@
 
     .video-card {
       background: var(--bg);
-      padding: 1.25rem;
+      padding: 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
+      gap: 0.75rem;
       transition: background 0.2s;
       animation: fadeUp 0.4s ease both;
       cursor: pointer;
@@ -235,73 +235,56 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .video-thumb-wrap {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16/9;
-      overflow: hidden;
-      background: var(--surface);
-    }
-    .video-thumb {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      transition: transform 0.3s ease;
-    }
-    .video-card:hover .video-thumb { transform: scale(1.03); }
-
-    .video-thumb-wrap::after {
-      content: '▶';
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      background: rgba(0,0,0,0.75);
-      color: #fff;
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      border-radius: 4px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .video-card:hover .video-thumb-wrap::after { opacity: 1; }
-
     .video-meta {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .video-channel {
+    .channel-tag {
       font-size: 0.65rem;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
       font-weight: 500;
+      padding: 0.2rem 0.5rem;
+      border: 1px solid;
       color: var(--neon);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 60%;
+      border-color: var(--neon);
     }
     .video-date {
       font-size: 0.7rem;
       color: var(--muted);
     }
+
+    .video-thumb {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      background: var(--surface);
+      display: block;
+      contain: layout;
+    }
+
     .video-title {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.15rem;
+      font-size: 1.25rem;
       line-height: 1.2;
       letter-spacing: 0.03em;
       color: var(--text);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
     }
+
+    .video-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: auto;
+      width: fit-content;
+    }
+    .video-link:hover { text-decoration: underline; }
 
     /* ─── Loader ───────────────────────────────────────────────────────────── */
     .loader {
@@ -499,14 +482,13 @@
     visible.forEach((v, i) => {
       html += `
         <a class="video-card" href="${v.link}" target="_blank" rel="noopener" style="animation-delay:${Math.min(i * 0.03, 0.5)}s">
-          <div class="video-thumb-wrap">
-            <img class="video-thumb" src="${v.thumbnail}" alt="${v.title.replace(/"/g, '')}" loading="${i < 8 ? 'eager' : 'lazy'}" onerror="this.style.display='none'"/>
-          </div>
           <div class="video-meta">
-            <span class="video-channel">${v.channel || ''}</span>
+            <span class="channel-tag">${v.channel || ''}</span>
             <span class="video-date">${timeAgo(v.date)}</span>
           </div>
+          <img class="video-thumb" src="${v.thumbnail}" alt="${v.title.replace(/"/g, '')}" loading="${i < 8 ? 'eager' : 'lazy'}" onerror="this.style.display='none'"/>
           <div class="video-title">${v.title}</div>
+          <span class="video-link">Watch Full Video →</span>
         </a>`;
     });
 
