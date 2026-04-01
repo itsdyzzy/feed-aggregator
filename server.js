@@ -1488,6 +1488,8 @@ app.post('/admin/fetch-meta', async (req, res) => {
                    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i)
                    || html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
     description = descMatch?.[1]?.trim() || '';
+    // Filter out descriptions that are just URLs
+    if (description.startsWith('http://') || description.startsWith('https://')) description = '';
     const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
                   || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
     image = imgMatch?.[1]?.startsWith('http') ? imgMatch[1] : '';
@@ -1607,15 +1609,22 @@ app.get('/admin', (req, res) => {
   </style>
 </head>
 <body>
-<div class="container">
-  <h1>STREETWEAR.NEWS — ADMIN</h1>
 
-  <!-- Password (global) -->
+<!-- Login Gate -->
+<div id="loginGate" class="container" style="margin-top:20vh;">
+  <h1>STREETWEAR.NEWS — ADMIN</h1>
   <div class="box">
-    <div class="box-title">Authentication</div>
+    <div class="box-title">Authentication Required</div>
     <label>Password</label>
-    <input type="password" id="pw" placeholder="Enter password"/>
+    <input type="password" id="loginPw" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')attemptLogin()"/>
+    <button class="btn btn-primary" onclick="attemptLogin()">Sign In</button>
+    <div id="loginError" style="color:#f77;font-size:0.8rem;margin-top:0.5rem;display:none;">Wrong password.</div>
   </div>
+</div>
+
+<!-- Admin Panel (hidden until authenticated) -->
+<div class="container" id="adminPanel" style="display:none;">
+  <h1>STREETWEAR.NEWS — ADMIN</h1>
 
   <!-- Add Article -->
   <div class="box">
@@ -1674,9 +1683,40 @@ app.get('/admin', (req, res) => {
     <div id="tickerStatus" style="display:none;padding:0.5rem;font-size:0.8rem;"></div>
   </div>
 
-</div>
+</div><!-- end adminPanel -->
 <script>
-  function pw() { return document.getElementById('pw').value.trim(); }
+  let adminPassword = '';
+
+  async function attemptLogin() {
+    const pw = document.getElementById('loginPw').value.trim();
+    if (!pw) return;
+    try {
+      const r = await fetch('/api/ticker', { headers: {} });
+      // Test password by trying a harmless authenticated request
+      const test = await fetch('/admin/fetch-meta', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ url: 'https://test.com', password: pw })
+      });
+      const data = await test.json();
+      // 401 = wrong password, 409 = already exists (means password was right), 400 = invalid but authenticated
+      if (test.status === 401) {
+        document.getElementById('loginError').style.display = 'block';
+        return;
+      }
+      // Password accepted
+      adminPassword = pw;
+      document.getElementById('loginGate').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'flex';
+    } catch(e) {
+      // If fetch fails, try showing admin anyway
+      adminPassword = pw;
+      document.getElementById('loginGate').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'flex';
+    }
+  }
+
+  function pw() { return adminPassword; }
 
   // Load ticker current value
   fetch('/api/ticker').then(r=>r.json()).then(d => { document.getElementById('tickerText').value = d.text || ''; });
@@ -1732,10 +1772,13 @@ app.get('/admin', (req, res) => {
       const r = await fetch('/admin/fetch-meta', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
       const data = await r.json();
       if (r.status === 401) { showStatus('Wrong password.', 'error'); return; }
-      document.getElementById('title').value = data.title || '';
-      document.getElementById('description').value = data.description || '';
-      document.getElementById('image').value = data.image || '';
-      document.getElementById('sourceName').value = data.sourceName || '';
+      if (!document.getElementById('title').value) document.getElementById('title').value = data.title || '';
+      if (!document.getElementById('description').value) document.getElementById('description').value = data.description || '';
+      if (!document.getElementById('image').value) {
+        document.getElementById('image').value = data.image || '';
+        previewImg(data.image || '');
+      }
+      if (!document.getElementById('sourceName').value) document.getElementById('sourceName').value = data.sourceName || '';
       // Auto-pick highlight word (longest word in title)
       const words = (data.title || '').split(' ').filter(w => w.length > 3);
       document.getElementById('highlightWord').value = words.length ? words.reduce((a,b) => b.length > a.length ? b : a, '') : '';
