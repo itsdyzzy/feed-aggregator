@@ -43,6 +43,17 @@ function saveEmails() {
 }
 loadEmails();
 
+// ─── Manual Articles (persisted so they survive restarts) ────────────────────
+const MANUAL_ARTICLES_FILE = path.join(__dirname, 'manual-articles.json');
+let manualArticles = [];
+function loadManualArticles() {
+  try { if (fs.existsSync(MANUAL_ARTICLES_FILE)) manualArticles = JSON.parse(fs.readFileSync(MANUAL_ARTICLES_FILE, 'utf8')); } catch(e) {}
+}
+function saveManualArticles() {
+  try { fs.writeFileSync(MANUAL_ARTICLES_FILE, JSON.stringify(manualArticles), 'utf8'); } catch(e) {}
+}
+loadManualArticles();
+
 // ─── Seen-URLs: persistent deduplication across fetch cycles ─────────────────
 const SEEN_URLS_FILE = path.join(__dirname, 'seen-urls.json');
 let seenUrls = new Set();
@@ -1022,6 +1033,13 @@ async function fetchAllFeeds() {
           mergedLinks.add(a.link);
         }
       }
+      // Always include persisted manual articles (they're not in any feed)
+      for (const a of manualArticles) {
+        if (!mergedLinks.has(a.link)) {
+          merged.push(a);
+          mergedLinks.add(a.link);
+        }
+      }
       merged.sort((a, b) => {
         const da = a.date ? new Date(a.date).getTime() : 0;
         const db = b.date ? new Date(b.date).getTime() : 0;
@@ -1519,6 +1537,11 @@ app.post('/admin/add-article', async (req, res) => {
     cachedArticles.unshift(article);
     markUrlsSeen([article]);
   }
+  // Persist manual article to disk so it survives restarts
+  if (!manualArticles.some(a => a.link === url)) {
+    manualArticles.push(article);
+    saveManualArticles();
+  }
   // Add to featured if checkbox was checked
   if (featured) {
     const featuredItem = {
@@ -1737,6 +1760,7 @@ app.get('/admin', (req, res) => {
           <div class="featured-list-name">\${f.headline || f.title}</div>
           <div class="featured-list-meta">\${f.duration}hr slot · \${f.sourceName}</div>
         </div>
+        <button class="btn btn-secondary" style="width:auto;padding:0.4rem 0.75rem;font-size:0.75rem;margin:0 0.25rem 0 0;" onclick='editFeatured(\${JSON.stringify(f).replace(/'/g, "&#39;")})'>Edit</button>
         <button class="btn btn-danger" onclick="unfeature('\${f.link.replace(/'/g, "\\\\'")}')">Unfeature</button>
       </div>\`).join('');
   }
@@ -1747,6 +1771,25 @@ app.get('/admin', (req, res) => {
     const data = await res.json();
     if (data.success) loadFeatured();
     else alert('Error: ' + (data.error || 'Failed'));
+  }
+
+  function editFeatured(f) {
+    // Populate the form with existing featured article data
+    document.getElementById('url').value = f.link || '';
+    document.getElementById('title').value = f.headline || f.title || '';
+    document.getElementById('description').value = f.description || '';
+    document.getElementById('image').value = f.image || '';
+    document.getElementById('sourceName').value = f.sourceName || '';
+    document.getElementById('highlightWord').value = f.highlightWord || '';
+    document.getElementById('duration').value = String(f.duration || 6);
+    document.getElementById('featuredCheck').checked = true;
+    document.getElementById('featured-options').style.display = 'block';
+    document.getElementById('meta-fields').style.display = 'block';
+    if (f.image) previewImg(f.image);
+    // Change button text to indicate editing
+    document.getElementById('addBtn').textContent = 'Update Article';
+    // Scroll to form
+    document.getElementById('url').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async function saveTicker() {
@@ -1816,6 +1859,7 @@ app.get('/admin', (req, res) => {
         document.getElementById('featured-options').style.display = 'none';
         document.getElementById('meta-fields').style.display = 'none';
         document.getElementById('img-preview').style.display = 'none';
+        document.getElementById('addBtn').textContent = 'Add to Feed';
         if (featured) loadFeatured();
       } else { showStatus('Error: ' + data.error, 'error'); }
     } catch(e) { showStatus('Error: ' + e.message, 'error'); }
