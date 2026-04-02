@@ -1075,12 +1075,50 @@ async function fetchAllFeeds() {
 
 // ─── YouTube Videos ──────────────────────────────────────────────────────────
 const YOUTUBE_CHANNELS = [
-  '2cool2Blog', '8oone', '9MagTV', '99percentis', '1981EST',
-  'aaronmaldonado4070', 'AaronnRamirez', 'AbstractBlack',
-  'AcneStudiosOfficial', 'ACSSneakers', 'adidas', 'adidasOriginals',
-  'Advisry', 'a_eon.16', 'againstlab', 'aimeleondore',
-  'lordzevallos', 'allurbancentral', 'AmokKidz', 'Apple',
-  'Archdigest', 'asspizza730', 'atozy'
+  '2cool2Blog', '8oone', '9MagTV', '99percentis', '1981EST', 'aaronmaldonado4070', 'AaronnRamirez', 'AbstractBlack',
+  'AcneStudiosOfficial', 'ACSSneakers', 'adidas', 'adidasOriginals', 'Advisry', 'a_eon.16', 'againstlab', 'aimeleondore',
+  'lordzevallos', 'allurbancentral', 'AmokKidz', 'Apple', 'Archdigest', 'asspizza730', 'atozy', 'Babylon_la',
+  'balenciaga', 'BAPEOFFICIAL', 'bapetown', 'basketcase.gallery', 'BeforeTheyWereFamous', 'benjaminkickz', 'beyondkickspodcast', 'bidstitch',
+  'biggestbroentertainment', 'blazendary', 'TheSandboxLA', 'BlissFoster', 'bradhallshoes', 'BrainDeadStudios', 'CPCompanyOfficial', 'CamcorderBanks',
+  'Camskicksofficial', 'CanadaGoose', 'PNCINTL', 'casualfridays', 'ChanceDubinick', 'Channel5Clips', 'Channel5YouTube', 'charlieturner7447',
+  'Dior', 'CIERAPARKER', 'CNBCMakeIt', 'CodeGreen7', 'Coffeezilla', 'coldfact4618', 'TheCommonHype', 'Complex',
+  'Complexnews', 'cono', 'converse', 'CookiesNKicks', 'coolkicks', 'corduroyhills3165', 'creative_ambiance', 'CrepProtect',
+  'CreteNailPaint', 'Crumb', 'Cuffem', 'Cut2TheChaseTV', 'cybernews', 'imdanielsimmons', 'DayJones', 'dazed',
+  'DeadstockApp', 'Deeswishyt', 'KARIUKIDENIED', 'CoughSyrupByDestoDubb', 'DevanOnDeck', 'dickieslife1719', 'dimemtl4051', 'district7arcata883',
+  'DJAkademiksTV2', 'LateNightCreep', 'DolceGabbana', 'DoronStudio', 'DramaAlert', 'driptank1406', 'Dripsee', 'Dusted1',
+  'enews', 'eBay', 'elliotpage_', 'emmarogue', 'EmmanuelxBoateng', 'EntertainmentTonight', 'ethanruiz3344', 'EuphoricSupply',
+  'EvanLidz', 'ExploreWithUs', 'FamousLife', 'FamousNewsBTWF', 'FashionChannel', 'FashionRoadman', 'fashionlover4', 'fern-tv',
+  'designerclothes21', 'FFChannel_Official', 'fhtv', 'Finaius', 'FinancialTimes', 'FirstWeFeast', 'fitsfromthestreetst', 'FlyWithJohnnyThai',
+  'footwearnews', 'Forbes', 'OfficialFKZTv', 'fortnite', 'fourteenthavenue4100', 'FrugalAesthetic', 'FTP', 'FULLSENDPODCAST',
+  'fullsendpodcastclips', 'FULLERMOE', 'g-shocksingapore3788', 'Gallucks', 'Gap', 'GearedTowardGear', 'ghettorunways', 'giftedhater3087',
+  'givenchychannel', 'GloTelevision', 'golflefleur', 'GolfMediaApp', 'golfcartmedia', 'GQVideos', 'Grishuhh', 'staygroundead',
+  'gtvision3897', 'guardiannews', 'gucci', 'hamcus603', 'HarrisonNevel', 'hbomax', 'heavensneakershop', 'HELIOTEMIL',
+  'HellstarTV', 'hiddenny5262', 'highsnobiety', 'hollywire', 'HollywoodLife', 'HYPEBEAST', 'iamriop', 'i-D',
+  'Icebox', 'IDEAGENERATIONOFFICIAL', 'IDNTV1', 'IFCFACTORY', 'TheInkus', 'InternetAnarchist', 'InternetHistorian', 'starrlife',
+  'whoisjacov', 'kustoo', 'jadenxmonroe', 'JadonGrundy', 'jaredmuros', 'JAMARISPEAKS', 'JayCeeYG', 'jeanpaulgaultier',
+  'JiDion', 'johnandrew00', 'JoonTheKing', 'Jordan-Free', 'JoshDominic', 'JumperManKris', 'j7no415', 'JustClipsone',
+  'kswiss', 'kaceylynch864', 'Kaiandif', 'kaimind3', 'keezytv7854', 'KeithAdam', 'iwantvag69', 'KEXNNNN',
+  'KerwinFrostTV', 'KickGame', 'KidSuper', 'KiraTV1', 'KyronWarrick', 'Lacoste', 'LainiOzark', 'LamboAndy',
+  'LEGO', 'LivingProofNewYork', 'LocustAndWildHoney', 'Loewe', 'louisvuitton', 'LOWHEADSMedia', 'LOWluxury', 'machecustoms6516',
+  'madeyoulooks', 'MagnatesMedia', 'MagnusRonning1', 'MAISONKIMHEKIM', 'MaisonMargiela', 'marketstudios', 'MENACELOSANGELES', 'MISBHV_ClubWearSolutions',
+  'mnmlla', 'modernnotoriety', 'MONTREALITY', 'moreperfectunion', 'mrfoamersimpson', 'MyClothingArchive', 'NachoAverageFinds', 'nardwuar',
+  'Imnathgriff', 'neckfacetv', 'neoexplains', 'newera', 'Newsthink', 'nicekicks', 'nigelsylvesterlive', 'nigo4767',
+  'nike', 'nikesb', 'NoDiploma', 'nonbiased', 'norffstudios', 'trippingishere', 'Notre-shop', 'nowfashion',
+  'OfficeOneEleven', 'onthecomeupdawn3695', 'onlygeo', 'OrchardClothing888', 'OrdinaryThings', 'OurGenerationMusic', 'PacsunOfficial', 'PALACESKATEBOARDSLONDON',
+  'PapaMeat', 'PAQofficial', 'PASSPORTSKATEBOARDS', 'PatCc', 'patnmoon', 'PatrickCc', 'MrPaulCantu', 'PaulSoles212',
+  'PaydayPickups', 'pitchfork', 'PlacesPlusFaces', 'PoetikFlakko', 'JeremyJones', 'privateconversations', 'PublishX', 'PUMA',
+  'push_product', 'razer', 'REESECOOPER', 'osamachabbi', 'richiele', 'riot__hill', 'robprsa', 'RobertLoyale',
+  'RoundTwo', 'RTFKTstudios', 'ryderradio', 'yvessaintlaurent', 'salehebembury', 'Sangiev', 'seaggs', 'SethFowler',
+  'Seytonic', 'ShadeTV247', 'sidetalknyc', 'skysportswear', 'slow_start', 'SmallFeetBigHeat', 'SneakCity', 'sneakerstocks6865',
+  'sneakerhen', 'SneakerPhetish', 'SneakerTalk', 'SNKRINC', 'sohtaro', 'SoleCollector', 'Spectacles', 'SpillPlug',
+  'SteveCroteauPeepGame', 'steviesalle', 'stewarthicks', 'StockX', 'StormShadowCrew', 'stussyjapanvideo', 'StussyVideo', 'SuapsYT',
+  'SubwayOracle', 'sunday', 'SunnyV2', 'supereight', 'superlinewholesale', 'SupThomas', 'TAZS', 'berrics',
+  'THECASUALco', 'thedailystardust', 'TheHollywoodFix', 'thehundreds', 'TheNorthFace', 'TheSecondLoft', 'TheShoeSurgeon', 'ThisIsAntwon',
+  'Threaducation', 'ThriftCon', 'ThrowingFits', 'TimDessaint', 'TommyHilfiger', 'ToNYD2WiLD', 'Topps', 'trevorgorji',
+  'TristanWick', 'understitchYT', 'undiscoveredyt', 'unionlosangeles435', 'vans', 'VETEMENTSOFFICIAL', 'VICE-TV', 'virgilabloh',
+  'VisualVenture', 'VivetOfficial', 'Vogue', 'Volksgeist', 'wavywebsurf', 'WMTVLDN', 'WearTesters', 'welcomejpeg',
+  'WhatsTheHype.Landon', 'Gwhip', 'whodecideswar4982', 'hiphoptvwhy', 'wrong_trousers', 'x17online', 'XLARGEOFFICIAL', 'YourMultimedia',
+  'YOUTHSINBALACLAVA'
 ];
 
 let cachedVideos = [];
@@ -1138,18 +1176,23 @@ async function fetchAllVideos() {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
     });
 
-    // Resolve all handles to channel IDs
+    // Resolve all handles to channel IDs (batch in parallel for speed)
     const channelIds = [];
-    for (const handle of YOUTUBE_CHANNELS) {
-      const id = await resolveChannelId(handle);
-      if (id) channelIds.push({ handle, id });
+    for (let i = 0; i < YOUTUBE_CHANNELS.length; i += 20) {
+      const batch = YOUTUBE_CHANNELS.slice(i, i + 20);
+      const results = await Promise.allSettled(batch.map(h => resolveChannelId(h)));
+      results.forEach((r, idx) => {
+        if (r.status === 'fulfilled' && r.value) {
+          channelIds.push({ handle: batch[idx], id: r.value });
+        }
+      });
     }
     console.log(`Resolved ${channelIds.length}/${YOUTUBE_CHANNELS.length} channel IDs`);
 
-    // Fetch all RSS feeds in parallel (batches of 10 to avoid overwhelming)
+    // Fetch all RSS feeds in parallel (batches of 20)
     const allVideos = [];
-    for (let i = 0; i < channelIds.length; i += 10) {
-      const batch = channelIds.slice(i, i + 10);
+    for (let i = 0; i < channelIds.length; i += 20) {
+      const batch = channelIds.slice(i, i + 20);
       const results = await Promise.allSettled(
         batch.map(async ({ handle, id }) => {
           try {
@@ -1532,16 +1575,22 @@ app.post('/admin/add-article', async (req, res) => {
     image: image || null,
     manual: true
   };
-  // Add to grid if not already there
-  if (!cachedArticles.some(a => a.link === url)) {
+  // Add or update in grid
+  const existingIdx = cachedArticles.findIndex(a => a.link === url);
+  if (existingIdx >= 0) {
+    cachedArticles[existingIdx] = { ...cachedArticles[existingIdx], ...article };
+  } else {
     cachedArticles.unshift(article);
     markUrlsSeen([article]);
   }
   // Persist manual article to disk so it survives restarts
-  if (!manualArticles.some(a => a.link === url)) {
+  const manualIdx = manualArticles.findIndex(a => a.link === url);
+  if (manualIdx >= 0) {
+    manualArticles[manualIdx] = article;
+  } else {
     manualArticles.push(article);
-    saveManualArticles();
   }
+  saveManualArticles();
   // Add to featured if checkbox was checked
   if (featured) {
     const featuredItem = {
