@@ -314,26 +314,6 @@
       text-transform: uppercase;
     }
 
-    .load-more-wrap {
-      grid-column: 1/-1;
-      display: flex;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .load-more-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 0.6rem 2rem;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .load-more-btn:hover { border-color: var(--neon); color: var(--neon); }
-
     .state-msg {
       grid-column: 1/-1;
       padding: 5rem 2rem;
@@ -438,6 +418,9 @@
   let allVideos = [];
   let visibleCount = 24;
   const PAGE_SIZE = 24;
+  let filteredVideos = [];
+  let lastRenderedCount = 0;
+  let isLoading = false;
 
   function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -456,6 +439,7 @@
 
   function filterVideos() {
     visibleCount = PAGE_SIZE;
+    lastRenderedCount = 0;
     renderVideos();
   }
 
@@ -474,39 +458,67 @@
 
     if (filtered.length === 0) {
       grid.innerHTML = '<div class="state-msg">No videos found</div>';
+      filteredVideos = []; lastRenderedCount = 0;
       return;
     }
 
-    const visible = filtered.slice(0, visibleCount);
-    let html = '';
+    const isAppend = filteredVideos === filtered && lastRenderedCount > 0;
+    if (!isAppend) {
+      filteredVideos = filtered;
+      lastRenderedCount = 0;
+      grid.innerHTML = '';
+    }
 
-    visible.forEach((v, i) => {
-      html += `
-        <a class="video-card" href="${v.link}" target="_blank" rel="noopener" style="animation-delay:${Math.min(i * 0.03, 0.5)}s">
+    // Remove old sentinel
+    const oldSentinel = document.getElementById('scroll-sentinel');
+    if (oldSentinel) oldSentinel.remove();
+
+    const newCards = filtered.slice(lastRenderedCount, visibleCount);
+    if (newCards.length > 0) {
+      const frag = document.createDocumentFragment();
+      newCards.forEach((v, idx) => {
+        const i = lastRenderedCount + idx;
+        const a = document.createElement('a');
+        a.className = 'video-card';
+        a.href = '/watch?v=' + (v.videoId || '');
+        a.style.animationDelay = lastRenderedCount === 0 ? Math.min(i * 0.03, 0.5) + 's' : '0s';
+        a.innerHTML = `
           <div class="video-meta">
             <span class="channel-tag">${v.channel || ''}</span>
             <span class="video-date">${timeAgo(v.date)}</span>
           </div>
           <img class="video-thumb" src="${v.thumbnail}" alt="${v.title.replace(/"/g, '')}" loading="${i < 8 ? 'eager' : 'lazy'}" onerror="this.style.display='none'"/>
           <div class="video-title">${v.title}</div>
-          <span class="video-link">Watch Full Video →</span>
-        </a>`;
-    });
-
-    if (visibleCount < filtered.length) {
-      html += `
-        <div class="load-more-wrap">
-          <button class="load-more-btn" onclick="loadMore()">Load More ↓</button>
-        </div>`;
+          <span class="video-link">Watch Full Video →</span>`;
+        frag.appendChild(a);
+      });
+      grid.appendChild(frag);
+      lastRenderedCount = visibleCount;
     }
 
-    grid.innerHTML = html;
+    // Add sentinel for infinite scroll
+    if (visibleCount < filtered.length) {
+      const sentinel = document.createElement('div');
+      sentinel.id = 'scroll-sentinel';
+      sentinel.style.cssText = 'height:1px;grid-column:1/-1;';
+      grid.appendChild(sentinel);
+      observeSentinel();
+    }
   }
 
-  function loadMore() {
-    visibleCount += PAGE_SIZE;
-    renderVideos();
-    // Scroll to where new content starts
+  let observer;
+  function observeSentinel() {
+    if (observer) observer.disconnect();
+    observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !isLoading) {
+        isLoading = true;
+        visibleCount += PAGE_SIZE;
+        renderVideos();
+        isLoading = false;
+      }
+    }, { rootMargin: '400px' });
+    const s = document.getElementById('scroll-sentinel');
+    if (s) observer.observe(s);
   }
 
   async function loadVideos() {
