@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6720370763893882" crossorigin="anonymous"></script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-H5SJQCRL5M"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-H5SJQCRL5M');
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name='impact-site-verification' value='7f2086b0-0174-4582-9d92-491484e3cf93'>
+  <meta property="og:type" content="video.other"/>
+  <meta property="og:site_name" content="streetwear.news"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/></noscript>
+  <title>Watch | streetwear.news</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #e8ff00;
+      --text: #f0f0f0;
+      --muted: #555;
+      --neon: #CCFF00;
+      --hot: #FF3D00;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* ─── Header ─────────────────────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      height: 64px;
+    }
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+    }
+    .logo span {
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.3em;
+      display: block;
+      margin-top: -6px;
+      text-transform: uppercase;
+    }
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+    .nav-links a {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-links a.active { color: var(--neon); }
+
+    /* ─── Main Layout ────────────────────────────────────────────────────── */
+    .watch-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* ─── Left Sidebar ───────────────────────────────────────────────────── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 1rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 64px);
+      position: sticky;
+      top: 64px;
+    }
+    .sidebar-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .sidebar-article {
+      display: block;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s;
+    }
+    .sidebar-article:hover { background: var(--surface); }
+    .sidebar-article-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+      margin-bottom: 0.5rem;
+      background: var(--surface);
+    }
+    .sidebar-article-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.2;
+      color: var(--text);
+    }
+    .sidebar-article-source {
+      font-size: 0.6rem;
+      color: var(--neon);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 4px;
+    }
+
+    /* ─── Main Content ───────────────────────────────────────────────────── */
+    .main-content {
+      padding: 1.5rem 2rem 3rem;
+      max-width: 960px;
+    }
+
+    .player-wrap {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      margin-bottom: 1.25rem;
+    }
+    .player-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .video-info-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      line-height: 1.15;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .video-info-channel {
+      font-size: 0.8rem;
+      color: var(--neon);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+    }
+
+    /* ─── Social Share ────────────────────────────────────────────────────── */
+    .share-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .share-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, opacity 0.2s;
+      cursor: pointer;
+    }
+    .share-btn:hover { transform: scale(1.1); opacity: 0.85; }
+    .share-btn svg { width: 18px; height: 18px; fill: #fff; }
+    .share-fb { background: #1877F2; }
+    .share-x { background: #000; border: 1px solid #333; }
+    .share-yt { background: #FF0000; }
+    .share-ig { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+    .share-tt { background: #000; border: 1px solid #333; }
+
+    /* ─── Section Headers ─────────────────────────────────────────────────── */
+    .section-header {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 0.08em;
+      text-align: center;
+      margin: 2rem 0 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    /* ─── Related Grid ────────────────────────────────────────────────────── */
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .related-card {
+      display: block;
+      transition: transform 0.2s;
+    }
+    .related-card:hover { transform: translateY(-3px); }
+    .related-card-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+      background: var(--surface);
+      margin-bottom: 0.5rem;
+    }
+    .related-card-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    /* ─── Loading ─────────────────────────────────────────────────────────── */
+    .loading-msg {
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 3rem 0;
+      text-align: center;
+    }
+
+    /* ─── Mobile ──────────────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .watch-layout { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.75rem;
+        padding: 1rem;
+      }
+      .sidebar-title { grid-column: 1/-1; }
+      .main-content { padding: 1rem; }
+      .video-info-title { font-size: 1.4rem; }
+      .related-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      header { padding: 0 0.75rem; height: 52px; }
+      .logo { font-size: 1.4rem; }
+      .logo span { display: none; }
+      .main-content { padding: 0.75rem; }
+      .video-info-title { font-size: 1.2rem; }
+      .related-grid { grid-template-columns: 1fr; }
+      .sidebar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" style="text-decoration:none">
+    <h1 class="logo">
+      streetwear.news
+      <span>Sneaker Drops &amp; Streetwear News Aggregator</span>
+    </h1>
+  </a>
+  <nav class="nav-links">
+    <a href="/">News</a>
+    <a href="/videos" class="active">Videos</a>
+  </nav>
+</header>
+
+<div class="watch-layout">
+  <!-- Left Sidebar: Latest News -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-title">LATEST NEWS</div>
+    <div class="loading-msg">Loading articles...</div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="player-wrap" id="playerWrap">
+      <div class="loading-msg">Loading video...</div>
+    </div>
+
+    <h1 class="video-info-title" id="videoTitle"></h1>
+    <div class="video-info-channel" id="videoChannel"></div>
+
+    <div class="share-row" id="shareRow">
+      <!-- Facebook -->
+      <a class="share-btn share-fb" id="shareFb" target="_blank" rel="noopener" title="Share on Facebook">
+        <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      </a>
+      <!-- X / Twitter -->
+      <a class="share-btn share-x" id="shareX" target="_blank" rel="noopener" title="Share on X">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.742l7.736-8.858L1.254 2.25H8.08l4.253 5.622 5.91-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+      <!-- YouTube -->
+      <a class="share-btn share-yt" id="shareYt" target="_blank" rel="noopener" title="Watch on YouTube">
+        <svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+      </a>
+      <!-- Instagram -->
+      <a class="share-btn share-ig" target="_blank" rel="noopener" href="https://instagram.com/staygroundeadtv" title="Instagram">
+        <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+      </a>
+      <!-- TikTok -->
+      <a class="share-btn share-tt" target="_blank" rel="noopener" href="https://tiktok.com/@staygroundead" title="TikTok">
+        <svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.16 8.16 0 004.77 1.52V6.75a4.85 4.85 0 01-1-.06z"/></svg>
+      </a>
+    </div>
+
+    <div class="section-header" id="relatedVideosHeader" style="display:none">RELATED VIDEOS</div>
+    <div class="related-grid" id="relatedVideos"></div>
+
+    <div class="section-header" id="relatedArticlesHeader" style="display:none">RELATED NEWS</div>
+    <div class="related-grid" id="relatedArticles"></div>
+  </main>
+</div>
+
+<footer style="border-top:1px solid var(--border);padding:1.5rem 2rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;background:var(--bg);">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:0.15em;color:var(--muted)">
+    &copy; 2026 STREETWEAR.NEWS
+  </div>
+  <nav style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;">
+    <a href="/about" style="font-size:0.72rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;">About</a>
+    <a href="/privacy" style="font-size:0.72rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;">Privacy Policy</a>
+    <a href="/contact" style="font-size:0.72rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;">Contact</a>
+  </nav>
+</footer>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const videoId = params.get('v');
+
+  if (!videoId) {
+    window.location.href = '/videos';
+  }
+
+  // Keywords extraction helper
+  function getKeywords(text) {
+    const stopWords = new Set(['the','a','an','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','shall','can','need','dare','ought','used','to','of','in','for','on','with','at','by','from','as','into','through','during','before','after','above','below','between','out','off','over','under','again','further','then','once','here','there','when','where','why','how','all','each','every','both','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','just','because','but','and','or','yet','this','that','these','those','it','its','new','what','which','who','whom']);
+    return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+  }
+
+  function matchScore(keywords, text) {
+    const textLower = text.toLowerCase();
+    return keywords.filter(kw => textLower.includes(kw)).length;
+  }
+
+  // Embed the YouTube video
+  document.getElementById('playerWrap').innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+
+  // Load video data + articles
+  Promise.all([
+    fetch('/api/videos').then(r => r.json()),
+    fetch('/api/articles').then(r => r.json())
+  ]).then(([videoData, articleData]) => {
+    const videos = videoData.videos || [];
+    const articles = articleData || [];
+
+    // Find the current video
+    const current = videos.find(v => v.videoId === videoId);
+    const title = current ? current.title : 'Video';
+    const channel = current ? current.channel : '';
+    const ytUrl = current ? current.link : `https://www.youtube.com/watch?v=${videoId}`;
+
+    // Set page title
+    document.title = title + ' | streetwear.news';
+    document.getElementById('videoTitle').textContent = title;
+    document.getElementById('videoChannel').textContent = channel;
+
+    // Share links
+    const shareUrl = encodeURIComponent(window.location.href);
+    const shareText = encodeURIComponent(title);
+    document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`;
+    document.getElementById('shareX').href = `https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareText}`;
+    document.getElementById('shareYt').href = ytUrl;
+
+    // Related videos (keyword matching)
+    const keywords = getKeywords(title + ' ' + channel);
+    const scored = videos
+      .filter(v => v.videoId !== videoId)
+      .map(v => ({ ...v, score: matchScore(keywords, v.title + ' ' + v.channel) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    if (scored.length > 0 && scored[0].score > 0) {
+      document.getElementById('relatedVideosHeader').style.display = 'block';
+      document.getElementById('relatedVideos').innerHTML = scored.map(v => `
+        <a class="related-card" href="/watch?v=${v.videoId}">
+          <img class="related-card-img" src="${v.thumbnail}" alt="${v.title.replace(/"/g, '')}" loading="lazy" onerror="this.style.display='none'"/>
+          <div class="related-card-title">${v.title}</div>
+        </a>`).join('');
+    } else {
+      // Fallback: show 3 most recent from same channel, or just recent
+      const fallback = videos.filter(v => v.videoId !== videoId).slice(0, 3);
+      if (fallback.length > 0) {
+        document.getElementById('relatedVideosHeader').style.display = 'block';
+        document.getElementById('relatedVideos').innerHTML = fallback.map(v => `
+          <a class="related-card" href="/watch?v=${v.videoId}">
+            <img class="related-card-img" src="${v.thumbnail}" alt="${v.title.replace(/"/g, '')}" loading="lazy" onerror="this.style.display='none'"/>
+            <div class="related-card-title">${v.title}</div>
+          </a>`).join('');
+      }
+    }
+
+    // Related articles (keyword matching)
+    const articleScored = articles
+      .filter(a => a.title)
+      .map(a => ({ ...a, score: matchScore(keywords, a.title + ' ' + (a.sourceName || '')) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    if (articleScored.length > 0 && articleScored[0].score > 0) {
+      document.getElementById('relatedArticlesHeader').style.display = 'block';
+      document.getElementById('relatedArticles').innerHTML = articleScored.map(a => `
+        <a class="related-card" href="${a.link}" target="_blank" rel="noopener">
+          ${a.image ? `<img class="related-card-img" src="${a.image}" alt="${a.title.replace(/"/g, '')}" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+          <div class="related-card-title">${a.title}</div>
+        </a>`).join('');
+    } else {
+      // Fallback: show 3 latest articles
+      const fallbackArticles = articles.filter(a => a.title && a.image).slice(0, 3);
+      if (fallbackArticles.length > 0) {
+        document.getElementById('relatedArticlesHeader').style.display = 'block';
+        document.getElementById('relatedArticles').innerHTML = fallbackArticles.map(a => `
+          <a class="related-card" href="${a.link}" target="_blank" rel="noopener">
+            <img class="related-card-img" src="${a.image}" alt="${a.title.replace(/"/g, '')}" loading="lazy" onerror="this.style.display='none'"/>
+            <div class="related-card-title">${a.title}</div>
+          </a>`).join('');
+      }
+    }
+
+    // Sidebar: latest news
+    const sidebarArticles = articles.filter(a => a.title && a.image).slice(0, 12);
+    const sidebar = document.getElementById('sidebar');
+    sidebar.innerHTML = '<div class="sidebar-title">LATEST NEWS</div>' +
+      sidebarArticles.map(a => `
+        <a class="sidebar-article" href="${a.link}" target="_blank" rel="noopener">
+          <img class="sidebar-article-img" src="${a.image}" alt="${a.title.replace(/"/g, '')}" loading="lazy" onerror="this.style.display='none'"/>
+          <div class="sidebar-article-title">${a.title}</div>
+          <div class="sidebar-article-source">${a.sourceName || ''}</div>
+        </a>`).join('');
+  }).catch(err => {
+    console.error('Failed to load data:', err);
+  });
+</script>
+</body>
+</html>
