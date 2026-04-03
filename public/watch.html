@@ -96,8 +96,7 @@
     /* ─── Main Layout ────────────────────────────────────────────────────── */
     .watch-layout {
       display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 0;
+      grid-template-columns: 260px 1fr;
       min-height: calc(100vh - 64px);
     }
 
@@ -151,7 +150,8 @@
     /* ─── Main Content ───────────────────────────────────────────────────── */
     .main-content {
       padding: 1.5rem 2rem 3rem;
-      max-width: 960px;
+      max-width: 900px;
+      margin: 0 auto;
     }
 
     .player-wrap {
@@ -381,10 +381,9 @@
   // Load video data + articles
   Promise.all([
     fetch('/api/videos').then(r => r.json()),
-    fetch('/api/articles').then(r => r.json())
-  ]).then(([videoData, articleData]) => {
+    fetch('/api/articles').then(r => r.json()).then(d => d.articles || [])
+  ]).then(([videoData, articles]) => {
     const videos = videoData.videos || [];
-    const articles = articleData || [];
 
     // Find the current video
     const current = videos.find(v => v.videoId === videoId);
