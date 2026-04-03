@@ -1261,6 +1261,30 @@ app.use(express.static(path.join(__dirname, 'public'), {
   etag: true
 }));
 
+// Critical bot files — must respond instantly, before any heavy routes
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send('User-agent: *\nAllow: /\nSitemap: https://streetwear.news/sitemap.xml');
+});
+
+app.get('/ads.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send('google.com, pub-6720370763893882, DIRECT, f08c47fec0942fa0');
+});
+
+// Health check — use with UptimeRobot or similar to monitor and keep container warm
+app.get('/healthz', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    articles: cachedArticles.length,
+    lastFetch: lastFetch ? new Date(lastFetch).toISOString() : null
+  });
+});
+
 app.get('/api/articles', (req, res) => {
   // Always respond instantly with whatever is cached
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
@@ -1936,21 +1960,6 @@ app.get('/admin', (req, res) => {
   res.setHeader('Content-Type', 'text/html');
   res.send(html);
 });
-app.get('/robots.txt', (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
-  res.setHeader('Cache-Control', 'public, max-age=86400');
-  res.send([
-    'User-agent: *',
-    'Allow: /',
-    'Sitemap: https://streetwear.news/sitemap.xml'
-  ].join('\n'));
-});
-
-app.get('/ads.txt', (req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
-  res.send('google.com, pub-6720370763893882, DIRECT, f08c47fec0942fa0');
-});
-
 app.get('/sitemap.xml', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=3600');
   const brands = ['nike','adidas','supreme','jordan','new-balance','vans','puma','crocs','reebok','palace'];
@@ -2694,6 +2703,15 @@ app.get('*', async (req, res) => {
     // This prevents AdsBot-Google and other crawlers from timing out
     const indexPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(indexPath, 'utf8');
+    // If cache is empty (cold start), wait up to 8 seconds for first fetch to populate
+    if (cachedArticles.length === 0 && fetchInProgress) {
+      console.log('Cold start: waiting briefly for feeds...');
+      await Promise.race([
+        fetchInProgress,
+        new Promise(r => setTimeout(r, 8000))
+      ]);
+    }
+
     if (cachedArticles.length > 0) {
       const ssrArticles = cachedArticles.slice(0, 15);
 
