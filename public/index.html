@@ -870,6 +870,49 @@
     }
     .email-btn:hover { background: #fff; }
     .email-msg { font-size: 11px; color: var(--neon); font-family: 'DM Sans', sans-serif; display: none; }
+
+    /* ─── Vote Buttons ───────────────────────────────────────────────────────── */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+    .vote-btns {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .vote-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+    .vote-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--muted);
+      transition: fill 0.15s;
+    }
+    .vote-btn:hover svg { fill: var(--text); }
+    .vote-btn.voted-up svg { fill: #00c853; }
+    .vote-btn.voted-down svg { fill: var(--hot); }
+    .vote-count {
+      font-size: 0.65rem;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      min-width: 12px;
+      text-align: center;
+    }
+    .vote-btn.voted-up .vote-count { color: #00c853; }
+    .vote-btn.voted-down .vote-count { color: var(--hot); }
   </style>
 
   <script type="application/ld+json">
@@ -1044,6 +1087,8 @@
 
 <script>
   let allArticles = [];
+  let articleVotes = {}; // { [url]: { up: N, down: N } } — from server
+  let myVotes = {}; // { [url]: 'up'|'down'|null } — stored in localStorage
 
   // ─── Category filter keywords ───────────────────────────────────────────────
   const CATEGORY_KEYWORDS = {
@@ -1204,6 +1249,9 @@
         div.style.animationDelay = lastRenderedCount === 0 ? Math.min(i * 0.04, 0.6) + 's' : '0s';
         div.setAttribute('onclick', `window.open('${a.link}','_blank')`);
         const isAboveFold = i < 5;
+        const voteKey = a.link;
+        const v = articleVotes[voteKey] || { up: 0, down: 0 };
+        const myVote = myVotes[voteKey] || null;
         div.innerHTML = `
           <div class="card-meta">
             <span class="source-tag ${a.source}">${a.sourceName}</span>
@@ -1215,9 +1263,21 @@
           }
           <div class="card-title">${a.title}</div>
           ${a.description ? `<div class="card-desc">${a.description}</div>` : ''}
-          <a class="card-link" href="${a.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-            Read Full Article →
-          </a>`;
+          <div class="card-footer">
+            <a class="card-link" href="${a.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+              Read Full Article →
+            </a>
+            <div class="vote-btns" onclick="event.stopPropagation()">
+              <button class="vote-btn${myVote==='up'?' voted-up':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','up')" title="Upvote">
+                <svg viewBox="0 0 24 24"><path d="M12 4l8 8H4z"/></svg>
+                <span class="vote-count">${v.up||0}</span>
+              </button>
+              <button class="vote-btn${myVote==='down'?' voted-down':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','down')" title="Downvote">
+                <svg viewBox="0 0 24 24"><path d="M12 20l-8-8h16z"/></svg>
+                <span class="vote-count">${v.down||0}</span>
+              </button>
+            </div>
+          </div>`;
         frag.appendChild(div);
       });
       grid.appendChild(frag);
@@ -1276,6 +1336,7 @@
         setTimeout(() => loadArticles(true), 4000);
         return;
       }
+      await loadVotes();
       renderArticles();
       document.getElementById('errorBanner').style.display = 'none';
     } catch (e) {
@@ -1351,7 +1412,7 @@
   } else if (window.__SSR_ARTICLES__ && window.__SSR_ARTICLES__.length > 0) {
     // Homepage — render SSR articles instantly (no layout shift)
     allArticles = window.__SSR_ARTICLES__;
-    renderArticles();
+    loadVotes().then(() => renderArticles());
     // Background refresh — only update if we have more/newer articles
     fetch('/api/articles').then(r=>r.json()).then(data=>{
       if (data.articles && data.articles.length > 0) {
@@ -1380,6 +1441,52 @@
 
   // Auto-refresh every 15 minutes (homepage only)
   if (!isSpecialPage) setInterval(loadArticles, 15 * 60 * 1000);
+
+  // ─── Votes ───────────────────────────────────────────────────────────────────
+  async function loadVotes() {
+    try {
+      const res = await fetch('/api/votes');
+      const data = await res.json();
+      articleVotes = data.votes || {};
+      try { myVotes = JSON.parse(localStorage.getItem('sw_my_votes') || '{}'); } catch(e) { myVotes = {}; }
+    } catch(e) {}
+  }
+
+  async function castVote(btn, url, direction) {
+    const prevVote = myVotes[url] || null;
+    const voteBtns = btn.closest('.vote-btns');
+    const upBtn = voteBtns.querySelector('.vote-btn:first-child');
+    const downBtn = voteBtns.querySelector('.vote-btn:last-child');
+    const upCount = upBtn.querySelector('.vote-count');
+    const downCount = downBtn.querySelector('.vote-count');
+    if (!articleVotes[url]) articleVotes[url] = { up: 0, down: 0 };
+
+    if (prevVote === direction) {
+      // Toggle off same vote
+      await fetch('/api/unvote', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, direction }) });
+      articleVotes[url][direction] = Math.max(0, (articleVotes[url][direction] || 1) - 1);
+      myVotes[url] = null;
+      btn.classList.remove('voted-up', 'voted-down');
+    } else {
+      // Switch or new vote — unvote previous if any
+      if (prevVote) {
+        await fetch('/api/unvote', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, direction: prevVote }) });
+        articleVotes[url][prevVote] = Math.max(0, (articleVotes[url][prevVote] || 1) - 1);
+        (prevVote === 'up' ? upBtn : downBtn).classList.remove('voted-up', 'voted-down');
+      }
+      // Cast new vote
+      const res = await fetch('/api/vote', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, direction }) });
+      const data = await res.json();
+      if (data.votes) articleVotes[url] = data.votes;
+      myVotes[url] = direction;
+      btn.classList.add(direction === 'up' ? 'voted-up' : 'voted-down');
+    }
+
+    // Update counts in DOM
+    upCount.textContent = articleVotes[url]?.up || 0;
+    downCount.textContent = articleVotes[url]?.down || 0;
+    localStorage.setItem('sw_my_votes', JSON.stringify(myVotes));
+  }
 
   // ─── Hero Carousel ───────────────────────────────────────────────────────────
   let featuredArticles = [];
