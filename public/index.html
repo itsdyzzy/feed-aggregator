@@ -895,14 +895,16 @@
       line-height: 1;
     }
     .vote-btn svg {
-      width: 18px;
-      height: 18px;
-      fill: var(--muted);
-      transition: fill 0.15s;
+      width: 22px;
+      height: 22px;
+      transition: fill 0.15s, stroke 0.15s;
     }
-    .vote-btn:hover svg { fill: var(--text); }
-    .vote-btn.voted-up svg { fill: #00c853; }
-    .vote-btn.voted-down svg { fill: var(--hot); }
+    .vote-btn.up-btn svg   { fill: none; stroke: var(--muted); stroke-width: 2; }
+    .vote-btn.down-btn svg { fill: none; stroke: var(--muted); stroke-width: 2; }
+    .vote-btn.up-btn:hover svg   { stroke: #00c853; }
+    .vote-btn.down-btn:hover svg { stroke: var(--hot); }
+    .vote-btn.voted-up svg   { fill: #00c853; stroke: #00c853; }
+    .vote-btn.voted-down svg { fill: var(--hot); stroke: var(--hot); }
     .vote-count {
       font-size: 0.65rem;
       color: var(--muted);
@@ -911,7 +913,7 @@
       min-width: 12px;
       text-align: center;
     }
-    .vote-btn.voted-up .vote-count { color: #00c853; }
+    .vote-btn.voted-up .vote-count   { color: #00c853; }
     .vote-btn.voted-down .vote-count { color: var(--hot); }
   </style>
 
@@ -1268,12 +1270,12 @@
               Read Full Article →
             </a>
             <div class="vote-btns" onclick="event.stopPropagation()">
-              <button class="vote-btn${myVote==='up'?' voted-up':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','up')" title="Upvote">
-                <svg viewBox="0 0 24 24"><path d="M12 4l8 8H4z"/></svg>
+              <button class="vote-btn up-btn${myVote==='up'?' voted-up':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','up')" title="Upvote">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 3 L22 14 H16 V21 H8 V14 H2 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
                 <span class="vote-count">${v.up||0}</span>
               </button>
-              <button class="vote-btn${myVote==='down'?' voted-down':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','down')" title="Downvote">
-                <svg viewBox="0 0 24 24"><path d="M12 20l-8-8h16z"/></svg>
+              <button class="vote-btn down-btn${myVote==='down'?' voted-down':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','down')" title="Downvote">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 21 L2 10 H8 V3 H16 V10 H22 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
                 <span class="vote-count">${v.down||0}</span>
               </button>
             </div>
