@@ -174,11 +174,14 @@ Source: ${article.sourceName}`;
 
 async function enrichWithSummaries(articles) {
   // Only process articles with no description that we haven't summarized yet
-  const needsSummary = articles.filter(a => 
-    !a.description && 
+  const junkDesc = d => !d || /\b(SKU|MSRP|UPC|colorway|Release Date|Available Now|Summary[:\s]|^Name[:\s])/i.test(d) || d.length < 20;
+  const needsSummary = articles.filter(a =>
+    (!a.description || junkDesc(a.description)) &&
     !summaryCache.has(a.link) &&
     a.title && a.title.length > 10
   );
+  // Clear junk descriptions so AI result gets written in
+  needsSummary.forEach(a => { if (junkDesc(a.description)) a.description = ''; });
   if (needsSummary.length === 0) return;
   console.log(`Generating AI summaries for ${needsSummary.length} articles...`);
   // Process in batches of 5 to avoid rate limits
