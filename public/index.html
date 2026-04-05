@@ -896,7 +896,7 @@
     }
     .vote-btn svg {
       width: 14px;
-      height: 16px;
+      height: 14px;
       transition: fill 0.15s, stroke 0.15s;
     }
     .vote-btn.up-btn svg   { fill: none; stroke: var(--muted); stroke-width: 1.5; }
@@ -1271,12 +1271,12 @@
             </a>
             <div class="vote-btns" onclick="event.stopPropagation()">
               <button class="vote-btn up-btn${myVote==='up'?' voted-up':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','up')" title="Upvote">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 3 L22 14 H16 V21 H8 V14 H2 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
-                <span class="vote-count">${v.up||0}</span>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 L22 13 H16 V22 H8 V13 H2 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                <span class="vote-count">${v.up||''}</span>
               </button>
               <button class="vote-btn down-btn${myVote==='down'?' voted-down':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','down')" title="Downvote">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 21 L2 10 H8 V3 H16 V10 H22 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
-                <span class="vote-count">${v.down||0}</span>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 L2 11 H8 V2 H16 V11 H22 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                <span class="vote-count">${v.down||''}</span>
               </button>
             </div>
           </div>`;
@@ -1485,8 +1485,8 @@
     }
 
     // Update counts in DOM
-    upCount.textContent = articleVotes[url]?.up || 0;
-    downCount.textContent = articleVotes[url]?.down || 0;
+    upCount.textContent = articleVotes[url]?.up || '';
+    downCount.textContent = articleVotes[url]?.down || '';
     localStorage.setItem('sw_my_votes', JSON.stringify(myVotes));
   }
 
