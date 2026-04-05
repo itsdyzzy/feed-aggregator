@@ -1319,7 +1319,7 @@ app.get('/api/votes', (req, res) => {
   res.json({ votes: votesData });
 });
 
-app.post('/api/vote', (req, res) => {
+app.post('/api/vote', express.json(), (req, res) => {
   const { url, direction } = req.body;
   if (!url || !['up', 'down'].includes(direction)) return res.status(400).json({ error: 'Invalid' });
   if (!votesData[url]) votesData[url] = { up: 0, down: 0 };
@@ -1328,7 +1328,7 @@ app.post('/api/vote', (req, res) => {
   res.json({ success: true, votes: votesData[url] });
 });
 
-app.post('/api/unvote', (req, res) => {
+app.post('/api/unvote', express.json(), (req, res) => {
   const { url, direction } = req.body;
   if (!url || !['up', 'down'].includes(direction)) return res.status(400).json({ error: 'Invalid' });
   if (!votesData[url]) votesData[url] = { up: 0, down: 0 };
