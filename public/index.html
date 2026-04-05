@@ -874,14 +874,15 @@
     /* ─── Vote Buttons ───────────────────────────────────────────────────────── */
     .card-footer {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       margin-top: auto;
     }
     .vote-btns {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.4rem;
+      padding-top: 1px;
     }
     .vote-btn {
       display: flex;
@@ -911,7 +912,10 @@
       font-family: 'DM Sans', sans-serif;
       font-weight: 500;
       min-width: 10px;
+      line-height: 1;
+      height: 0.6rem;
       text-align: center;
+      display: block;
     }
 
   </style>
