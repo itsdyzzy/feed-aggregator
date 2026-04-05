@@ -873,7 +873,7 @@
     /* ─── Vote Buttons ───────────────────────────────────────────────────────── */
     .card-footer {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       margin-top: auto;
     }
@@ -892,6 +892,7 @@
       cursor: pointer;
       padding: 0;
       line-height: 1;
+      position: relative;
     }
     .vote-btn svg {
       width: 13px;
@@ -905,15 +906,16 @@
     .vote-btn.voted-up svg   { fill: #00c853; stroke: #00c853; }
     .vote-btn.voted-down svg { fill: var(--hot); stroke: var(--hot); }
     .vote-count {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
       font-size: 0.6rem;
       color: var(--muted);
       font-family: 'DM Sans', sans-serif;
       font-weight: 500;
-      min-width: 10px;
-      line-height: 1;
-      height: 0.6rem;
       text-align: center;
-      display: block;
+      white-space: nowrap;
     }
 
   </style>
