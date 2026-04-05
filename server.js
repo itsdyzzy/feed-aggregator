@@ -43,6 +43,17 @@ function saveEmails() {
 }
 loadEmails();
 
+// ─── Article Votes ────────────────────────────────────────────────────────────
+const VOTES_FILE = path.join(__dirname, 'votes.json');
+let votesData = {}; // { [urlKey]: { up: N, down: N } }
+function loadVotes() {
+  try { if (fs.existsSync(VOTES_FILE)) votesData = JSON.parse(fs.readFileSync(VOTES_FILE, 'utf8')); } catch(e) {}
+}
+function saveVotes() {
+  try { fs.writeFileSync(VOTES_FILE, JSON.stringify(votesData), 'utf8'); } catch(e) {}
+}
+loadVotes();
+
 // ─── Manual Articles (persisted so they survive restarts) ────────────────────
 const MANUAL_ARTICLES_FILE = path.join(__dirname, 'manual-articles.json');
 let manualArticles = [];
@@ -1301,6 +1312,29 @@ app.get('/api/featured', (req, res) => {
 
 app.get('/api/ticker', (req, res) => {
   res.json({ text: tickerText });
+});
+
+app.get('/api/votes', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json({ votes: votesData });
+});
+
+app.post('/api/vote', (req, res) => {
+  const { url, direction } = req.body;
+  if (!url || !['up', 'down'].includes(direction)) return res.status(400).json({ error: 'Invalid' });
+  if (!votesData[url]) votesData[url] = { up: 0, down: 0 };
+  votesData[url][direction] = (votesData[url][direction] || 0) + 1;
+  saveVotes();
+  res.json({ success: true, votes: votesData[url] });
+});
+
+app.post('/api/unvote', (req, res) => {
+  const { url, direction } = req.body;
+  if (!url || !['up', 'down'].includes(direction)) return res.status(400).json({ error: 'Invalid' });
+  if (!votesData[url]) votesData[url] = { up: 0, down: 0 };
+  votesData[url][direction] = Math.max(0, (votesData[url][direction] || 0) - 1);
+  saveVotes();
+  res.json({ success: true, votes: votesData[url] });
 });
 
 app.get('/api/videos', async (req, res) => {
