@@ -1271,11 +1271,11 @@
             <div class="vote-btns" onclick="event.stopPropagation()">
               <button class="vote-btn up-btn${myVote==='up'?' voted-up':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','up')" title="Upvote">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 L22 13 H16 V22 H8 V13 H2 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
-                <span class="vote-count">${v.up||''}</span>
+                <span class="vote-count">${v.up||'&nbsp;'}</span>
               </button>
               <button class="vote-btn down-btn${myVote==='down'?' voted-down':''}" onclick="castVote(this,'${voteKey.replace(/'/g,"\\'")}','down')" title="Downvote">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 22 L2 11 H8 V2 H16 V11 H22 Z" stroke-linejoin="round" stroke-linecap="round"/></svg>
-                <span class="vote-count">${v.down||''}</span>
+                <span class="vote-count">${v.down||'&nbsp;'}</span>
               </button>
             </div>
           </div>`;
@@ -1484,8 +1484,8 @@
     }
 
     // Update counts in DOM
-    upCount.textContent = articleVotes[url]?.up || '';
-    downCount.textContent = articleVotes[url]?.down || '';
+    upCount.textContent = articleVotes[url]?.up || '\u00a0';
+    downCount.textContent = articleVotes[url]?.down || '\u00a0';
     localStorage.setItem('sw_my_votes', JSON.stringify(myVotes));
   }
 
