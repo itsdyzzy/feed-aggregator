@@ -54,7 +54,53 @@ function saveVotes() {
 }
 loadVotes();
 
-// ─── Manual Articles (persisted so they survive restarts) ────────────────────
+// ─── Article Archive ──────────────────────────────────────────────────────────
+const ARCHIVE_FILE = path.join(__dirname, 'articles-archive.json');
+let articleArchive = [];
+function loadArchive() {
+  try { if (fs.existsSync(ARCHIVE_FILE)) articleArchive = JSON.parse(fs.readFileSync(ARCHIVE_FILE, 'utf8')); } catch(e) {}
+}
+function saveArchive() {
+  try { fs.writeFileSync(ARCHIVE_FILE, JSON.stringify(articleArchive), 'utf8'); } catch(e) {}
+}
+function archiveOverflow(articles) {
+  if (articles.length <= 280) return articles;
+  const keep = articles.slice(0, 280);
+  const overflow = articles.slice(280);
+  const archiveLinks = new Set(articleArchive.map(a => a.link));
+  let added = 0;
+  for (const a of overflow) {
+    if (!archiveLinks.has(a.link)) { articleArchive.push(a); archiveLinks.add(a.link); added++; }
+  }
+  if (added > 0) saveArchive();
+  return keep;
+}
+loadArchive();
+
+// ─── Video Archive ────────────────────────────────────────────────────────────
+const VIDEO_ARCHIVE_FILE = path.join(__dirname, 'videos-archive.json');
+let videoArchive = [];
+function loadVideoArchive() {
+  try { if (fs.existsSync(VIDEO_ARCHIVE_FILE)) videoArchive = JSON.parse(fs.readFileSync(VIDEO_ARCHIVE_FILE, 'utf8')); } catch(e) {}
+}
+function saveVideoArchive() {
+  try { fs.writeFileSync(VIDEO_ARCHIVE_FILE, JSON.stringify(videoArchive), 'utf8'); } catch(e) {}
+}
+function archiveVideoOverflow(videos) {
+  if (videos.length <= 280) return videos;
+  const keep = videos.slice(0, 280);
+  const overflow = videos.slice(280);
+  const archiveIds = new Set(videoArchive.map(v => v.videoId));
+  let added = 0;
+  for (const v of overflow) {
+    if (!archiveIds.has(v.videoId)) { videoArchive.push(v); archiveIds.add(v.videoId); added++; }
+  }
+  if (added > 0) saveVideoArchive();
+  return keep;
+}
+loadVideoArchive();
+
+
 const MANUAL_ARTICLES_FILE = path.join(__dirname, 'manual-articles.json');
 let manualArticles = [];
 function loadManualArticles() {
@@ -1068,7 +1114,7 @@ async function fetchAllFeeds() {
 
       console.log(`Fetch complete: ${added} new URLs this cycle, ${merged.length} total in cache`);
 
-      cachedArticles = merged.slice(0, 300);
+      cachedArticles = archiveOverflow(merged).slice(0, 300);
       lastFetch = Date.now();
       return cachedArticles;
       })(); // end fetchWork
@@ -1247,7 +1293,7 @@ async function fetchAllVideos() {
     });
 
     if (unique.length > 0) {
-      cachedVideos = unique;
+      cachedVideos = archiveVideoOverflow(unique).slice(0, 300);
       lastVideosFetch = Date.now();
       console.log(`Videos: ${cachedVideos.length} total from ${channelIds.length} channels`);
     }
@@ -1311,6 +1357,20 @@ app.get('/api/articles', (req, res) => {
 
 app.get('/api/featured', (req, res) => {
   res.json({ featured: featuredArticles });
+});
+
+app.get('/api/search', (req, res) => {
+  const q = (req.query.q || '').toLowerCase().trim();
+  if (!q) return res.json({ articles: [] });
+  const inMemory = cachedArticles.filter(a =>
+    (a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q)
+  );
+  const inMemoryLinks = new Set(inMemory.map(a => a.link));
+  const inArchive = articleArchive.filter(a =>
+    !inMemoryLinks.has(a.link) &&
+    ((a.title||'').toLowerCase().includes(q) || (a.description||'').toLowerCase().includes(q))
+  );
+  res.json({ articles: [...inMemory, ...inArchive] });
 });
 
 app.get('/api/ticker', (req, res) => {
