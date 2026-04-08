@@ -970,7 +970,7 @@
 <div class="controls">
   <div class="search-wrap">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="searchInput" placeholder="Search articles..." oninput="visibleCount=PAGE_SIZE;filteredArticles=[];lastRenderedCount=0;renderArticles()"/>
+    <input type="search" id="searchInput" placeholder="Search articles..." oninput="visibleCount=PAGE_SIZE;filteredArticles=[];lastRenderedCount=0;handleSearch()"/>
   </div>
   <div class="filters">
     <div class="source-dropdown" id="sourceDropdown">
@@ -1187,6 +1187,29 @@
     renderArticles();
   }
 
+  let searchTimeout = null;
+  function handleSearch() {
+    const q = document.getElementById('searchInput').value.trim();
+    clearTimeout(searchTimeout);
+    if (!q) {
+      // Empty search — revert to live articles
+      allArticles = window.__LIVE_ARTICLES__ || allArticles;
+      renderArticles();
+      return;
+    }
+    searchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/search?q=' + encodeURIComponent(q));
+        const data = await res.json();
+        allArticles = data.articles || [];
+        visibleCount = PAGE_SIZE;
+        filteredArticles = [];
+        lastRenderedCount = 0;
+        renderArticles();
+      } catch(e) { renderArticles(); }
+    }, 300);
+  }
+
   function renderArticles() {
     const query = document.getElementById('searchInput').value.toLowerCase();
     const grid = document.getElementById('grid');
@@ -1332,6 +1355,7 @@
       const res = await fetch('/api/articles');
       const data = await res.json();
       allArticles = data.articles || [];
+      window.__LIVE_ARTICLES__ = allArticles;
       if (allArticles.length === 0 && !isRetry) {
         document.getElementById('grid').innerHTML = `
           <div class="loader">
