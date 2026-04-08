@@ -670,13 +670,19 @@
       transition: background 0.3s;
     }
     .hero-dot.active { background: var(--neon); }
+    .hero-mobile-img {
+      display: none;
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      margin: 16px 0;
+    }
     @media (max-width: 768px) {
-      .hero-section { grid-template-columns: 1fr; height: auto; }
-      .hero-right { height: 260px; position: relative; }
-      .hero-right img { position: absolute; }
-      .hero-right::after { background: linear-gradient(180deg, transparent 50%, #0A0A0A 100%); }
-      .hero-left { padding: 32px 24px; }
+      .hero-section { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
+      .hero-right { display: none; }
+      .hero-left { padding: 24px 24px 24px; }
       .hero-dots { left: 24px; }
+      .hero-mobile-img { display: block; }
     }
 
     /* ─── Ticker ──────────────────────────────────────────────────────────────── */
@@ -1540,6 +1546,7 @@
       <div class="hero-left">
         <div class="hero-eyebrow"><span class="hero-pulse"></span> Breaking · Just In</div>
         <div class="hero-title">${titleHtml}</div>
+        <img class="hero-mobile-img" src="${f.image || ''}" alt="${(f.headline||f.title||'').replace(/"/g,'')}" onerror="this.style.display='none'"/>
         <div class="hero-desc">${f.description || ''}</div>
         <a class="hero-cta" href="${f.link}" target="_blank" rel="noopener">Read The Story →</a>
         ${featuredArticles.length > 1 ? `<div class="hero-dots">${featuredArticles.map((_,i) => `<div class="hero-dot${i===heroIndex?' active':''}" onclick="goHero(${i})"></div>`).join('')}</div>` : ''}
