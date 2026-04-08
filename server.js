@@ -1757,6 +1757,15 @@ app.post('/admin/update-ticker', (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/admin/archive', (req, res) => {
+  const password = req.query.password;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  res.json({
+    articles: { count: articleArchive.length, items: articleArchive },
+    videos: { count: videoArchive.length, items: videoArchive }
+  });
+});
+
 app.get('/admin', (req, res) => {
   const html = `<!DOCTYPE html>
 <html>
