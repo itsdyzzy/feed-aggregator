@@ -688,36 +688,19 @@ async function fetchSneakerNews() {
     const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
     const items = feed.items?.slice(0, 40) || [];
-    const isPlaceholder = (url) => !url || /ksfin|placeholder|default-img|blank/i.test(url) || url.startsWith('data:');
     const articles = items.map((item, i) => {
       const img = extractImage(item) || preExtracted[i]?.image || null;
+      const isPlaceholder = (url) => !url || /ksfin|placeholder|default-img|blank/i.test(url) || url.startsWith('data:');
+      const finalImg = isPlaceholder(img) ? null : img;
+      console.log(`[SN] "${(item.title||'').slice(0,40)}" | rss_img=${img ? img.slice(0,60) : 'NONE'} | final=${finalImg ? 'OK' : 'MISSING'}`);
       return {
         source: 'sneakernews', sourceName: 'Sneaker News',
         title: item.title || '',
         description: item.contentSnippet || preExtracted[i]?.description || '',
         link: item.link || '', date: item.pubDate || item.isoDate || '',
-        image: isPlaceholder(img) ? null : img
+        image: finalImg
       };
     });
-    // Fetch og:image for articles with missing or placeholder images using Chrome headers
-    const needsImg = articles.filter(a => !a.image);
-    await Promise.allSettled(needsImg.map(async (a) => {
-      try {
-        const r = await fetch(a.link, {
-          signal: AbortSignal.timeout(8000),
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.google.com/'
-          }
-        });
-        const html = await r.text();
-        const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-        if (imgMatch?.[1]?.startsWith('http')) a.image = imgMatch[1];
-      } catch(e) { /* skip */ }
-    }));
     console.log('Sneaker News: ' + articles.length + ' items');
     return articles;
   } catch (e) {
