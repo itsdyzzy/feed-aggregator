@@ -701,7 +701,7 @@ async function fetchSneakerNews() {
     });
     // Fetch og:image for articles with missing or placeholder images using Chrome headers
     const needsImg = articles.filter(a => !a.image);
-    for (const a of needsImg) {
+    await Promise.allSettled(needsImg.map(async (a) => {
       try {
         const r = await fetch(a.link, {
           signal: AbortSignal.timeout(8000),
@@ -717,8 +717,7 @@ async function fetchSneakerNews() {
                       || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
         if (imgMatch?.[1]?.startsWith('http')) a.image = imgMatch[1];
       } catch(e) { /* skip */ }
-      await new Promise(r => setTimeout(r, 300));
-    }
+    }));
     console.log('Sneaker News: ' + articles.length + ' items');
     return articles;
   } catch (e) {
