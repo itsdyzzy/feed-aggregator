@@ -686,38 +686,35 @@ async function fetchSneakerNewsPlaywright(browser) {
     await page.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
 
-    // Debug: log page structure to find correct selectors
-    const debugInfo = await page.evaluate(() => {
-      const tags = ['article', '.post', '.post-item', '.entry', '.td-module-thumb'];
-      const counts = {};
-      tags.forEach(t => { counts[t] = document.querySelectorAll(t).length; });
-      const allClasses = [...new Set([...document.querySelectorAll('a[href*="sneakernews.com/20"]')].map(a => a.closest('[class]')?.className?.split(' ')[0]).filter(Boolean))].slice(0, 10);
-      const firstLink = document.querySelector('a[href*="sneakernews.com/20"]')?.closest('[class]')?.outerHTML?.slice(0, 300);
-      return { counts, allClasses, firstLink };
-    });
-    console.log('[SN-DEBUG]', JSON.stringify(debugInfo));
-
     const results = await page.evaluate(() => {
       const articles = [];
-      const cards = document.querySelectorAll('article, .post, [class*="post-item"], [class*="article-item"]');
-      cards.forEach(card => {
-        const linkEl = card.querySelector('a[href*="sneakernews.com"]') || card.querySelector('a[href^="/"]');
-        let href = linkEl?.href || '';
-        if (!href) return;
-        if (href.startsWith('/')) href = 'https://sneakernews.com' + href;
-        if (!href.includes('sneakernews.com')) return;
-        const titleEl = card.querySelector('h1,h2,h3,h4,[class*="title"]');
-        const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
-        if (!title || title.length < 5) return;
-        const imgEl = card.querySelector('img');
-        const image = imgEl?.src?.startsWith('http') ? imgEl.src
-          : (imgEl?.dataset?.src || imgEl?.dataset?.lazySrc || imgEl?.srcset?.split(' ')[0] || null);
-        const timeEl = card.querySelector('time');
-        const date = timeEl?.getAttribute('datetime') || timeEl?.innerText?.trim() || '';
-        articles.push({ source: 'sneakernews', sourceName: 'Sneaker News', title, description: '', link: href, date, image: image || null });
-      });
       const seen = new Set();
-      return articles.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 40);
+
+      // Helper to extract from a container given image and title class names
+      const extract = (imgClass, titleClass) => {
+        document.querySelectorAll('.' + imgClass).forEach(imgEl => {
+          const container = imgEl.closest('a') || imgEl.parentElement;
+          const linkEl = imgEl.closest('a') || imgEl.parentElement?.querySelector('a') || imgEl.parentElement?.parentElement?.querySelector('a');
+          let href = linkEl?.href || '';
+          if (!href || !href.includes('sneakernews.com/20')) return;
+          if (seen.has(href)) return;
+          seen.add(href);
+          const titleContainer = imgEl.closest('[class]')?.parentElement || imgEl.parentElement?.parentElement;
+          const titleEl = titleContainer?.querySelector('.' + titleClass) || titleContainer?.querySelector('h1,h2,h3,h4');
+          const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
+          if (!title || title.length < 5) return;
+          const img = imgEl.querySelector('img');
+          const image = img?.src?.startsWith('http') ? img.src
+            : (img?.dataset?.src || img?.srcset?.split(' ')[0] || null);
+          articles.push({ source: 'sneakernews', sourceName: 'Sneaker News', title, description: '', link: href, date: '', image: image || null });
+        });
+      };
+
+      extract('latest-news-v2__image', 'latest-news-v2__title');
+      extract('big-post-v2__image', 'big-post-v2__content');
+      extract('home-slider__img', 'home-slider__heading');
+
+      return articles.slice(0, 40);
     });
 
     console.log(`Sneaker News Playwright: ${results.length} items`);
