@@ -692,9 +692,12 @@ async function fetchSneakerNewsPlaywright(browser) {
       const counts = {};
       tags.forEach(t => { counts[t] = document.querySelectorAll(t).length; });
       const allClasses = [...new Set([...document.querySelectorAll('a[href*="sneakernews.com/20"]')].map(a => a.closest('[class]')?.className?.split(' ')[0]).filter(Boolean))].slice(0, 10);
-      return { counts, allClasses, firstLink: document.querySelector('a[href*="sneakernews.com/20"]')?.closest('[class]')?.outerHTML?.slice(0, 300) };
+      const firstLink = document.querySelector('a[href*="sneakernews.com/20"]')?.closest('[class]')?.outerHTML?.slice(0, 300);
+      return { counts, allClasses, firstLink };
     });
     console.log('[SN-DEBUG]', JSON.stringify(debugInfo));
+
+    const results = await page.evaluate(() => {
       const articles = [];
       const cards = document.querySelectorAll('article, .post, [class*="post-item"], [class*="article-item"]');
       cards.forEach(card => {
