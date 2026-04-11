@@ -719,6 +719,20 @@ async function fetchSneakerNewsPlaywright(browser) {
 
     console.log(`Sneaker News Playwright: ${results.length} items`);
 
+    // Enrich dates from RSS since homepage layout doesn't include them
+    try {
+      const rssRes = await fetch('https://sneakernews.com/feed/', {
+        signal: AbortSignal.timeout(10000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
+      });
+      if (rssRes.ok) {
+        const raw = await rssRes.text();
+        const feed = await parser.parseString(sanitizeRssFeed(raw));
+        const rssByLink = new Map((feed.items || []).map(item => [item.link, item.pubDate || item.isoDate || '']));
+        results.forEach(a => { if (!a.date && rssByLink.has(a.link)) a.date = rssByLink.get(a.link); });
+      }
+    } catch(e) { /* skip date enrichment */ }
+
     // For any missing images, fetch og:image via Playwright page
     const needsImg = results.filter(a => !a.image).slice(0, 10);
     for (const a of needsImg) {
