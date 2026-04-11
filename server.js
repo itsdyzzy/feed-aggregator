@@ -686,7 +686,15 @@ async function fetchSneakerNewsPlaywright(browser) {
     await page.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
 
-    const results = await page.evaluate(() => {
+    // Debug: log page structure to find correct selectors
+    const debugInfo = await page.evaluate(() => {
+      const tags = ['article', '.post', '.post-item', '.entry', '.td-module-thumb'];
+      const counts = {};
+      tags.forEach(t => { counts[t] = document.querySelectorAll(t).length; });
+      const allClasses = [...new Set([...document.querySelectorAll('a[href*="sneakernews.com/20"]')].map(a => a.closest('[class]')?.className?.split(' ')[0]).filter(Boolean))].slice(0, 10);
+      return { counts, allClasses, firstLink: document.querySelector('a[href*="sneakernews.com/20"]')?.closest('[class]')?.outerHTML?.slice(0, 300) };
+    });
+    console.log('[SN-DEBUG]', JSON.stringify(debugInfo));
       const articles = [];
       const cards = document.querySelectorAll('article, .post, [class*="post-item"], [class*="article-item"]');
       cards.forEach(card => {
