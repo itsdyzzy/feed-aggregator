@@ -676,24 +676,26 @@ async function fetchHighsnobiety(browser) {
   return [];
 }
 
-async function fetchSneakerNewsPlaywright(browser) {
-  const page = await browser.newPage();
+async function fetchSneakerNewsPlaywright() {
+  let snBrowser = null;
+  const page_sn = await (async () => {
+    snBrowser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+    return await snBrowser.newPage();
+  })();
   try {
-    await page.setExtraHTTPHeaders({
+    await page_sn.setExtraHTTPHeaders({
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
     });
-    await page.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
+    await page_sn.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page_sn.waitForTimeout(2000);
 
-    const results = await page.evaluate(() => {
+    const results = await page_sn.evaluate(() => {
       const articles = [];
       const seen = new Set();
 
-      // Helper to extract from a container given image and title class names
       const extract = (imgClass, titleClass) => {
         document.querySelectorAll('.' + imgClass).forEach(imgEl => {
-          const container = imgEl.closest('a') || imgEl.parentElement;
           const linkEl = imgEl.closest('a') || imgEl.parentElement?.querySelector('a') || imgEl.parentElement?.parentElement?.querySelector('a');
           let href = linkEl?.href || '';
           if (!href || !href.includes('sneakernews.com/20')) return;
@@ -719,7 +721,7 @@ async function fetchSneakerNewsPlaywright(browser) {
 
     console.log(`Sneaker News Playwright: ${results.length} items`);
 
-    // Enrich dates from RSS since homepage layout doesn't include them
+    // Enrich dates from RSS
     try {
       const rssRes = await fetch('https://sneakernews.com/feed/', {
         signal: AbortSignal.timeout(10000),
@@ -733,10 +735,10 @@ async function fetchSneakerNewsPlaywright(browser) {
       }
     } catch(e) { /* skip date enrichment */ }
 
-    // For any missing images, fetch og:image via Playwright page
+    // Fetch og:image for missing images using own browser — won't affect shared browser
     const needsImg = results.filter(a => !a.image).slice(0, 10);
     for (const a of needsImg) {
-      const imgPage = await browser.newPage();
+      const imgPage = await snBrowser.newPage();
       try {
         await imgPage.goto(a.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
         const img = await imgPage.evaluate(() => {
@@ -749,7 +751,10 @@ async function fetchSneakerNewsPlaywright(browser) {
 
     if (results.length > 0) return results;
   } catch(e) { console.error('Sneaker News Playwright error:', e.message); }
-  finally { await page.close(); }
+  finally {
+    try { await page_sn.close(); } catch(e) {}
+    try { if (snBrowser) await snBrowser.close(); } catch(e) {}
+  }
   return [];
 }
 
@@ -1088,7 +1093,7 @@ async function fetchAllFeeds() {
       const highsnobArticles   = await fetchHighsnobiety(browser).catch(e => { console.error('Highsnobiety failed:', e.message); return []; });
       const complexArticles    = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
       const mnArticles         = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
-      const snPlaywrightArticles = await fetchSneakerNewsPlaywright(browser).catch(e => { console.error('SN Playwright failed:', e.message); return []; });
+      const snPlaywrightArticles = await fetchSneakerNewsPlaywright().catch(e => { console.error('SN Playwright failed:', e.message); return []; });
 
       // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
