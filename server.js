@@ -688,7 +688,7 @@ async function fetchSneakerNewsPlaywright() {
       'Accept-Language': 'en-US,en;q=0.9',
     });
     await page_sn.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page_sn.waitForTimeout(4000);
+    await page_sn.waitForTimeout(2000);
 
     const results = await page_sn.evaluate(() => {
       const articles = [];
@@ -738,21 +738,18 @@ async function fetchSneakerNewsPlaywright() {
       }
     } catch(e) { /* skip date enrichment */ }
 
-    // Fetch og:image for missing images using own browser — won't affect shared browser
+    // Fetch og:image for missing images using own browser
     const needsImg = results.filter(a => !a.image).slice(0, 10);
-    console.log(`[SN] ${results.length} articles, ${needsImg.length} missing images`);
     for (const a of needsImg) {
       const imgPage = await snBrowser.newPage();
       try {
         await imgPage.goto(a.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await imgPage.waitForTimeout(1000);
         const img = await imgPage.evaluate(() => {
           const el = document.querySelector('meta[property="og:image"]');
           return el?.content || null;
         });
-        console.log(`[SN-IMG] ${a.link.slice(0,60)} -> ${img ? 'FOUND' : 'MISSING'}`);
         if (img?.startsWith('http') && !img.includes('/themes/')) a.image = img;
-      } catch(e) { console.log(`[SN-IMG] ${a.link.slice(0,60)} -> ERROR: ${e.message}`); } finally { await imgPage.close(); }
+      } catch(e) { /* skip */ } finally { await imgPage.close(); }
     }
 
     if (results.length > 0) return results;
