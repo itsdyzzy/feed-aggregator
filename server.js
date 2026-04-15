@@ -737,16 +737,19 @@ async function fetchSneakerNewsPlaywright() {
 
     // Fetch og:image for missing images using own browser — won't affect shared browser
     const needsImg = results.filter(a => !a.image).slice(0, 10);
+    console.log(`[SN] ${results.length} articles, ${needsImg.length} missing images`);
     for (const a of needsImg) {
       const imgPage = await snBrowser.newPage();
       try {
         await imgPage.goto(a.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await imgPage.waitForTimeout(1000);
         const img = await imgPage.evaluate(() => {
           const el = document.querySelector('meta[property="og:image"]');
           return el?.content || null;
         });
+        console.log(`[SN-IMG] ${a.link.slice(0,60)} -> ${img ? 'FOUND' : 'MISSING'}`);
         if (img?.startsWith('http') && !img.includes('/themes/')) a.image = img;
-      } catch(e) { /* skip */ } finally { await imgPage.close(); }
+      } catch(e) { console.log(`[SN-IMG] ${a.link.slice(0,60)} -> ERROR: ${e.message}`); } finally { await imgPage.close(); }
     }
 
     if (results.length > 0) return results;
