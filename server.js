@@ -1082,26 +1082,26 @@ async function fetchAllFeeds() {
 
     try {
       const fetchWork = (async () => {
-      // RSS/fetch sources — fire immediately, run in parallel with Playwright work
+      // RSS/fetch sources + Sneaker News Playwright — fire immediately in parallel
       const rssPromise = Promise.allSettled([
         fetchSneakerNews(), fetchJustFreshKicks(), fetchSoleRetriever(), fetchWWD()
       ]);
+      const snPlaywrightPromise = fetchSneakerNewsPlaywright().catch(e => { console.error('SN Playwright failed:', e.message); return []; });
 
-      // Single Chromium for all Playwright scrapers — pages run sequentially
+      // Single Chromium for all other Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
       const hypeArticles       = await fetchHypebeast(browser).catch(e => { console.error('Hypebeast failed:', e.message); return []; });
       const highsnobArticles   = await fetchHighsnobiety(browser).catch(e => { console.error('Highsnobiety failed:', e.message); return []; });
       const complexArticles    = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
       const mnArticles         = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
-      const snPlaywrightArticles = await fetchSneakerNewsPlaywright().catch(e => { console.error('SN Playwright failed:', e.message); return []; });
 
-      // Close browser before awaiting RSS to free memory while we wait
+      // Close shared browser before awaiting results
       await browser.close(); browser = null;
 
-      // Await RSS results + enrich WWD images in parallel (WWD has no images in RSS feed)
-      const [rssResults] = await Promise.all([
+      // Await both RSS and SN Playwright results
+      const [rssResults, snPlaywrightArticles] = await Promise.all([
         rssPromise,
-        Promise.resolve()
+        snPlaywrightPromise
       ]);
       const [sneakernews, justfreshkicks, soleretriever, wwd] = rssResults;
 
