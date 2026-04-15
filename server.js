@@ -688,7 +688,7 @@ async function fetchSneakerNewsPlaywright() {
       'Accept-Language': 'en-US,en;q=0.9',
     });
     await page_sn.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page_sn.waitForTimeout(2000);
+    await page_sn.waitForTimeout(4000);
 
     const results = await page_sn.evaluate(() => {
       const articles = [];
@@ -706,8 +706,11 @@ async function fetchSneakerNewsPlaywright() {
           const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
           if (!title || title.length < 5) return;
           const img = imgEl.querySelector('img');
+          const pictureSource = imgEl.querySelector('source');
           const image = img?.src?.startsWith('http') ? img.src
-            : (img?.dataset?.src || img?.srcset?.split(' ')[0] || null);
+            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
+            || pictureSource?.srcset?.split('?')[0] || pictureSource?.srcset?.split(' ')[0]
+            || img?.srcset?.split(' ')[0] || null);
           articles.push({ source: 'sneakernews', sourceName: 'Sneaker News', title, description: '', link: href, date: '', image: image || null });
         });
       };
