@@ -1758,6 +1758,24 @@ app.post('/admin/update-ticker', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/admin/patch-image', express.json(), (req, res) => {
+  const { url, image, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!url || !image) return res.status(400).json({ error: 'URL and image required' });
+  let patched = false;
+  // Update in live cache
+  const article = cachedArticles.find(a => a.link === url);
+  if (article) { article.image = image; patched = true; }
+  // Update in manual articles
+  const manual = manualArticles.find(a => a.link === url);
+  if (manual) { manual.image = image; saveManualArticles(); patched = true; }
+  // Update in archive
+  const archived = articleArchive.find(a => a.link === url);
+  if (archived) { archived.image = image; saveArchive(); patched = true; }
+  if (!patched) return res.status(404).json({ error: 'Article not found' });
+  res.json({ success: true });
+});
+
 app.get('/admin/archive', (req, res) => {
   const password = req.query.password;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
@@ -1886,6 +1904,18 @@ app.get('/admin', (req, res) => {
     <textarea id="tickerText" rows="3" placeholder="POWERED BY STAYGROUNDEAD: THE LATEST IN FASHION, STREETWEAR, CULTURE"></textarea>
     <button class="btn btn-primary" onclick="saveTicker()">Save Ticker</button>
     <div id="tickerStatus" style="display:none;padding:0.5rem;font-size:0.8rem;"></div>
+  </div>
+
+  <!-- Patch Image -->
+  <div class="box">
+    <div class="box-title">Fix Missing Article Image</div>
+    <label>Article URL</label>
+    <input type="url" id="patchUrl" placeholder="https://sneakernews.com/article/..."/>
+    <label>Image URL</label>
+    <input type="url" id="patchImage" placeholder="https://...image.jpg" oninput="previewPatchImg(this.value)"/>
+    <img id="patchImgPreview" style="max-width:100%;margin-bottom:0.75rem;display:none;border:1px solid #2a2a2a;"/>
+    <button class="btn btn-primary" onclick="patchImage()">Save Image</button>
+    <div id="patchStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
   </div>
 
 </div><!-- end adminPanel -->
@@ -2047,7 +2077,29 @@ app.get('/admin', (req, res) => {
     } catch(e) { showStatus('Error: ' + e.message, 'error'); }
   }
 
-  function previewImg(src) {
+  function previewPatchImg(src) {
+    const el = document.getElementById('patchImgPreview');
+    if (src && src.startsWith('http')) { el.src = src; el.style.display = 'block'; }
+    else { el.style.display = 'none'; }
+  }
+
+  async function patchImage() {
+    const url = document.getElementById('patchUrl').value.trim();
+    const image = document.getElementById('patchImage').value.trim();
+    const s = document.getElementById('patchStatus');
+    if (!url || !image) { s.style.display='block'; s.style.color='#f77'; s.textContent='Both fields required.'; return; }
+    s.style.display='block'; s.style.color='#7af'; s.textContent='Saving...';
+    try {
+      const r = await fetch('/admin/patch-image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, image, password: pw() }) });
+      const data = await r.json();
+      if (data.success) {
+        s.style.color='#CCFF00'; s.textContent='✓ Image saved!';
+        document.getElementById('patchUrl').value = '';
+        document.getElementById('patchImage').value = '';
+        document.getElementById('patchImgPreview').style.display = 'none';
+      } else { s.style.color='#f77'; s.textContent='Error: ' + (data.error || 'Failed'); }
+    } catch(e) { s.style.color='#f77'; s.textContent='Error: ' + e.message; }
+  }
     const el = document.getElementById('img-preview');
     if (src && src.startsWith('http')) { el.src = src; el.style.display = 'block'; }
     else { el.style.display = 'none'; }
