@@ -54,6 +54,22 @@ function saveVotes() {
 }
 loadVotes();
 
+// ─── Image Patches ────────────────────────────────────────────────────────────
+const IMAGE_PATCHES_FILE = path.join(__dirname, 'image-patches.json');
+let imagePatches = {}; // { [url]: imageUrl }
+function loadImagePatches() {
+  try { if (fs.existsSync(IMAGE_PATCHES_FILE)) imagePatches = JSON.parse(fs.readFileSync(IMAGE_PATCHES_FILE, 'utf8')); } catch(e) {}
+}
+function saveImagePatches() {
+  try { fs.writeFileSync(IMAGE_PATCHES_FILE, JSON.stringify(imagePatches), 'utf8'); } catch(e) {}
+}
+function applyImagePatches(articles) {
+  for (const a of articles) {
+    if (imagePatches[a.link]) a.image = imagePatches[a.link];
+  }
+}
+loadImagePatches();
+
 // ─── Article Archive ──────────────────────────────────────────────────────────
 const ARCHIVE_FILE = path.join(__dirname, 'articles-archive.json');
 let articleArchive = [];
@@ -1116,6 +1132,7 @@ async function fetchAllFeeds() {
       console.log(`Fetch complete: ${added} new URLs this cycle, ${merged.length} total in cache`);
 
       cachedArticles = archiveOverflow(merged).slice(0, 300);
+      applyImagePatches(cachedArticles);
       lastFetch = Date.now();
       return cachedArticles;
       })(); // end fetchWork
@@ -1762,17 +1779,16 @@ app.post('/admin/patch-image', express.json(), (req, res) => {
   const { url, image, password } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
   if (!url || !image) return res.status(400).json({ error: 'URL and image required' });
-  let patched = false;
-  // Update in live cache
+  // Persist the patch so it survives fetch cycles
+  imagePatches[url] = image;
+  saveImagePatches();
+  // Apply immediately to live cache, manual articles, and archive
   const article = cachedArticles.find(a => a.link === url);
-  if (article) { article.image = image; patched = true; }
-  // Update in manual articles
+  if (article) article.image = image;
   const manual = manualArticles.find(a => a.link === url);
-  if (manual) { manual.image = image; saveManualArticles(); patched = true; }
-  // Update in archive
+  if (manual) { manual.image = image; saveManualArticles(); }
   const archived = articleArchive.find(a => a.link === url);
-  if (archived) { archived.image = image; saveArchive(); patched = true; }
-  if (!patched) return res.status(404).json({ error: 'Article not found' });
+  if (archived) { archived.image = image; saveArchive(); }
   res.json({ success: true });
 });
 
