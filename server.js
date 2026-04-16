@@ -676,91 +676,6 @@ async function fetchHighsnobiety(browser) {
   return [];
 }
 
-async function fetchSneakerNewsPlaywright() {
-  let snBrowser = null;
-  const page_sn = await (async () => {
-    snBrowser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
-    return await snBrowser.newPage();
-  })();
-  try {
-    await page_sn.setExtraHTTPHeaders({
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept-Language': 'en-US,en;q=0.9',
-    });
-    await page_sn.goto('https://sneakernews.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page_sn.waitForTimeout(2000);
-
-    const results = await page_sn.evaluate(() => {
-      const articles = [];
-      const seen = new Set();
-
-      const extract = (imgClass, titleClass) => {
-        document.querySelectorAll('.' + imgClass).forEach(imgEl => {
-          const linkEl = imgEl.closest('a') || imgEl.parentElement?.querySelector('a') || imgEl.parentElement?.parentElement?.querySelector('a');
-          let href = linkEl?.href || '';
-          if (!href || !href.includes('sneakernews.com/20')) return;
-          if (seen.has(href)) return;
-          seen.add(href);
-          const titleContainer = imgEl.closest('[class]')?.parentElement || imgEl.parentElement?.parentElement;
-          const titleEl = titleContainer?.querySelector('.' + titleClass) || titleContainer?.querySelector('h1,h2,h3,h4');
-          const title = (titleEl?.innerText || '').trim().split('\n')[0].trim();
-          if (!title || title.length < 5) return;
-          const img = imgEl.querySelector('img');
-          const pictureSource = imgEl.querySelector('source');
-          const image = img?.src?.startsWith('http') ? img.src
-            : (img?.dataset?.src || img?.dataset?.lazySrc || img?.dataset?.original
-            || pictureSource?.srcset?.split('?')[0] || pictureSource?.srcset?.split(' ')[0]
-            || img?.srcset?.split(' ')[0] || null);
-          articles.push({ source: 'sneakernews', sourceName: 'Sneaker News', title, description: '', link: href, date: '', image: image || null });
-        });
-      };
-
-      extract('latest-news-v2__image', 'latest-news-v2__title');
-      extract('big-post-v2__image', 'big-post-v2__content');
-      extract('home-slider__img', 'home-slider__heading');
-
-      return articles.slice(0, 40);
-    });
-
-    console.log(`Sneaker News Playwright: ${results.length} items`);
-
-    // Enrich dates from RSS
-    try {
-      const rssRes = await fetch('https://sneakernews.com/feed/', {
-        signal: AbortSignal.timeout(10000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)', 'Accept': 'application/rss+xml, text/xml, */*' }
-      });
-      if (rssRes.ok) {
-        const raw = await rssRes.text();
-        const feed = await parser.parseString(sanitizeRssFeed(raw));
-        const rssByLink = new Map((feed.items || []).map(item => [item.link, item.pubDate || item.isoDate || '']));
-        results.forEach(a => { if (!a.date && rssByLink.has(a.link)) a.date = rssByLink.get(a.link); });
-      }
-    } catch(e) { /* skip date enrichment */ }
-
-    // Fetch og:image for missing images using own browser
-    const needsImg = results.filter(a => !a.image).slice(0, 10);
-    for (const a of needsImg) {
-      const imgPage = await snBrowser.newPage();
-      try {
-        await imgPage.goto(a.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        const img = await imgPage.evaluate(() => {
-          const el = document.querySelector('meta[property="og:image"]');
-          return el?.content || null;
-        });
-        if (img?.startsWith('http') && !img.includes('/themes/')) a.image = img;
-      } catch(e) { /* skip */ } finally { await imgPage.close(); }
-    }
-
-    if (results.length > 0) return results;
-  } catch(e) { console.error('Sneaker News Playwright error:', e.message); }
-  finally {
-    try { await page_sn.close(); } catch(e) {}
-    try { if (snBrowser) await snBrowser.close(); } catch(e) {}
-  }
-  return [];
-}
-
 async function fetchSneakerNews() {
   try {
     const res = await fetch('https://sneakernews.com/feed/', {
@@ -773,9 +688,9 @@ async function fetchSneakerNews() {
     const xml = sanitizeRssFeed(raw);
     const feed = await parser.parseString(xml);
     const items = feed.items?.slice(0, 40) || [];
+    const isPlaceholder = (url) => !url || /ksfin|placeholder|default-img|blank|wp-content\/themes/i.test(url) || url.startsWith('data:');
     const articles = items.map((item, i) => {
       const img = extractImage(item) || preExtracted[i]?.image || null;
-      const isPlaceholder = (url) => !url || /ksfin|placeholder|default-img|blank|wp-content\/themes/i.test(url) || url.startsWith('data:');
       return {
         source: 'sneakernews', sourceName: 'Sneaker News',
         title: item.title || '',
@@ -784,6 +699,26 @@ async function fetchSneakerNews() {
         image: isPlaceholder(img) ? null : img
       };
     });
+    // Fetch og:image for articles with missing or placeholder images using Chrome headers
+    const needsImg = articles.filter(a => !a.image);
+    for (const a of needsImg) {
+      try {
+        const r = await fetch(a.link, {
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.google.com/'
+          }
+        });
+        const html = await r.text();
+        const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        if (imgMatch?.[1]?.startsWith('http')) a.image = imgMatch[1];
+      } catch(e) { /* skip */ }
+      await new Promise(r => setTimeout(r, 300));
+    }
     console.log('Sneaker News: ' + articles.length + ' items');
     return articles;
   } catch (e) {
@@ -1085,26 +1020,25 @@ async function fetchAllFeeds() {
 
     try {
       const fetchWork = (async () => {
-      // RSS/fetch sources + Sneaker News Playwright — fire immediately in parallel
+      // RSS/fetch sources — fire immediately, run in parallel with Playwright work
       const rssPromise = Promise.allSettled([
         fetchSneakerNews(), fetchJustFreshKicks(), fetchSoleRetriever(), fetchWWD()
       ]);
-      const snPlaywrightPromise = fetchSneakerNewsPlaywright().catch(e => { console.error('SN Playwright failed:', e.message); return []; });
 
-      // Single Chromium for all other Playwright scrapers — pages run sequentially
+      // Single Chromium for all Playwright scrapers — pages run sequentially
       browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
       const hypeArticles       = await fetchHypebeast(browser).catch(e => { console.error('Hypebeast failed:', e.message); return []; });
       const highsnobArticles   = await fetchHighsnobiety(browser).catch(e => { console.error('Highsnobiety failed:', e.message); return []; });
       const complexArticles    = await fetchComplex(browser).catch(e => { console.error('Complex failed:', e.message); return []; });
       const mnArticles         = await fetchModernNotoriety(browser).catch(e => { console.error('MN failed:', e.message); return []; });
 
-      // Close shared browser before awaiting results
+      // Close browser before awaiting RSS to free memory while we wait
       await browser.close(); browser = null;
 
-      // Await both RSS and SN Playwright results
-      const [rssResults, snPlaywrightArticles] = await Promise.all([
+      // Await RSS results + enrich WWD images in parallel (WWD has no images in RSS feed)
+      const [rssResults] = await Promise.all([
         rssPromise,
-        snPlaywrightPromise
+        Promise.resolve()
       ]);
       const [sneakernews, justfreshkicks, soleretriever, wwd] = rssResults;
 
@@ -1113,13 +1047,10 @@ async function fetchAllFeeds() {
         const meta = await fetchOgMeta(a.link);
         if (meta.image) a.image = meta.image;
       }));
-      const snArticles = snPlaywrightArticles.length > 0
-        ? snPlaywrightArticles
-        : (sneakernews.status === 'fulfilled' ? sneakernews.value : []);
       const articles = [
         ...hypeArticles,
         ...highsnobArticles,
-        ...snArticles,
+        ...(sneakernews.status      === 'fulfilled' ? sneakernews.value      : []),
         ...(justfreshkicks.status === 'fulfilled' ? justfreshkicks.value : []),
         ...(soleretriever.status === 'fulfilled' ? soleretriever.value : []),
         ...wwdArticles,
