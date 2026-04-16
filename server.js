@@ -2100,6 +2100,8 @@ app.get('/admin', (req, res) => {
       } else { s.style.color='#f77'; s.textContent='Error: ' + (data.error || 'Failed'); }
     } catch(e) { s.style.color='#f77'; s.textContent='Error: ' + e.message; }
   }
+
+  function previewImg(src) {
     const el = document.getElementById('img-preview');
     if (src && src.startsWith('http')) { el.src = src; el.style.display = 'block'; }
     else { el.style.display = 'none'; }
