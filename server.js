@@ -1775,6 +1775,21 @@ app.post('/admin/update-ticker', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/admin/remove-article', express.json(), (req, res) => {
+  const { url, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  const before = cachedArticles.length;
+  cachedArticles = cachedArticles.filter(a => a.link !== url);
+  manualArticles = manualArticles.filter(a => a.link !== url);
+  saveManualArticles();
+  articleArchive = articleArchive.filter(a => a.link !== url);
+  saveArchive();
+  // Also remove any image patch for this URL
+  if (imagePatches[url]) { delete imagePatches[url]; saveImagePatches(); }
+  res.json({ success: true, removed: before - cachedArticles.length });
+});
+
 app.post('/admin/patch-image', express.json(), (req, res) => {
   const { url, image, password } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
@@ -1920,6 +1935,15 @@ app.get('/admin', (req, res) => {
     <textarea id="tickerText" rows="3" placeholder="POWERED BY STAYGROUNDEAD: THE LATEST IN FASHION, STREETWEAR, CULTURE"></textarea>
     <button class="btn btn-primary" onclick="saveTicker()">Save Ticker</button>
     <div id="tickerStatus" style="display:none;padding:0.5rem;font-size:0.8rem;"></div>
+  </div>
+
+  <!-- Remove Article -->
+  <div class="box">
+    <div class="box-title">Remove Article</div>
+    <label>Article URL</label>
+    <input type="url" id="removeUrl" placeholder="https://..."/>
+    <button class="btn btn-danger" style="width:100%;padding:0.75rem;margin-bottom:0.5rem;" onclick="removeArticle()">Remove Article</button>
+    <div id="removeStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
   </div>
 
   <!-- Patch Image -->
@@ -2091,6 +2115,22 @@ app.get('/admin', (req, res) => {
         if (featured) loadFeatured();
       } else { showStatus('Error: ' + data.error, 'error'); }
     } catch(e) { showStatus('Error: ' + e.message, 'error'); }
+  }
+
+  async function removeArticle() {
+    const url = document.getElementById('removeUrl').value.trim();
+    const s = document.getElementById('removeStatus');
+    if (!url) { s.style.display='block'; s.style.color='#f77'; s.textContent='URL required.'; return; }
+    if (!confirm('Remove this article? This cannot be undone.')) return;
+    s.style.display='block'; s.style.color='#7af'; s.textContent='Removing...';
+    try {
+      const r = await fetch('/admin/remove-article', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
+      const data = await r.json();
+      if (data.success) {
+        s.style.color='#CCFF00'; s.textContent='✓ Article removed!';
+        document.getElementById('removeUrl').value = '';
+      } else { s.style.color='#f77'; s.textContent='Error: ' + (data.error || 'Failed'); }
+    } catch(e) { s.style.color='#f77'; s.textContent='Error: ' + e.message; }
   }
 
   function previewPatchImg(src) {
