@@ -887,8 +887,8 @@ async function fetchComplex(browser) {
 
 
     const final = deduped.slice(0, 60);
-    // Fetch og:meta for articles missing date or image (cap at 15)
-    const needsMeta = final.filter(a => !a.date || !a.image).slice(0, 15);
+    // Fetch og:meta for articles missing date or image (cap at 5 to avoid timeout)
+    const needsMeta = final.filter(a => !a.date || !a.image).slice(0, 5);
     await Promise.allSettled(needsMeta.map(async (a) => {
       const meta = await fetchOgMeta(a.link);
       if (meta.image && !a.image) a.image = meta.image;
