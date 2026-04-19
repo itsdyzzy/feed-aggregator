@@ -477,6 +477,7 @@ async function fetchHypebeast(browser) {
     'https://hypebeast.com/footwear/feed',
     'https://hypebeast.com/fashion/feed',
     'https://hypebeast.com/style/feed',
+    'https://hypebeast.com/watches/feed',
   ];
   try {
     const feedResults = await Promise.allSettled(feeds.map(async (feedUrl) => {
