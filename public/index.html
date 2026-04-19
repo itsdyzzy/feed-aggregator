@@ -479,7 +479,7 @@
         padding: 0 0.75rem;
         height: 52px;
       }
-      .site-logo { height: 40px !important; }
+      .site-logo { height: 32px !important; }
       .logo { font-size: 1.4rem; letter-spacing: 0.1em; }
       .logo span { display: none; }
       .refresh-btn { display: none; }
@@ -1287,9 +1287,15 @@
         const voteKey = a.link;
         const v = articleVotes[voteKey] || { up: 0, down: 0 };
         const myVote = myVotes[voteKey] || null;
+        const manualColor = a.source === 'manual' ? (() => {
+          let h = 0;
+          for (let i = 0; i < a.link.length; i++) h = (h * 31 + a.link.charCodeAt(i)) & 0xffffffff;
+          const hue = Math.abs(h) % 360;
+          return `hsl(${hue},90%,70%)`;
+        })() : null;
         div.innerHTML = `
           <div class="card-meta">
-            <span class="source-tag ${a.source}">${a.sourceName}</span>
+            <span class="source-tag ${a.source}"${manualColor ? ` style="color:${manualColor};border-color:${manualColor}"` : ''}>${a.sourceName}</span>
             <span class="card-date">${timeAgo(a.date)}</span>
           </div>
           ${a.image
