@@ -1287,12 +1287,12 @@
         const voteKey = a.link;
         const v = articleVotes[voteKey] || { up: 0, down: 0 };
         const myVote = myVotes[voteKey] || null;
-        const knownSourceColors = { 'Hypebeast': 'var(--tag-hype)', 'Highsnobiety': 'var(--tag-high)', 'Complex': 'var(--tag-complex)', 'Sneaker News': 'var(--tag-sn)', 'Sole Retriever': 'var(--tag-soleretriever)', 'Modern Notoriety': 'var(--tag-modernnotoriety)', 'WWD': 'var(--tag-wwd)', 'Just Fresh Kicks': 'var(--tag-justfreshkicks)' };
+        const knownSourceColors = { 'Hypebeast': 'var(--tag-hype)', 'Highsnobiety': 'var(--tag-high)', 'Complex': 'var(--tag-complex)', 'Sneaker News': 'var(--tag-sn)', 'Sole Retriever': 'var(--tag-soleretriever)', 'Modern Notoriety': 'var(--tag-modernnotoriety)', 'WWD': 'var(--tag-wwd)', 'Just Fresh Kicks': 'var(--tag-justfreshkicks)', 'STAYGROUNDEAD': '#ffffff' };
         const manualColor = a.source === 'manual' ? (() => {
           if (knownSourceColors[a.sourceName]) return knownSourceColors[a.sourceName];
           let h = 0;
           for (let i = 0; i < a.sourceName.length; i++) h = (h * 31 + a.sourceName.charCodeAt(i)) & 0xffffffff;
-          return `hsl(${Math.abs(h) % 360},90%,70%)`;
+          return `hsl(${Math.abs(h) % 360},90%,68%)`;
         })() : null;
         div.innerHTML = `
           <div class="card-meta">
