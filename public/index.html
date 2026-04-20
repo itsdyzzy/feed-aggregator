@@ -1287,7 +1287,7 @@
         const voteKey = a.link;
         const v = articleVotes[voteKey] || { up: 0, down: 0 };
         const myVote = myVotes[voteKey] || null;
-        const knownSourceColors = { 'Hypebeast': 'var(--tag-hype)', 'Highsnobiety': 'var(--tag-high)', 'Complex': 'var(--tag-complex)', 'Sneaker News': 'var(--tag-sn)', 'Sole Retriever': 'var(--tag-soleretriever)', 'Modern Notoriety': 'var(--tag-modernnotoriety)', 'WWD': 'var(--tag-wwd)', 'Just Fresh Kicks': 'var(--tag-justfreshkicks)', 'STAYGROUNDEAD': '#ffffff' };
+        const knownSourceColors = { 'Hypebeast': 'var(--tag-hype)', 'Highsnobiety': 'var(--tag-high)', 'Complex': 'var(--tag-complex)', 'Sneaker News': 'var(--tag-sn)', 'Sole Retriever': 'var(--tag-soleretriever)', 'Modern Notoriety': 'var(--tag-modernnotoriety)', 'WWD': 'var(--tag-wwd)', 'Just Fresh Kicks': 'var(--tag-justfreshkicks)', 'STAYGROUNDEAD': '#ffffff', 'STREETWEAR NEWS': 'var(--accent)' };
         const manualColor = a.source === 'manual' ? (() => {
           if (knownSourceColors[a.sourceName]) return knownSourceColors[a.sourceName];
           let h = 0;
