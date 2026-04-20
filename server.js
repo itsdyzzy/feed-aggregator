@@ -1805,7 +1805,7 @@ app.post('/admin/save-article', express.json(), (req, res) => {
   const link = 'https://streetwear.news/article/' + slug;
   const date = new Date().toISOString();
   const article = {
-    source: 'manual', sourceName: 'STAYGROUNDEAD',
+    source: 'manual', sourceName: 'STREETWEAR NEWS',
     title, body, image: image || null,
     link, slug, date, original: true
   };
@@ -1856,7 +1856,7 @@ app.get('/article/:slug', (req, res) => {
     <div class="grid" id="grid" data-static="true">
       <div style="grid-column:1/-1;padding:2rem;max-width:800px;color:var(--text)">
         ${article.image ? `<img src="${article.image}" alt="${article.title.replace(/"/g,'')}" style="width:100%;aspect-ratio:16/9;object-fit:cover;margin-bottom:1.5rem;"/>` : ''}
-        <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#fff;border:1px solid #fff;display:inline-block;padding:0.2rem 0.5rem;margin-bottom:1rem;">STAYGROUNDEAD</div>
+        <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);display:inline-block;padding:0.2rem 0.5rem;margin-bottom:1rem;">STREETWEAR NEWS</div>
         <h1 style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;line-height:1.1;letter-spacing:0.03em;margin-bottom:1rem;">${article.title.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h1>
         <div style="font-size:0.75rem;color:var(--muted);margin-bottom:2rem;">${new Date(article.date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
         <div style="font-size:1rem;line-height:1.9;color:#ccc;white-space:pre-wrap;">${article.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
