@@ -43,6 +43,20 @@ function saveEmails() {
 }
 loadEmails();
 
+// ─── Original Articles ────────────────────────────────────────────────────────
+const ORIGINAL_ARTICLES_FILE = path.join(__dirname, 'original-articles.json');
+let originalArticles = [];
+function loadOriginalArticles() {
+  try { if (fs.existsSync(ORIGINAL_ARTICLES_FILE)) originalArticles = JSON.parse(fs.readFileSync(ORIGINAL_ARTICLES_FILE, 'utf8')); } catch(e) {}
+}
+function saveOriginalArticles() {
+  try { fs.writeFileSync(ORIGINAL_ARTICLES_FILE, JSON.stringify(originalArticles), 'utf8'); } catch(e) {}
+}
+function slugify(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+}
+loadOriginalArticles();
+
 // ─── Article Votes ────────────────────────────────────────────────────────────
 const VOTES_FILE = path.join(__dirname, 'votes.json');
 let votesData = {}; // { [urlKey]: { up: N, down: N } }
@@ -1118,6 +1132,13 @@ async function fetchAllFeeds() {
           mergedLinks.add(a.link);
         }
       }
+      // Always include original articles
+      for (const a of originalArticles) {
+        if (!mergedLinks.has(a.link)) {
+          merged.push(a);
+          mergedLinks.add(a.link);
+        }
+      }
       merged.sort((a, b) => {
         const da = a.date ? new Date(a.date).getTime() : 0;
         const db = b.date ? new Date(b.date).getTime() : 0;
@@ -1776,6 +1797,78 @@ app.post('/admin/update-ticker', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/admin/save-article', express.json(), (req, res) => {
+  const { title, body, image, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!title || !body) return res.status(400).json({ error: 'Title and body required' });
+  const slug = slugify(title);
+  const link = 'https://streetwear.news/article/' + slug;
+  const date = new Date().toISOString();
+  const article = {
+    source: 'manual', sourceName: 'STAYGROUNDEAD',
+    title, body, image: image || null,
+    link, slug, date, original: true
+  };
+  // Upsert by slug
+  const idx = originalArticles.findIndex(a => a.slug === slug);
+  if (idx >= 0) originalArticles[idx] = article;
+  else originalArticles.unshift(article);
+  saveOriginalArticles();
+  // Also inject into live cache
+  const cacheIdx = cachedArticles.findIndex(a => a.link === link);
+  if (cacheIdx >= 0) cachedArticles[cacheIdx] = article;
+  else cachedArticles.unshift(article);
+  res.json({ success: true, slug, link });
+});
+
+app.post('/admin/delete-original', express.json(), (req, res) => {
+  const { slug, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  originalArticles = originalArticles.filter(a => a.slug !== slug);
+  saveOriginalArticles();
+  const link = 'https://streetwear.news/article/' + slug;
+  cachedArticles = cachedArticles.filter(a => a.link !== link);
+  res.json({ success: true });
+});
+
+app.get('/api/original-articles', (req, res) => {
+  res.json({ articles: originalArticles });
+});
+
+app.get('/article/:slug', (req, res) => {
+  const slug = req.params.slug;
+  const article = originalArticles.find(a => a.slug === slug);
+  if (!article) return res.status(404).send('Article not found');
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+  html = html.replace(
+    '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
+    '<title>' + article.title.replace(/</g,'&lt;').replace(/>/g,'&gt;') + ' | streetwear.news</title>'
+  );
+  const aboutScript = '<script>window.__SSR_ABOUT__=true;window.__STATIC_PAGE__=true;</' + 'script>';
+  const headClose = html.indexOf('</head>');
+  if (headClose !== -1) html = html.slice(0, headClose) + aboutScript + html.slice(headClose);
+  const startMarker = '<!-- SSR_GRID_START -->';
+  const endMarker = '<!-- SSR_GRID_END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  const bodyHtml = `
+    <div class="grid" id="grid" data-static="true">
+      <div style="grid-column:1/-1;padding:2rem;max-width:800px;color:var(--text)">
+        ${article.image ? `<img src="${article.image}" alt="${article.title.replace(/"/g,'')}" style="width:100%;aspect-ratio:16/9;object-fit:cover;margin-bottom:1.5rem;"/>` : ''}
+        <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#fff;border:1px solid #fff;display:inline-block;padding:0.2rem 0.5rem;margin-bottom:1rem;">STAYGROUNDEAD</div>
+        <h1 style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;line-height:1.1;letter-spacing:0.03em;margin-bottom:1rem;">${article.title.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h1>
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:2rem;">${new Date(article.date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+        <div style="font-size:1rem;line-height:1.9;color:#ccc;white-space:pre-wrap;">${article.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      </div>
+    </div>`;
+  if (startIdx !== -1 && endIdx !== -1) {
+    html = html.slice(0, startIdx) + startMarker + bodyHtml + html.slice(endIdx + endMarker.length);
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 app.post('/admin/remove-article', express.json(), (req, res) => {
   const { url, password } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
@@ -1936,6 +2029,24 @@ app.get('/admin', (req, res) => {
     <textarea id="tickerText" rows="3" placeholder="POWERED BY STAYGROUNDEAD: THE LATEST IN FASHION, STREETWEAR, CULTURE"></textarea>
     <button class="btn btn-primary" onclick="saveTicker()">Save Ticker</button>
     <div id="tickerStatus" style="display:none;padding:0.5rem;font-size:0.8rem;"></div>
+  </div>
+
+  <!-- Write Original Article -->
+  <div class="box">
+    <div class="box-title">Write Original Article</div>
+    <label>Title</label>
+    <input type="text" id="origTitle" placeholder="Article title..."/>
+    <label>Cover Image URL (optional)</label>
+    <input type="url" id="origImage" placeholder="https://...image.jpg" oninput="previewOrigImg(this.value)"/>
+    <img id="origImgPreview" style="max-width:100%;margin-bottom:0.75rem;display:none;border:1px solid #2a2a2a;"/>
+    <label>Body</label>
+    <textarea id="origBody" rows="12" placeholder="Write your article here..."></textarea>
+    <button class="btn btn-primary" onclick="saveOriginalArticle()">Publish Article</button>
+    <div id="origStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
+    <div style="margin-top:1rem;border-top:1px solid #2a2a2a;padding-top:1rem;">
+      <div class="box-title" style="margin-bottom:0.75rem;">Published Articles</div>
+      <div id="origList"><div style="color:#555;font-size:0.8rem;">Loading...</div></div>
+    </div>
   </div>
 
   <!-- Remove Article -->
@@ -2116,6 +2227,60 @@ app.get('/admin', (req, res) => {
         if (featured) loadFeatured();
       } else { showStatus('Error: ' + data.error, 'error'); }
     } catch(e) { showStatus('Error: ' + e.message, 'error'); }
+  }
+
+  function previewOrigImg(src) {
+    const el = document.getElementById('origImgPreview');
+    if (src && src.startsWith('http')) { el.src = src; el.style.display = 'block'; }
+    else { el.style.display = 'none'; }
+  }
+
+  async function loadOriginalArticles() {
+    const res = await fetch('/api/original-articles');
+    const data = await res.json();
+    const list = document.getElementById('origList');
+    if (!data.articles || data.articles.length === 0) {
+      list.innerHTML = '<div style="color:#555;font-size:0.8rem;">No articles published yet.</div>';
+      return;
+    }
+    list.innerHTML = data.articles.map(a => {
+      return '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;">' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:0.8rem;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + a.title + '</div>' +
+        '<a href="/article/' + a.slug + '" target="_blank" style="font-size:0.7rem;color:#555;">streetwear.news/article/' + a.slug + '</a>' +
+        '</div>' +
+        '<button class="btn btn-danger" onclick="deleteOriginalArticle(\'' + a.slug + '\')">Delete</button>' +
+        '</div>';
+    }).join('');
+  }
+  loadOriginalArticles();
+
+  async function saveOriginalArticle() {
+    const title = document.getElementById('origTitle').value.trim();
+    const body = document.getElementById('origBody').value.trim();
+    const image = document.getElementById('origImage').value.trim();
+    const s = document.getElementById('origStatus');
+    if (!title || !body) { s.style.display='block'; s.style.color='#f77'; s.textContent='Title and body required.'; return; }
+    s.style.display='block'; s.style.color='#7af'; s.textContent='Publishing...';
+    try {
+      const r = await fetch('/admin/save-article', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, body, image, password: pw() }) });
+      const data = await r.json();
+      if (data.success) {
+        s.style.color='#CCFF00'; s.textContent='✓ Published! ' + data.link;
+        document.getElementById('origTitle').value = '';
+        document.getElementById('origBody').value = '';
+        document.getElementById('origImage').value = '';
+        document.getElementById('origImgPreview').style.display = 'none';
+        loadOriginalArticles();
+      } else { s.style.color='#f77'; s.textContent='Error: ' + (data.error || 'Failed'); }
+    } catch(e) { s.style.color='#f77'; s.textContent='Error: ' + e.message; }
+  }
+
+  async function deleteOriginalArticle(slug) {
+    if (!confirm('Delete this article?')) return;
+    const r = await fetch('/admin/delete-original', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ slug, password: pw() }) });
+    const data = await r.json();
+    if (data.success) loadOriginalArticles();
   }
 
   async function removeArticle() {
