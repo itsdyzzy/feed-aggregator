@@ -405,12 +405,16 @@
     .mobile-menu-wrap { position: relative; display: none; }
     .mobile-menu-btn {
       background: none;
-      border: 1px solid var(--border);
+      border: none;
+      outline: none;
+      box-shadow: none;
       color: var(--muted);
       padding: 0.35rem 0.6rem;
       cursor: pointer;
-      font-size: 1.1rem;
+      font-size: 1.3rem;
       line-height: 1;
+      -webkit-appearance: none;
+      appearance: none;
     }
     .mobile-menu-btn:hover { border-color: var(--accent); color: var(--accent); }
     .mobile-dropdown {
@@ -773,7 +777,7 @@
     .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
     @media (max-width: 1024px) {
       .main-layout { grid-template-columns: 1fr; }
-      .sidebar { border-left: none; border-top: 1px solid var(--border); position: static; max-height: none; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); position: static; max-height: none; display: none; }
     }
 
     /* ─── Upcoming Drops ──────────────────────────────────────────────────────── */
