@@ -2249,7 +2249,7 @@ app.get('/admin', (req, res) => {
         '<div style="font-size:0.8rem;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + a.title + '</div>' +
         '<a href="/article/' + a.slug + '" target="_blank" style="font-size:0.7rem;color:#555;">streetwear.news/article/' + a.slug + '</a>' +
         '</div>' +
-        '<button class="btn btn-danger" onclick="deleteOriginalArticle(\'' + a.slug + '\')">Delete</button>' +
+        '<button class="btn btn-danger" onclick="deleteOriginalArticle(&quot;' + a.slug + '&quot;)">Delete</button>' +
         '</div>';
     }).join('');
   }
