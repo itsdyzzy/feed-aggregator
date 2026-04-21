@@ -2541,13 +2541,14 @@ app.get('/drops', (req, res) => {
     'const list=document.getElementById("drops-page-list");' +
     'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted)\'>No drops found.</div>";return;}' +
     'list.innerHTML=data.drops.map(d=>' +
-    '"<div style=\'background:var(--bg);display:flex;flex-direction:column;gap:0.5rem;padding:1rem\'>" +' +
-    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:3/1;object-fit:contain;background:var(--bg);\'/>" : "<div style=\'width:100%;aspect-ratio:3/1;background:var(--bg)\'></div>") +' +
+    '"<div style=\'background:var(--bg);display:flex;flex-direction:column;gap:0.5rem;padding:0\'>" +' +
+    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:3/1;object-fit:contain;object-position:left center;background:var(--bg);display:block;\'/>" : "<div style=\'width:100%;aspect-ratio:3/1;background:var(--bg)\'></div>") +' +
+    '"<div style=\'padding:0 1rem 1rem\'>" +' +
     '"<div style=\'font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.03em;color:var(--text)\'>"+d.name+"</div>" +' +
     '"<div style=\'font-size:0.8rem;color:var(--neon)\'>"+d.price+"</div>" +' +
     '"<div style=\'font-size:0.75rem;color:var(--muted)\'>"+d.date+"</div>" +' +
-    '(d.link?"<a href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\' style=\'font-size:0.75rem;color:var(--accent);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;margin-top:auto\'>Where To Buy &#8594;</a>":"") +' +
-    '"</div>"' +
+    '(d.link?"<a href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\' style=\'font-size:0.75rem;color:var(--accent);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.5rem;display:block\'>Where To Buy &#8594;</a>":"") +' +
+    '"</div></div>"' +
     ').join(""); }).catch(()=>{});' +
     '</' + 'script>';
   if (startIdx !== -1 && endIdx !== -1) {
