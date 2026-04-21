@@ -2532,23 +2532,22 @@ app.get('/drops', (req, res) => {
     '<div style="grid-column:1/-1;padding:1.5rem 1.5rem 0.5rem;background:var(--bg)">' +
     '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--neon);">Upcoming Drops</h2>' +
     '</div>' +
-    '<div id="drops-page-list" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;background:var(--border)">' +
-    '<div style="background:var(--bg);padding:1.5rem;color:var(--muted);font-size:0.85rem;">Loading drops...</div>' +
+    '<div id="drops-page-list" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)">' +
+    '<div style="background:var(--bg);padding:1.5rem;color:var(--muted);font-size:0.85rem;grid-column:1/-1;">Loading drops...</div>' +
     '</div>' +
     '</div>' +
     '<script>' +
     'fetch("/api/drops").then(r=>r.json()).then(data=>{' +
     'const list=document.getElementById("drops-page-list");' +
-    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted)\'>No drops found.</div>";return;}' +
+    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted);grid-column:1/-1\'>No drops found.</div>";return;}' +
     'list.innerHTML=data.drops.map(d=>' +
-    '"<div style=\'background:var(--bg);display:flex;flex-direction:column;gap:0.5rem;padding:0\'>" +' +
-    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:3/1;object-fit:contain;object-position:left center;background:var(--bg);display:block;\'/>" : "<div style=\'width:100%;aspect-ratio:3/1;background:var(--bg)\'></div>") +' +
-    '"<div style=\'padding:0 1rem 1rem\'>" +' +
-    '"<div style=\'font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.03em;color:var(--text)\'>"+d.name+"</div>" +' +
-    '"<div style=\'font-size:0.8rem;color:var(--neon)\'>"+d.price+"</div>" +' +
-    '"<div style=\'font-size:0.75rem;color:var(--muted)\'>"+d.date+"</div>" +' +
-    '(d.link?"<a href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\' style=\'font-size:0.75rem;color:var(--accent);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.5rem;display:block\'>Where To Buy &#8594;</a>":"") +' +
-    '"</div></div>"' +
+    '"<div style=\'background:var(--bg);display:flex;flex-direction:column;padding:0.75rem;gap:0.5rem\'>" +' +
+    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:1/1;object-fit:contain;background:var(--bg);\'/>" : "<div style=\'width:100%;aspect-ratio:1/1;background:var(--bg)\'></div>") +' +
+    '"<div style=\'font-size:0.8rem;font-weight:600;color:var(--text);line-height:1.3\'>" + d.name + "</div>" +' +
+    '"<div style=\'font-size:0.7rem;color:var(--muted)\'>" + (d.date||"") + "</div>" +' +
+    '"<div style=\'font-size:0.75rem;color:var(--neon)\'>" + (d.price||"") + "</div>" +' +
+    '(d.link?"<a href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\' style=\'font-size:0.65rem;color:var(--accent);text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;margin-top:auto;display:block\'>Where To Buy &#8594;</a>":"") +' +
+    '"</div>"' +
     ').join(""); }).catch(()=>{});' +
     '</' + 'script>';
   if (startIdx !== -1 && endIdx !== -1) {
