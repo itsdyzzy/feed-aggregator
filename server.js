@@ -2528,20 +2528,26 @@ app.get('/drops', (req, res) => {
   const endMarker = '<!-- SSR_GRID_END -->';
   const startIdx = html.indexOf(startMarker);
   const endIdx = html.indexOf(endMarker);
-  const content = '<div class="grid" id="grid" data-static="true"><div style="grid-column:1/-1;padding:2rem">' +
-    '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--neon);margin-bottom:1.5rem;">Upcoming Drops</h2>' +
-    '<div id="drops-page-list"><div style="color:var(--muted);font-size:0.85rem;">Loading drops...</div></div>' +
-    '</div></div>' +
+  const content = '<div class="grid" id="grid" data-static="true" style="background:var(--bg)">' +
+    '<div style="grid-column:1/-1;padding:1.5rem 1.5rem 0.5rem;background:var(--bg)">' +
+    '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--neon);">Upcoming Drops</h2>' +
+    '</div>' +
+    '<div id="drops-page-list" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;background:var(--border)">' +
+    '<div style="background:var(--bg);padding:1.5rem;color:var(--muted);font-size:0.85rem;">Loading drops...</div>' +
+    '</div>' +
+    '</div>' +
     '<script>' +
     'fetch("/api/drops").then(r=>r.json()).then(data=>{' +
     'const list=document.getElementById("drops-page-list");' +
-    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'color:var(--muted)\'>No drops found.</div>";return;}' +
+    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted)\'>No drops found.</div>";return;}' +
     'list.innerHTML=data.drops.map(d=>' +
-    '"<div style=\'display:flex;gap:1rem;align-items:center;padding:0.75rem 0;border-bottom:1px solid #1f1f1f\'>" +' +
-    '(d.image?"<img src=\'"+d.image+"\' style=\'width:60px;height:60px;object-fit:cover;\'/>" : "<div style=\'width:60px;height:60px;background:#111\'></div>") +' +
-    '"<div><div style=\'font-size:0.85rem;color:#f0f0f0;font-weight:500\'>"+d.name+"</div>" +' +
-    '"<div style=\'font-size:0.75rem;color:#CCFF00;margin-top:2px\'>"+d.price+"</div>" +' +
-    '"<div style=\'font-size:0.7rem;color:#555;margin-top:2px\'>"+d.date+"</div></div></div>"' +
+    '"<div style=\'background:var(--bg);display:flex;flex-direction:column;gap:0.75rem;padding:1.5rem\'>" +' +
+    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:1/1;object-fit:cover;\'/>" : "<div style=\'width:100%;aspect-ratio:1/1;background:#111\'></div>") +' +
+    '"<div style=\'font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.03em;color:var(--text)\'>"+d.name+"</div>" +' +
+    '"<div style=\'font-size:0.8rem;color:var(--neon)\'>"+d.price+"</div>" +' +
+    '"<div style=\'font-size:0.75rem;color:var(--muted)\'>"+d.date+"</div>" +' +
+    '(d.link?"<a href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\' style=\'font-size:0.75rem;color:var(--accent);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;margin-top:auto\'>Where To Buy &#8594;</a>":"") +' +
+    '"</div>"' +
     ').join(""); }).catch(()=>{});' +
     '</' + 'script>';
   if (startIdx !== -1 && endIdx !== -1) {
