@@ -2514,6 +2514,43 @@ function renderStaticPage(title, metaDesc, bodyContent) {
   return html;
 }
 
+app.get('/drops', (req, res) => {
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  let html = fs.readFileSync(indexPath, 'utf8');
+  html = html.replace(
+    '<title>Streetwear News, Sneaker Drops &amp; Collabs | streetwear.news</title>',
+    '<title>Upcoming Sneaker Drops | streetwear.news</title>'
+  );
+  const script = '<script>window.__SSR_ABOUT__=true;window.__STATIC_PAGE__=true;</' + 'script>';
+  const headClose = html.indexOf('</head>');
+  if (headClose !== -1) html = html.slice(0, headClose) + script + html.slice(headClose);
+  const startMarker = '<!-- SSR_GRID_START -->';
+  const endMarker = '<!-- SSR_GRID_END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  const content = '<div class="grid" id="grid" data-static="true"><div style="grid-column:1/-1;padding:2rem">' +
+    '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--neon);margin-bottom:1.5rem;">Upcoming Drops</h2>' +
+    '<div id="drops-page-list"><div style="color:var(--muted);font-size:0.85rem;">Loading drops...</div></div>' +
+    '</div></div>' +
+    '<script>' +
+    'fetch("/api/drops").then(r=>r.json()).then(data=>{' +
+    'const list=document.getElementById("drops-page-list");' +
+    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'color:var(--muted)\'>No drops found.</div>";return;}' +
+    'list.innerHTML=data.drops.map(d=>' +
+    '"<div style=\'display:flex;gap:1rem;align-items:center;padding:0.75rem 0;border-bottom:1px solid #1f1f1f\'>" +' +
+    '(d.image?"<img src=\'"+d.image+"\' style=\'width:60px;height:60px;object-fit:cover;\'/>" : "<div style=\'width:60px;height:60px;background:#111\'></div>") +' +
+    '"<div><div style=\'font-size:0.85rem;color:#f0f0f0;font-weight:500\'>"+d.name+"</div>" +' +
+    '"<div style=\'font-size:0.75rem;color:#CCFF00;margin-top:2px\'>"+d.price+"</div>" +' +
+    '"<div style=\'font-size:0.7rem;color:#555;margin-top:2px\'>"+d.date+"</div></div></div>"' +
+    ').join(""); }).catch(()=>{});' +
+    '</' + 'script>';
+  if (startIdx !== -1 && endIdx !== -1) {
+    html = html.slice(0, startIdx) + startMarker + content + html.slice(endIdx + endMarker.length);
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 app.get('/about', (req, res) => {
   const indexPath = path.join(__dirname, 'public', 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
