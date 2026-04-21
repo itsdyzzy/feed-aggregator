@@ -2542,7 +2542,7 @@ app.get('/drops', (req, res) => {
     'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted)\'>No drops found.</div>";return;}' +
     'list.innerHTML=data.drops.map(d=>' +
     '"<div style=\'background:var(--bg);display:flex;flex-direction:column;gap:0.75rem;padding:1.5rem\'>" +' +
-    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:1/1;object-fit:cover;\'/>" : "<div style=\'width:100%;aspect-ratio:1/1;background:#111\'></div>") +' +
+    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:4/3;object-fit:contain;background:#111;\'/>" : "<div style=\'width:100%;aspect-ratio:4/3;background:#111\'></div>") +' +
     '"<div style=\'font-family:Bebas Neue,sans-serif;font-size:1.1rem;letter-spacing:0.03em;color:var(--text)\'>"+d.name+"</div>" +' +
     '"<div style=\'font-size:0.8rem;color:var(--neon)\'>"+d.price+"</div>" +' +
     '"<div style=\'font-size:0.75rem;color:var(--muted)\'>"+d.date+"</div>" +' +
