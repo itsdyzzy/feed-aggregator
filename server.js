@@ -1462,13 +1462,37 @@ app.get('/watch', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'watch.html'));
 });
 
-app.post('/api/subscribe', express.json(), (req, res) => {
+app.post('/api/subscribe', express.json(), async (req, res) => {
   const { email } = req.body;
   if (!email || !email.includes('@')) return res.status(400).json({ error: 'Invalid email' });
-  if (emailSubscribers.includes(email)) return res.json({ success: true }); // already subscribed
-  emailSubscribers.push(email);
-  saveEmails();
-  console.log('New subscriber:', email);
+  // Save locally
+  if (!emailSubscribers.includes(email)) {
+    emailSubscribers.push(email);
+    saveEmails();
+  }
+  // Forward to MailerLite
+  try {
+    const mlRes = await fetch('https://connect.mailerlite.com/api/subscribers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + process.env.MAILERLITE_API_KEY
+      },
+      body: JSON.stringify({
+        email,
+        groups: [process.env.MAILERLITE_GROUP_ID]
+      }),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!mlRes.ok) {
+      const err = await mlRes.text();
+      console.error('MailerLite error:', mlRes.status, err);
+    } else {
+      console.log('MailerLite subscriber added:', email);
+    }
+  } catch(e) {
+    console.error('MailerLite fetch failed:', e.message);
+  }
   res.json({ success: true });
 });
 
