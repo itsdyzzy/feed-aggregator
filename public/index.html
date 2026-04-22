@@ -714,7 +714,7 @@
       font-family: 'Oswald', 'Bebas Neue', sans-serif;
       font-weight: 700;
       font-size: clamp(56px, 7.5vw, 108px);
-      line-height: 0.9;
+      line-height: 1;
       letter-spacing: 0.02em;
       color: var(--text);
       margin-bottom: 20px;
@@ -724,7 +724,7 @@
       -webkit-text-stroke: 2.5px var(--neon);
       color: transparent;
       text-shadow: 0 0 40px rgba(204,255,0,0.25);
-      display: block;
+      display: inline;
       paint-order: stroke fill;
     }
     .hero-desc {
@@ -1733,13 +1733,17 @@
     const slider = document.getElementById('heroSlider');
     const f = featuredArticles[heroIndex];
 
-    // Split title for highlight word
-    const words = (f.headline || f.title || '').split(' ');
-    const highlightWord = f.highlightWord || words.reduce((a,b) => b.length > a.length ? b : a, '');
-    const titleHtml = words.map(w => w.toUpperCase() === highlightWord.toUpperCase()
-      ? `<span class="hero-highlight">${w}</span>`
-      : w
-    ).join(' ');
+    // Support manual line breaks with | character
+    const rawHeadline = (f.headline || f.title || '');
+    const lines = rawHeadline.split('|');
+    const highlightWord = (f.highlightWord || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const renderLine = line => line.split(' ').map(w => {
+      const clean = w.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return clean === highlightWord && highlightWord.length > 0
+        ? `<span class="hero-highlight">${w}</span>`
+        : w;
+    }).join(' ');
+    const titleHtml = lines.map(line => `<span style="display:block">${renderLine(line)}</span>`).join('');
 
     slider.innerHTML = `
       <div class="hero-left">
