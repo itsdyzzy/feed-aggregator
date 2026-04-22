@@ -89,13 +89,13 @@
       background: rgba(10,10,10,0.95);
       backdrop-filter: blur(12px);
       z-index: 100;
-      height: 64px;
+      height: 200px;
       transition: height 0.3s ease, padding 0.3s ease;
     }
-    header.scrolled { height: 48px; }
-    header.scrolled .site-logo { height: 28px !important; }
+    header.scrolled { height: 72px; }
+    header.scrolled .site-logo { height: 60px !important; }
     @media (max-width: 480px) {
-      header.scrolled .site-logo { height: 22px !important; }
+      header.scrolled .site-logo { height: 40px !important; }
     }
 
     .logo {
@@ -1076,7 +1076,7 @@
 <header>
   <a href="/" style="text-decoration:none">
     <h1 class="logo" style="font-size:0;line-height:0;color:transparent;">
-      <img src="/streetwear-news-logo.png" alt="streetwear.news — Sneaker Drops &amp; Streetwear News Aggregator" class="site-logo" style="height:60px;width:auto;display:block;" />
+      <img src="/streetwear-news-logo.png" alt="streetwear.news — Sneaker Drops &amp; Streetwear News Aggregator" class="site-logo" style="height:180px;width:auto;display:block;transition:height 0.3s ease;" />
       <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;">streetwear.news — Sneaker Drops &amp; Streetwear News Aggregator</span>
     </h1>
   </a>
