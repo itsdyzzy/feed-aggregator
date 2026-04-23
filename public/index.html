@@ -1794,7 +1794,10 @@
       renderHero();
     } catch(e) { console.error('Failed to load featured:', e); }
   }
-  loadFeatured();
+  if (!isAboutPage && !isBrandPage) {
+    loadFeatured();
+    loadTicker();
+  }
 
   // ─── Ticker ──────────────────────────────────────────────────────────────────
   async function loadTicker() {
@@ -1808,7 +1811,6 @@
       document.getElementById('tickerInner').innerHTML = segment.repeat(10);
     } catch(e) {}
   }
-  loadTicker();
 
   // ─── Upcoming Drops ──────────────────────────────────────────────────────────
   let allDrops = [];
