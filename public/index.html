@@ -332,6 +332,21 @@
 
     .card-date { font-size: 0.7rem; color: var(--muted); }
 
+    .card-img-wrap {
+      position: relative;
+      display: block;
+    }
+    .card-img-wrap::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
+      background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
     .card-img {
       width: 100%;
       aspect-ratio: 16/9;
@@ -1502,7 +1517,7 @@
             <span class="card-date">${timeAgo(a.date)}${isJustIn(a.date) ? '<span class="just-in-dot"></span>' : ''}</span>
           </div>
           ${a.image
-            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" onerror="this.style.display='none'">`
+            ? `<div class="card-img-wrap"><img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" onerror="this.parentElement.style.display='none'"></div>`
             : `<div class="card-img-placeholder">${a.sourceName}</div>`
           }
           <div class="card-title">${toTitleCase(a.title)}</div>
