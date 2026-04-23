@@ -2556,25 +2556,35 @@ app.get('/drops', (req, res) => {
   const endMarker = '<!-- SSR_GRID_END -->';
   const startIdx = html.indexOf(startMarker);
   const endIdx = html.indexOf(endMarker);
-  const content = '<div class="grid" id="grid" data-static="true" style="background:var(--bg)">' +
+  const content = '<style>' +
+    '#drops-page-list { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); }' +
+    '@media(max-width:768px){ #drops-page-list { grid-template-columns:1fr 1fr; } }' +
+    '.drop-card { background:var(--bg); display:flex; flex-direction:column; padding:1.25rem; gap:0.5rem; }' +
+    '.drop-card img { width:100%; aspect-ratio:1/1; object-fit:contain; background:var(--bg); }' +
+    '.drop-card-name { font-size:0.85rem; font-weight:600; color:var(--text); line-height:1.3; }' +
+    '.drop-card-date { font-size:0.7rem; color:var(--muted); }' +
+    '.drop-card-price { font-size:0.8rem; color:var(--neon); }' +
+    '.drop-card-link { font-size:0.65rem; color:var(--accent); text-decoration:none; letter-spacing:0.08em; text-transform:uppercase; margin-top:auto; display:block; }' +
+    '</style>' +
+    '<div class="grid" id="grid" data-static="true" style="background:var(--bg)">' +
     '<div style="grid-column:1/-1;padding:1.5rem 1.5rem 0.5rem;background:var(--bg)">' +
     '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;letter-spacing:0.1em;color:var(--neon);">Upcoming Drops</h2>' +
     '</div>' +
-    '<div id="drops-page-list" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)">' +
-    '<div style="background:var(--bg);padding:1.5rem;color:var(--muted);font-size:0.85rem;grid-column:1/-1;">Loading drops...</div>' +
+    '<div id="drops-page-list" style="grid-column:1/-1">' +
+    '<div style="background:var(--bg);padding:1.5rem;color:var(--muted);font-size:0.85rem;">Loading drops...</div>' +
     '</div>' +
     '</div>' +
     '<script>' +
     'fetch("/api/drops").then(r=>r.json()).then(data=>{' +
     'const list=document.getElementById("drops-page-list");' +
-    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted);grid-column:1/-1\'>No drops found.</div>";return;}' +
+    'if(!data.drops||!data.drops.length){list.innerHTML="<div style=\'background:var(--bg);padding:1.5rem;color:var(--muted)\'>No drops found.</div>";return;}' +
     'list.innerHTML=data.drops.map(d=>' +
-    '"<div style=\'background:var(--bg);display:flex;flex-direction:column;padding:0.75rem;gap:0.5rem\'>" +' +
-    '(d.image?"<img src=\'"+d.image+"\' style=\'width:100%;aspect-ratio:1/1;object-fit:contain;background:var(--bg);\'/>" : "<div style=\'width:100%;aspect-ratio:1/1;background:var(--bg)\'></div>") +' +
-    '"<div style=\'font-size:0.8rem;font-weight:600;color:var(--text);line-height:1.3\'>" + d.name + "</div>" +' +
-    '"<div style=\'font-size:0.7rem;color:var(--muted)\'>" + (d.date||"") + "</div>" +' +
-    '"<div style=\'font-size:0.75rem;color:var(--neon)\'>" + (d.price||"") + "</div>" +' +
-    '(d.link?"<a href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\' style=\'font-size:0.65rem;color:var(--accent);text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;margin-top:auto;display:block\'>Where To Buy &#8594;</a>":"") +' +
+    '"<div class=\'drop-card\'>" +' +
+    '(d.image?"<img src=\'"+d.image+"\' alt=\'"+d.name+"\'/>" : "<div style=\'width:100%;aspect-ratio:1/1;background:var(--bg)\'></div>") +' +
+    '"<div class=\'drop-card-name\'>" + d.name + "</div>" +' +
+    '"<div class=\'drop-card-date\'>" + (d.date||"") + "</div>" +' +
+    '"<div class=\'drop-card-price\'>" + (d.price||"") + "</div>" +' +
+    '(d.link?"<a class=\'drop-card-link\' href=\'"+d.link+"\' target=\'_blank\' rel=\'noopener\'>Where To Buy &#8594;</a>":"") +' +
     '"</div>"' +
     ').join(""); }).catch(()=>{});' +
     '</' + 'script>';
