@@ -1211,7 +1211,7 @@
 
 </div><!-- end main-feed -->
 
-<aside class="sidebar">
+<aside class="sidebar" id="mainSidebar">
   <!-- Upcoming Drops -->
   <div class="drops-section">
     <div class="drops-title">Upcoming Drops</div>
@@ -1610,10 +1610,11 @@
   const isSpecialPage = isBrandPage || isAboutPage;
 
   if (isAboutPage) {
-    // Static page — hide hero, ticker, and stats bar
+    // Static page — hide hero, ticker, stats bar, and sidebar
     document.getElementById('heroSection').style.display = 'none';
     document.getElementById('tickerWrap').style.display = 'none';
     document.getElementById('statsBar').style.display = 'none';
+    document.getElementById('mainSidebar').style.display = 'none';
   } else if (isBrandPage) {
     // Brand page — use SSR brand articles, don't replace with full feed
     allArticles = window.__SSR_ARTICLES__ || [];
