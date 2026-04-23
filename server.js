@@ -68,17 +68,6 @@ function saveVotes() {
 }
 loadVotes();
 
-// ─── Top Stories ──────────────────────────────────────────────────────────────
-const TOP_STORIES_FILE = path.join(__dirname, 'top-stories.json');
-let topStories = []; // array of article links
-function loadTopStories() {
-  try { if (fs.existsSync(TOP_STORIES_FILE)) topStories = JSON.parse(fs.readFileSync(TOP_STORIES_FILE, 'utf8')); } catch(e) {}
-}
-function saveTopStories() {
-  try { fs.writeFileSync(TOP_STORIES_FILE, JSON.stringify(topStories), 'utf8'); } catch(e) {}
-}
-loadTopStories();
-
 // ─── Image Patches ────────────────────────────────────────────────────────────
 const IMAGE_PATCHES_FILE = path.join(__dirname, 'image-patches.json');
 let imagePatches = {}; // { [url]: imageUrl }
@@ -1406,35 +1395,6 @@ app.get('/api/articles', (req, res) => {
   }
 });
 
-app.get('/api/top-stories', (req, res) => {
-  const stories = topStories.map(link => {
-    const article = cachedArticles.find(a => a.link === link)
-      || articleArchive.find(a => a.link === link)
-      || manualArticles.find(a => a.link === link);
-    return article || null;
-  }).filter(Boolean);
-  res.json({ stories });
-});
-
-app.post('/admin/add-top-story', express.json(), (req, res) => {
-  const { url, password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  if (!topStories.includes(url)) {
-    topStories.push(url);
-    saveTopStories();
-  }
-  res.json({ success: true });
-});
-
-app.post('/admin/remove-top-story', express.json(), (req, res) => {
-  const { url, password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
-  topStories = topStories.filter(u => u !== url);
-  saveTopStories();
-  res.json({ success: true });
-});
-
 app.get('/api/featured', (req, res) => {
   res.json({ featured: featuredArticles });
 });
@@ -2082,18 +2042,6 @@ app.get('/admin', (req, res) => {
     <div id="status"></div>
   </div>
 
-  <!-- Top Stories -->
-  <div class="box">
-    <div class="box-title">Top Stories</div>
-    <label>Article URL</label>
-    <input type="url" id="topStoryUrl" placeholder="https://..."/>
-    <button class="btn btn-primary" onclick="addTopStory()">Add to Top Stories</button>
-    <div id="topStoryStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
-    <div style="margin-top:1rem;border-top:1px solid #2a2a2a;padding-top:1rem;">
-      <div id="topStoriesList"><div style="color:#555;font-size:0.8rem;">Loading...</div></div>
-    </div>
-  </div>
-
   <!-- Featured Articles -->
   <div class="box">
     <div class="box-title">Featured Articles (Hero Carousel)</div>
@@ -2187,46 +2135,6 @@ app.get('/admin', (req, res) => {
   fetch('/api/ticker').then(r=>r.json()).then(d => { document.getElementById('tickerText').value = d.text || ''; });
 
   // Load featured articles
-  async function loadTopStoriesAdmin() {
-    const res = await fetch('/api/top-stories');
-    const data = await res.json();
-    const list = document.getElementById('topStoriesList');
-    if (!data.stories || !data.stories.length) {
-      list.innerHTML = '<div style="color:#555;font-size:0.8rem;">No top stories set.</div>';
-      return;
-    }
-    list.innerHTML = data.stories.map(a =>
-      '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;">' +
-      '<div style="flex:1;min-width:0;font-size:0.8rem;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + a.title + '</div>' +
-      '<button class="btn btn-danger" onclick="removeTopStory(&quot;' + a.link + '&quot;)">Remove</button>' +
-      '</div>'
-    ).join('');
-  }
-  loadTopStoriesAdmin();
-
-  async function addTopStory() {
-    const url = document.getElementById('topStoryUrl').value.trim();
-    const s = document.getElementById('topStoryStatus');
-    if (!url) { s.style.display='block'; s.style.color='#f77'; s.textContent='URL required.'; return; }
-    s.style.display='block'; s.style.color='#7af'; s.textContent='Adding...';
-    try {
-      const r = await fetch('/admin/add-top-story', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
-      const data = await r.json();
-      if (data.success) {
-        s.style.color='#CCFF00'; s.textContent='✓ Added!';
-        document.getElementById('topStoryUrl').value = '';
-        loadTopStoriesAdmin();
-      } else { s.style.color='#f77'; s.textContent='Error: ' + (data.error || 'Failed'); }
-    } catch(e) { s.style.color='#f77'; s.textContent='Error: ' + e.message; }
-  }
-
-  async function removeTopStory(url) {
-    if (!confirm('Remove from top stories?')) return;
-    const r = await fetch('/admin/remove-top-story', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
-    const data = await r.json();
-    if (data.success) loadTopStoriesAdmin();
-  }
-
   async function loadFeatured() {
     const res = await fetch('/api/featured');
     const data = await res.json();
@@ -2521,15 +2429,15 @@ app.get('/rss.xml', (req, res) => {
 });
 
 const BRANDS = {
-  'nike': { name: 'Nike', keywords: ['nike', 'air max', 'air jordan', 'af1', 'air force', 'dunk', 'blazer', 'cortez', 'sb dunk', 'swoosh'] },
-  'adidas': { name: 'Adidas', keywords: ['adidas', 'yeezy', 'ultraboost', 'nmd', 'superstar', 'stan smith', 'forum', 'samba', 'gazelle'] },
+  'nike': { name: 'Nike', keywords: ['nike', 'air max', 'air jordan', 'af1', 'air force', 'dunk', 'blazer', 'cortez'] },
+  'adidas': { name: 'Adidas', keywords: ['adidas', 'yeezy', 'ultraboost', 'nmd', 'superstar', 'stan smith', 'forum', 'samba'] },
   'supreme': { name: 'Supreme', keywords: ['supreme'] },
-  'jordan': { name: 'Jordan', keywords: ['jordan', 'air jordan', 'jumpman', 'aj1', 'aj4', 'aj3'] },
-  'new-balance': { name: 'New Balance', keywords: ['new balance', 'nb ', '990', '991', '992', '993', '2002', '327', '550', '574', '1906'] },
-  'vans': { name: 'Vans', keywords: ['vans', 'old skool', 'sk8-hi', 'authentic', 'slip-on', 'era ', 'half cab'] },
-  'puma': { name: 'Puma', keywords: ['puma', 'suede', 'clyde', 'rs-x', 'speedcat'] },
+  'jordan': { name: 'Jordan', keywords: ['jordan', 'air jordan', 'jumpman'] },
+  'new-balance': { name: 'New Balance', keywords: ['new balance', 'nb ', '990', '991', '992', '993', '2002', '327', '550', '574'] },
+  'vans': { name: 'Vans', keywords: ['vans', 'old skool', 'sk8-hi', 'authentic', 'slip-on', 'era '] },
+  'puma': { name: 'Puma', keywords: ['puma'] },
   'crocs': { name: 'Crocs', keywords: ['crocs', 'clog'] },
-  'reebok': { name: 'Reebok', keywords: ['reebok', 'club c', 'classic leather', 'instapump', 'question mid', 'freestyle'] },
+  'reebok': { name: 'Reebok', keywords: ['reebok', 'club c', 'classic leather', 'instapump'] },
   'palace': { name: 'Palace', keywords: ['palace'] }
 };
 
@@ -2540,12 +2448,10 @@ app.get('/brand/:slug', async (req, res) => {
 
   if (cachedArticles.length === 0 && fetchInProgress) await fetchInProgress;
 
-  const articles = [...cachedArticles, ...articleArchive].filter(a => {
+  const articles = cachedArticles.filter(a => {
     const text = (a.title + ' ' + (a.description||'')).toLowerCase();
     return brand.keywords.some(kw => text.includes(kw));
   });
-  const seen = new Set();
-  const deduped = articles.filter(a => { if (seen.has(a.link)) return false; seen.add(a.link); return true; }).slice(0, 60);
 
   const indexPath = path.join(__dirname, 'public', 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
@@ -2573,13 +2479,13 @@ app.get('/brand/:slug', async (req, res) => {
     html.slice(html.indexOf('</head>'));
 
   // Pre-render brand articles into grid
-  const ssrCards = deduped.slice(0, 15).map(a => {
+  const ssrCards = articles.slice(0, 15).map(a => {
     const t = (a.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const d = (a.description||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const l = (a.link||'').replace(/"/g,'&quot;');
     const s = (a.sourceName||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const c = (a.source||'').toLowerCase();
-    const img = a.image ? '<div class="card-img-wrap"><img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy"></div>' : '<div class="card-img-placeholder">' + s + '</div>';
+    const img = a.image ? '<img class="card-img" src="' + a.image.replace(/"/g,'&quot;') + '" alt="' + t + '" loading="lazy">' : '<div class="card-img-placeholder">' + s + '</div>';
     return '<div class="card"><div class="card-meta"><span class="source-tag ' + c + '">' + s + '</span></div>' + img + '<div class="card-title">' + t + '</div>' + (d ? '<div class="card-desc">' + d + '</div>' : '') + '<a class="card-link" href="' + l + '" target="_blank" rel="noopener">Read Full Article &#8594;</a></div>';
   }).join('');
 
@@ -2595,7 +2501,7 @@ app.get('/brand/:slug', async (req, res) => {
   }
 
   // Inject JSON for client-side filtering
-  const jsonData = JSON.stringify(deduped);
+  const jsonData = JSON.stringify(articles);
   const scriptTag = '<script>window.__SSR_ARTICLES__=' + jsonData + ';window.__SSR_BRAND__="' + slug + '";</' + 'script>';
   const headCloseIdx = html.indexOf('</head>');
   if (headCloseIdx !== -1) {
@@ -2637,10 +2543,6 @@ function renderStaticPage(title, metaDesc, bodyContent) {
 }
 
 app.get('/drops', (req, res) => {
-  const ua = req.headers['user-agent'] || '';
-  const isMobile = /mobile|android|iphone|ipad|ipod/i.test(ua);
-  if (!isMobile) return res.redirect('/');
-
   const indexPath = path.join(__dirname, 'public', 'index.html');
   let html = fs.readFileSync(indexPath, 'utf8');
   html = html.replace(
