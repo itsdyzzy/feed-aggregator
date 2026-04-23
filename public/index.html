@@ -1055,30 +1055,6 @@
       white-space: nowrap;
     }
 
-    #scrollTopBtn {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      width: 40px;
-      height: 40px;
-      background: var(--accent);
-      color: #000;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
-      z-index: 999;
-    }
-    #scrollTopBtn.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    #scrollTopBtn svg { width: 18px; height: 18px; }
 
   </style>
 
@@ -1906,11 +1882,6 @@
       else { msg.style.display='block'; msg.style.color='#ff6b6b'; msg.textContent = data.error || 'Something went wrong.'; }
     } catch(e) { msg.style.display='block'; msg.style.color='#ff6b6b'; msg.textContent='Could not subscribe. Try again.'; }
   }
-  // Scroll to top button
-  window.addEventListener('scroll', () => {
-    document.getElementById('scrollTopBtn').classList.toggle('visible', window.scrollY > 500);
-  });
-
 </script>
 
 <footer style="border-top:1px solid var(--border);padding:1.5rem 2rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;background:var(--bg);">
@@ -1927,8 +1898,5 @@
     <a href="/rss.xml" style="font-size:0.72rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;transition:color 0.2s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">RSS</a>
   </nav>
 </footer>
-  <button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Scroll to top">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-  </button>
 </body>
 </html>
