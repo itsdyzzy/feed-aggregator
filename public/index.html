@@ -356,11 +356,10 @@
     }
 
     .card-title {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 1rem;
-      font-weight: 600;
-      line-height: 1.35;
-      letter-spacing: 0;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.2;
+      letter-spacing: 0.03em;
       color: var(--text);
     }
 
@@ -486,179 +485,6 @@
       color: var(--muted);
       text-align: center;
     }
-
-    /* ─── Noise texture overlay ──────────────────────────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 9999;
-      opacity: 0.018;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-repeat: repeat;
-      background-size: 150px 150px;
-    }
-
-    /* ─── Brands dropdown ────────────────────────────────────────────────────── */
-    .brands-dropdown-wrap { position: relative; display: none; }
-    .brands-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 0.35rem 0.8rem;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.7rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    .brands-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .brands-menu {
-      display: none;
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      min-width: 160px;
-      z-index: 200;
-      flex-direction: column;
-    }
-    .brands-menu.open { display: flex; }
-    .brands-menu a {
-      padding: 0.65rem 1rem;
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-decoration: none;
-      border-bottom: 1px solid var(--border);
-      font-family: 'DM Sans', sans-serif;
-      transition: color 0.15s;
-    }
-    .brands-menu a:last-child { border-bottom: none; }
-    .brands-menu a:hover { color: var(--accent); }
-    @media (min-width: 481px) { .brands-dropdown-wrap { display: block; } }
-
-    /* ─── Top Stories ────────────────────────────────────────────────────────── */
-    .top-stories-section { padding: 24px 0 0; display: none; }
-    .top-stories-section.has-stories { display: block; }
-    .top-stories-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 0 0 14px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 16px;
-    }
-    .top-stories-label {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 13px;
-      letter-spacing: 0.2em;
-      color: var(--hot);
-    }
-    .top-stories-scroll {
-      display: flex;
-      gap: 1px;
-      overflow-x: auto;
-      scrollbar-width: none;
-      background: var(--border);
-    }
-    .top-stories-scroll::-webkit-scrollbar { display: none; }
-    .top-story-card {
-      flex: 0 0 260px;
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.2s;
-    }
-    .top-story-card:hover { background: var(--surface); }
-    .top-story-img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: var(--surface); display: block; }
-    .top-story-body { padding: 0.75rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
-    .top-story-source { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-    .top-story-title { font-size: 0.82rem; font-weight: 600; color: var(--text); line-height: 1.3; font-family: 'DM Sans', sans-serif; }
-    .top-story-num { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--border); line-height: 1; margin-bottom: 4px; }
-
-    /* ─── Latest News header ─────────────────────────────────────────────────── */
-    .latest-news-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 24px 0 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .latest-news-label {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 13px;
-      letter-spacing: 0.2em;
-      color: var(--muted);
-    }
-
-    /* ─── Search state banner ────────────────────────────────────────────────── */
-    .search-state-bar {
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .search-state-bar.visible { display: flex; }
-    .search-state-text { font-size: 0.78rem; color: var(--muted); }
-    .search-state-text strong { color: var(--text); }
-    .search-clear-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 0.25rem 0.6rem;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: all 0.2s;
-    }
-    .search-clear-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ─── Scroll to top ──────────────────────────────────────────────────────── */
-    .scroll-top-btn {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      width: 40px;
-      height: 40px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 1rem;
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 150;
-      transition: all 0.2s;
-    }
-    .scroll-top-btn.visible { display: flex; }
-    .scroll-top-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ─── Card image gradient overlay ───────────────────────────────────────── */
-    .card-img-wrap { position: relative; display: block; line-height: 0; }
-    .card-img-wrap::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 40%;
-      background: linear-gradient(to top, rgba(10,10,10,0.45) 0%, transparent 100%);
-      pointer-events: none;
-    }
-
     .mobile-menu-btn {
       background: none;
       border: none;
@@ -1274,36 +1100,15 @@
       </a>
     </div>
     <a href="/advertising" class="refresh-btn advertise-btn" style="text-decoration:none;">Advertise</a>
-    <div class="brands-dropdown-wrap">
-      <button class="brands-btn" onclick="toggleBrandsMenu()">Brands <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>
-      <div class="brands-menu" id="brandsMenu">
-        <a href="/brand/nike">Nike</a>
-        <a href="/brand/adidas">Adidas</a>
-        <a href="/brand/jordan">Jordan</a>
-        <a href="/brand/new-balance">New Balance</a>
-        <a href="/brand/puma">Puma</a>
-        <a href="/brand/reebok">Reebok</a>
-        <a href="/brand/vans">Vans</a>
-      </div>
-    </div>
     <div class="mobile-menu-wrap">
       <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
       <div class="mobile-dropdown" id="mobileDropdown">
         <a href="/drops">Upcoming Drops</a>
-        <a href="/brand/nike">Nike</a>
-        <a href="/brand/adidas">Adidas</a>
-        <a href="/brand/jordan">Jordan</a>
-        <a href="/brand/new-balance">New Balance</a>
-        <a href="/brand/puma">Puma</a>
-        <a href="/brand/reebok">Reebok</a>
-        <a href="/brand/vans">Vans</a>
         <a href="/advertising">Advertise</a>
       </div>
     </div>
   </div>
 </header>
-
-<button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Scroll to top">↑</button>
 
 <div class="controls">
   <div class="search-wrap" style="position:relative;">
@@ -1397,25 +1202,6 @@
 </div>
 <div id="errorBanner" style="display:none" class="error-banner"></div>
 
-<!-- Top Stories -->
-<div class="top-stories-section" id="topStoriesSection">
-  <div class="top-stories-header">
-    <span class="top-stories-label">Top Stories</span>
-  </div>
-  <div class="top-stories-scroll" id="topStoriesScroll"></div>
-</div>
-
-<!-- Latest News header -->
-<div class="latest-news-header" id="latestNewsHeader">
-  <span class="latest-news-label">Latest News</span>
-</div>
-
-<!-- Search state bar -->
-<div class="search-state-bar" id="searchStateBar">
-  <span class="search-state-text" id="searchStateText"></span>
-  <button class="search-clear-btn" onclick="clearSearch()">✕ Clear</button>
-</div>
-
 <!-- SSR_GRID_START --><div class="grid" id="grid">
   <div class="loader">
     <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
@@ -1497,84 +1283,7 @@
     }
   });
 
-  // ─── Title Case helper ────────────────────────────────────────────────────
-  const SMALL_WORDS = new Set(['a','an','the','and','but','or','for','nor','on','at','to','by','in','of','up','as','is','it']);
-  function toTitleCase(str) {
-    if (!str) return str;
-    return str.split(' ').map((w, i) => {
-      const lower = w.toLowerCase();
-      if (i === 0 || !SMALL_WORDS.has(lower)) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-      return lower;
-    }).join(' ');
-  }
-
-  // ─── Brands dropdown toggle ───────────────────────────────────────────────
-  function toggleBrandsMenu() {
-    document.getElementById('brandsMenu').classList.toggle('open');
-  }
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.brands-dropdown-wrap')) {
-      document.getElementById('brandsMenu')?.classList.remove('open');
-    }
-  });
-
-  // ─── Scroll to top ────────────────────────────────────────────────────────
-  window.addEventListener('scroll', () => {
-    const btn = document.getElementById('scrollTopBtn');
-    if (btn) { if (window.scrollY > 500) btn.classList.add('visible'); else btn.classList.remove('visible'); }
-  }, { passive: true });
-
-  // ─── Top Stories ──────────────────────────────────────────────────────────
-  async function loadTopStories() {
-    try {
-      const res = await fetch('/api/top-stories');
-      const data = await res.json();
-      const stories = data.stories || [];
-      const section = document.getElementById('topStoriesSection');
-      const scroll = document.getElementById('topStoriesScroll');
-      if (!stories.length) { section.classList.remove('has-stories'); return; }
-      section.classList.add('has-stories');
-      scroll.innerHTML = stories.map((a, i) => `
-        <a class="top-story-card" href="${a.link}" target="_blank" rel="noopener">
-          ${a.image ? `<img class="top-story-img" src="${a.image}" onerror="this.style.display='none'" loading="lazy"/>` : '<div class="top-story-img"></div>'}
-          <div class="top-story-body">
-            <div class="top-story-num">0${i+1}</div>
-            <div class="top-story-source">${a.sourceName}</div>
-            <div class="top-story-title">${toTitleCase(a.title)}</div>
-          </div>
-        </a>`).join('');
-    } catch(e) {}
-  }
-
-  // ─── Search state ─────────────────────────────────────────────────────────
-  function updateSearchState(q, count) {
-    const bar = document.getElementById('searchStateBar');
-    const text = document.getElementById('searchStateText');
-    const latestHeader = document.getElementById('latestNewsHeader');
-    const topStories = document.getElementById('topStoriesSection');
-    if (q) {
-      bar.classList.add('visible');
-      text.innerHTML = `Showing <strong>${count}</strong> result${count !== 1 ? 's' : ''} for <strong>"${q}"</strong>`;
-      if (latestHeader) latestHeader.style.display = 'none';
-      if (topStories) topStories.style.display = 'none';
-    } else {
-      bar.classList.remove('visible');
-      if (latestHeader) latestHeader.style.display = '';
-      if (topStories) topStories.classList.contains('has-stories') && (topStories.style.display = '');
-    }
-  }
-
-  function clearSearch() {
-    const input = document.getElementById('searchInput');
-    input.value = '';
-    document.getElementById('searchDropdown').classList.remove('open');
-    updateSearchState('', 0);
-    allArticles = window.__LIVE_ARTICLES__ || allArticles;
-    visibleCount = PAGE_SIZE;
-    filteredArticles = [];
-    lastRenderedCount = 0;
-    renderArticles();
-  }
+  function toggleMobileMenu() {
     const d = document.getElementById('mobileDropdown');
     d.classList.toggle('open');
   }
@@ -1682,7 +1391,6 @@
     if (!q) {
       allArticles = window.__LIVE_ARTICLES__ || allArticles;
       document.getElementById('searchDropdown').classList.remove('open');
-      updateSearchState('', 0);
       renderArticles();
       return;
     }
@@ -1692,7 +1400,6 @@
         const data = await res.json();
         allArticles = data.articles || [];
         showSearchDropdown(q, allArticles);
-        updateSearchState(q, allArticles.length);
         visibleCount = PAGE_SIZE;
         filteredArticles = [];
         lastRenderedCount = 0;
@@ -1784,10 +1491,10 @@
             <span class="card-date">${timeAgo(a.date)}${isJustIn(a.date) ? '<span class="just-in-dot"></span>' : ''}</span>
           </div>
           ${a.image
-            ? `<div class="card-img-wrap"><img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" onerror="this.parentElement.outerHTML='<div class=\'card-img-placeholder\'>${a.sourceName}</div>'"></div>`
+            ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" onerror="this.style.display='none'">`
             : `<div class="card-img-placeholder">${a.sourceName}</div>`
           }
-          <div class="card-title">${toTitleCase(a.title)}</div>
+          <div class="card-title">${a.title}</div>
           ${a.description ? `<div class="card-desc">${a.description}</div>` : ''}
           <div class="card-footer">
             <a class="card-link" href="${a.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
@@ -2091,7 +1798,6 @@
   if (!isAboutPage && !isBrandPage) {
     loadFeatured();
     loadTicker();
-    loadTopStories();
   }
 
   // ─── Ticker ──────────────────────────────────────────────────────────────────
