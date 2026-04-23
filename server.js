@@ -2022,6 +2022,8 @@ app.get('/admin', (req, res) => {
       </label>
 
       <div id="featured-options">
+        <label>Featured Headline <span style="color:var(--muted);font-size:0.7rem;">(hero display title — leave blank to use article title)</span></label>
+        <input type="text" id="headline" placeholder="e.g. THIS DESIGNER WON $20,000 FROM ROC NATION — use | for line breaks"/>
         <label>Highlight Word (the neon outlined word in headline)</label>
         <input type="text" id="highlightWord" placeholder="Auto-picks longest word — override here"/>
         <label>Hero Duration</label>
@@ -2234,7 +2236,7 @@ app.get('/admin', (req, res) => {
     if (!title) { showStatus('Please enter a title', 'error'); return; }
     showStatus('Adding...', 'info');
     try {
-      const r = await fetch('/admin/add-article', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw(), title, description, image, sourceName, featured, headline: title, highlightWord, duration }) });
+      const r = await fetch('/admin/add-article', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw(), title, description, image, sourceName, featured, headline: document.getElementById('headline').value.trim() || title, highlightWord, duration }) });
       const data = await r.json();
       if (data.success) {
         showStatus('✓ Added' + (featured ? ' + Featured!' : '!'), 'success');
@@ -2243,6 +2245,8 @@ app.get('/admin', (req, res) => {
         document.getElementById('description').value = '';
         document.getElementById('image').value = '';
         document.getElementById('sourceName').value = '';
+        document.getElementById('headline').value = '';
+        document.getElementById('highlightWord').value = '';
         document.getElementById('featuredCheck').checked = false;
         document.getElementById('featured-options').style.display = 'none';
         document.getElementById('meta-fields').style.display = 'none';
