@@ -68,17 +68,6 @@ function saveVotes() {
 }
 loadVotes();
 
-// ─── Top Stories ──────────────────────────────────────────────────────────────
-const TOP_STORIES_FILE = path.join(__dirname, 'top-stories.json');
-let topStories = []; // array of article URLs
-function loadTopStories() {
-  try { if (fs.existsSync(TOP_STORIES_FILE)) topStories = JSON.parse(fs.readFileSync(TOP_STORIES_FILE, 'utf8')); } catch(e) {}
-}
-function saveTopStories() {
-  try { fs.writeFileSync(TOP_STORIES_FILE, JSON.stringify(topStories), 'utf8'); } catch(e) {}
-}
-loadTopStories();
-
 // ─── Image Patches ────────────────────────────────────────────────────────────
 const IMAGE_PATCHES_FILE = path.join(__dirname, 'image-patches.json');
 let imagePatches = {}; // { [url]: imageUrl }
@@ -1406,32 +1395,6 @@ app.get('/api/articles', (req, res) => {
   }
 });
 
-app.get('/api/top-stories', (req, res) => {
-  const stories = topStories.map(link => {
-    return cachedArticles.find(a => a.link === link)
-      || articleArchive.find(a => a.link === link)
-      || manualArticles.find(a => a.link === link)
-      || null;
-  }).filter(Boolean);
-  res.json({ stories });
-});
-
-app.post('/admin/add-top-story', express.json(), (req, res) => {
-  const { url, password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  if (!topStories.includes(url)) { topStories.push(url); saveTopStories(); }
-  res.json({ success: true });
-});
-
-app.post('/admin/remove-top-story', express.json(), (req, res) => {
-  const { url, password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
-  topStories = topStories.filter(u => u !== url);
-  saveTopStories();
-  res.json({ success: true });
-});
-
 app.get('/api/featured', (req, res) => {
   res.json({ featured: featuredArticles });
 });
@@ -2079,18 +2042,6 @@ app.get('/admin', (req, res) => {
     <div id="status"></div>
   </div>
 
-  <!-- Top Stories -->
-  <div class="box">
-    <div class="box-title">Top Stories</div>
-    <label>Article URL</label>
-    <input type="url" id="topStoryUrl" placeholder="https://..."/>
-    <button class="btn btn-primary" onclick="addTopStory()">Add to Top Stories</button>
-    <div id="topStoryStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
-    <div style="margin-top:1rem;border-top:1px solid #2a2a2a;padding-top:1rem;">
-      <div id="topStoriesList"><div style="color:#555;font-size:0.8rem;">Loading...</div></div>
-    </div>
-  </div>
-
   <!-- Featured Articles -->
   <div class="box">
     <div class="box-title">Featured Articles (Hero Carousel)</div>
@@ -2184,48 +2135,6 @@ app.get('/admin', (req, res) => {
   fetch('/api/ticker').then(r=>r.json()).then(d => { document.getElementById('tickerText').value = d.text || ''; });
 
   // Load featured articles
-  async function loadTopStoriesAdmin() {
-    try {
-      const res = await fetch('/api/top-stories');
-      const data = await res.json();
-      const list = document.getElementById('topStoriesList');
-      if (!data.stories || !data.stories.length) {
-        list.innerHTML = '<div style="color:#555;font-size:0.8rem;">No top stories set yet.</div>';
-        return;
-      }
-      list.innerHTML = data.stories.map(a =>
-        '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;">' +
-        '<div style="flex:1;min-width:0;font-size:0.8rem;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (a.title || a.link) + '</div>' +
-        '<button class="btn btn-danger" onclick="removeTopStory(&quot;' + a.link + '&quot;)">Remove</button>' +
-        '</div>'
-      ).join('');
-    } catch(e) {}
-  }
-  loadTopStoriesAdmin();
-
-  async function addTopStory() {
-    const url = document.getElementById('topStoryUrl').value.trim();
-    const s = document.getElementById('topStoryStatus');
-    if (!url) { s.style.display='block'; s.style.color='#f77'; s.textContent='URL required.'; return; }
-    s.style.display='block'; s.style.color='#7af'; s.textContent='Adding...';
-    try {
-      const r = await fetch('/admin/add-top-story', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
-      const data = await r.json();
-      if (data.success) {
-        s.style.color='#CCFF00'; s.textContent='✓ Added!';
-        document.getElementById('topStoryUrl').value = '';
-        loadTopStoriesAdmin();
-      } else { s.style.color='#f77'; s.textContent='Error: ' + (data.error || 'Failed'); }
-    } catch(e) { s.style.color='#f77'; s.textContent='Error: ' + e.message; }
-  }
-
-  async function removeTopStory(url) {
-    if (!confirm('Remove from top stories?')) return;
-    const r = await fetch('/admin/remove-top-story', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
-    const data = await r.json();
-    if (data.success) loadTopStoriesAdmin();
-  }
-
   async function loadFeatured() {
     const res = await fetch('/api/featured');
     const data = await res.json();
