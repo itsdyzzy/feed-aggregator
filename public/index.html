@@ -1182,7 +1182,7 @@
     <!-- slides injected by JS -->
   </div>
   <!-- Ticker -->
-  <div class="ticker-wrap" style="margin-top:24px;">
+  <div class="ticker-wrap" id="tickerWrap" style="margin-top:24px;">
     <div class="ticker-inner" id="tickerInner">
       <!-- content injected by JS -->
     </div>
@@ -1610,7 +1610,9 @@
   const isSpecialPage = isBrandPage || isAboutPage;
 
   if (isAboutPage) {
-    // About page — don't load articles at all, just show the static content
+    // Static page — hide hero, ticker, and stats bar
+    document.getElementById('heroSection').style.display = 'none';
+    document.getElementById('tickerWrap').style.display = 'none';
     document.getElementById('statsBar').style.display = 'none';
   } else if (isBrandPage) {
     // Brand page — use SSR brand articles, don't replace with full feed
