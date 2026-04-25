@@ -2239,46 +2239,51 @@ app.get('/admin', (req, res) => {
       return;
     }
     list.innerHTML = data.stories.map(s => \`
-      <div class="trend-item" data-id="\${s.id}" style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;cursor:default;">
+      <div class="trend-item" data-id="\${s.id}" data-title="\${s.title.replace(/"/g,'&quot;')}" data-image="\${(s.image||'').replace(/"/g,'&quot;')}" data-link="\${s.link.replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;cursor:default;">
         <span class="drag-handle" title="Drag to reorder" style="color:#444;cursor:grab;font-size:1.2rem;padding:0 4px;flex-shrink:0;user-select:none;">&#9776;</span>
         \${s.image ? \`<img src="\${s.image}" style="width:60px;height:40px;object-fit:cover;border:1px solid #2a2a2a;flex-shrink:0;" onerror="this.style.display='none'">\` : '<div style="width:60px;height:40px;background:#222;flex-shrink:0;"></div>'}
         <div style="flex:1;min-width:0;">
           <div style="font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.title}</div>
           <div style="font-size:0.7rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.link}</div>
         </div>
-        <button class="btn btn-secondary" style="width:auto;padding:0.4rem 0.75rem;font-size:0.75rem;margin:0 0.25rem 0 0;" onclick="editTrending(\${JSON.stringify(s).replace(/'/g, '&#39;')})">Edit</button>
+        <button class="btn btn-secondary" style="width:auto;padding:0.4rem 0.75rem;font-size:0.75rem;margin:0 0.25rem 0 0;" onclick="editTrending(this.closest('.trend-item'))">Edit</button>
         <button class="btn btn-danger" onclick="removeTrending('\${s.id}')">Remove</button>
       </div>\`).join('');
     initTrendingDragSort(list);
   }
   loadTrending();
 
+  let _trendDragging = null;
+  let _trendList = null;
+
   function initTrendingDragSort(list) {
-    let dragging = null;
+    _trendList = list;
     list.querySelectorAll('.trend-item').forEach(item => {
-      item.querySelector('.drag-handle').addEventListener('mousedown', e => {
-        dragging = item;
+      const handle = item.querySelector('.drag-handle');
+      handle.onmousedown = e => {
+        _trendDragging = item;
         item.style.opacity = '0.5';
         e.preventDefault();
-      });
+      };
     });
-    list.addEventListener('mouseover', e => {
+    list.onmouseover = e => {
       const target = e.target.closest('.trend-item');
-      if (!dragging || !target || target === dragging) return;
+      if (!_trendDragging || !target || target === _trendDragging) return;
       const items = [...list.querySelectorAll('.trend-item')];
-      const fromIdx = items.indexOf(dragging);
+      const fromIdx = items.indexOf(_trendDragging);
       const toIdx = items.indexOf(target);
-      if (fromIdx < toIdx) target.after(dragging);
-      else target.before(dragging);
-    });
-    document.addEventListener('mouseup', async () => {
-      if (!dragging) return;
-      dragging.style.opacity = '';
-      dragging = null;
-      const ids = [...list.querySelectorAll('.trend-item')].map(el => el.dataset.id);
-      await fetch('/admin/trending/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids, password: pw() }) });
-    }, { once: true });
+      if (fromIdx < toIdx) target.after(_trendDragging);
+      else target.before(_trendDragging);
+    };
   }
+
+  document.addEventListener('mouseup', async () => {
+    if (!_trendDragging || !_trendList) return;
+    _trendDragging.style.opacity = '';
+    _trendDragging = null;
+    const ids = [..._trendList.querySelectorAll('.trend-item')].map(el => el.dataset.id);
+    await fetch('/admin/trending/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids, password: pw() }) });
+  });
 
   async function submitTrending() {
     const id = document.getElementById('trendEditId').value;
@@ -2304,11 +2309,15 @@ app.get('/admin', (req, res) => {
     }
   }
 
-  function editTrending(s) {
-    document.getElementById('trendEditId').value = s.id;
-    document.getElementById('trendTitle').value = s.title;
-    document.getElementById('trendImage').value = s.image || '';
-    document.getElementById('trendLink').value = s.link;
+  function editTrending(el) {
+    const id = el.dataset.id;
+    const title = el.dataset.title;
+    const image = el.dataset.image || '';
+    const link = el.dataset.link;
+    document.getElementById('trendEditId').value = id;
+    document.getElementById('trendTitle').value = title;
+    document.getElementById('trendImage').value = image;
+    document.getElementById('trendLink').value = link;
     document.getElementById('trendSubmitBtn').textContent = 'Save Changes';
     document.getElementById('trendCancelBtn').style.display = 'block';
     document.getElementById('trendStatus').style.display = 'none';
