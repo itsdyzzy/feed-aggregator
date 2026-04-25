@@ -898,7 +898,7 @@
     }
 
     /* ─── Upcoming Drops ──────────────────────────────────────────────────────── */
-    .drops-section { padding: 0 20px 24px; }
+    .drops-section { padding: 1.5rem 20px 24px; }
     .drops-title {
       font-family: 'Bebas Neue', sans-serif;
       font-size: 14px;
@@ -1089,9 +1089,8 @@
 
     /* ─── Trending Stories ───────────────────────────────────────────────────── */
     .trending-section {
-      padding: 1.5rem 0 1rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 1.5rem;
+      padding: 0 0 1rem;
+      margin-bottom: 0;
     }
     .trending-header {
       font-family: 'Bebas Neue', sans-serif;
@@ -1099,6 +1098,7 @@
       letter-spacing: 0.05em;
       color: var(--text);
       margin-bottom: 1rem;
+      padding-left: 1.5rem;
     }
     .trending-track-wrap {
       overflow-x: auto;
@@ -1106,6 +1106,7 @@
       cursor: grab;
       user-select: none;
       scrollbar-width: none;
+      padding-left: 1.5rem;
     }
     .trending-track-wrap::-webkit-scrollbar { display: none; }
     .trending-track-wrap.dragging { cursor: grabbing; }
@@ -1139,7 +1140,7 @@
     }
     .trending-card:hover .trending-card-title { color: var(--accent); }
     @media (max-width: 768px) {
-      .trending-section { padding: 1rem 0; }
+      .trending-section { padding: 0; }
       .trending-card { flex: 0 0 200px; }
     }
   </style>
