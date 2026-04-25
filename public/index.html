@@ -531,6 +531,45 @@
     @media (max-width: 768px) {
       .header-brands { display: none; }
     }
+    #searchStateBar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      grid-column: 1 / -1;
+    }
+    #searchStateBar.visible { display: flex; }
+    #searchStateBar span {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    #searchStateBar span em {
+      color: var(--text);
+      font-style: normal;
+      font-weight: 500;
+    }
+    #searchClearBtn {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    #searchClearBtn:hover { color: var(--accent); border-color: var(--accent); }
+
     .state-msg {
       grid-column: 1/-1;
       padding: 5rem 2rem;
@@ -1202,6 +1241,10 @@
 <div id="errorBanner" style="display:none" class="error-banner"></div>
 
 <!-- SSR_GRID_START --><div class="grid" id="grid">
+  <div id="searchStateBar">
+    <span>Results for <em id="searchStateQuery"></em></span>
+    <button id="searchClearBtn" onclick="clearSearch()">&#x2715; Clear</button>
+  </div>
   <div class="loader">
     <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
     <div class="loader-text">Fetching latest articles</div>
@@ -1372,14 +1415,30 @@
   }
 
   let searchTimeout = null;
+  function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchStateBar').classList.remove('visible');
+    allArticles = window.__LIVE_ARTICLES__ || allArticles;
+    visibleCount = PAGE_SIZE;
+    filteredArticles = [];
+    lastRenderedCount = 0;
+    renderArticles();
+    window.history.replaceState({}, '', '/');
+  }
+
   function handleSearch() {
     const q = document.getElementById('searchInput').value.trim();
+    const bar = document.getElementById('searchStateBar');
+    const barQuery = document.getElementById('searchStateQuery');
     clearTimeout(searchTimeout);
     if (!q) {
+      bar.classList.remove('visible');
       allArticles = window.__LIVE_ARTICLES__ || allArticles;
       renderArticles();
       return;
     }
+    barQuery.textContent = '\u201c' + q + '\u201d';
+    bar.classList.add('visible');
     searchTimeout = setTimeout(async () => {
       try {
         const res = await fetch('/api/search?q=' + encodeURIComponent(q));
@@ -1689,6 +1748,12 @@
   if (urlQ) {
     const si = document.getElementById('searchInput');
     if (si) { si.value = urlQ; }
+    const bar = document.getElementById('searchStateBar');
+    const barQuery = document.getElementById('searchStateQuery');
+    if (bar && barQuery) {
+      barQuery.textContent = '\u201c' + urlQ + '\u201d';
+      bar.classList.add('visible');
+    }
   }
 
   // Auto-refresh every 15 minutes (homepage only)
