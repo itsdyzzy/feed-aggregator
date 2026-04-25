@@ -32,6 +32,17 @@ function saveTicker() {
 }
 loadTicker();
 
+// ─── Trending Stories ─────────────────────────────────────────────────────────
+const TRENDING_FILE = path.join(__dirname, 'trending.json');
+let trendingStories = [];
+function loadTrending() {
+  try { if (fs.existsSync(TRENDING_FILE)) trendingStories = JSON.parse(fs.readFileSync(TRENDING_FILE, 'utf8')); } catch(e) {}
+}
+function saveTrending() {
+  try { fs.writeFileSync(TRENDING_FILE, JSON.stringify(trendingStories), 'utf8'); } catch(e) {}
+}
+loadTrending();
+
 // ─── Email Subscribers ────────────────────────────────────────────────────────
 const EMAILS_FILE = path.join(__dirname, 'emails.json');
 let emailSubscribers = [];
@@ -1812,6 +1823,28 @@ app.post('/admin/unfeature', (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/api/trending', (req, res) => {
+  res.json({ stories: trendingStories });
+});
+
+app.post('/admin/trending/add', express.json(), (req, res) => {
+  const { title, image, link, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!title || !link) return res.status(400).json({ error: 'Title and link required' });
+  const story = { id: Date.now().toString(), title, image: image || '', link };
+  trendingStories.push(story);
+  saveTrending();
+  res.json({ success: true, story });
+});
+
+app.post('/admin/trending/remove', express.json(), (req, res) => {
+  const { id, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  trendingStories = trendingStories.filter(s => s.id !== id);
+  saveTrending();
+  res.json({ success: true });
+});
+
 app.post('/admin/update-ticker', (req, res) => {
   const { text, password } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
@@ -2048,6 +2081,23 @@ app.get('/admin', (req, res) => {
     <div id="featuredList"><div style="color:#555;font-size:0.8rem;">Loading...</div></div>
   </div>
 
+  <!-- Trending Stories -->
+  <div class="box">
+    <div class="box-title">Trending Stories</div>
+    <label>Title</label>
+    <input type="text" id="trendTitle" placeholder="Article title..."/>
+    <label>Image URL</label>
+    <input type="url" id="trendImage" placeholder="https://...image.jpg"/>
+    <label>Link URL</label>
+    <input type="url" id="trendLink" placeholder="https://..."/>
+    <button class="btn btn-primary" onclick="addTrending()">Add Trending Story</button>
+    <div id="trendStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
+    <div style="margin-top:1rem;border-top:1px solid #2a2a2a;padding-top:1rem;">
+      <div class="box-title" style="margin-bottom:0.75rem;">Current Trending Stories</div>
+      <div id="trendingList"><div style="color:#555;font-size:0.8rem;">Loading...</div></div>
+    </div>
+  </div>
+
   <!-- Ticker -->
   <div class="box">
     <div class="box-title">Ticker Text</div>
@@ -2155,6 +2205,55 @@ app.get('/admin', (req, res) => {
       </div>\`).join('');
   }
   loadFeatured();
+
+  async function loadTrending() {
+    const res = await fetch('/api/trending');
+    const data = await res.json();
+    const list = document.getElementById('trendingList');
+    if (!data.stories || data.stories.length === 0) {
+      list.innerHTML = '<div style="color:#555;font-size:0.8rem;">No trending stories set.</div>';
+      return;
+    }
+    list.innerHTML = data.stories.map(s => \`
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;">
+        \${s.image ? \`<img src="\${s.image}" style="width:60px;height:40px;object-fit:cover;border:1px solid #2a2a2a;flex-shrink:0;" onerror="this.style.display='none'">\` : '<div style="width:60px;height:40px;background:#222;flex-shrink:0;"></div>'}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.title}</div>
+          <div style="font-size:0.7rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.link}</div>
+        </div>
+        <button class="btn btn-danger" onclick="removeTrending('\${s.id}')">Remove</button>
+      </div>\`).join('');
+  }
+  loadTrending();
+
+  async function addTrending() {
+    const title = document.getElementById('trendTitle').value.trim();
+    const image = document.getElementById('trendImage').value.trim();
+    const link = document.getElementById('trendLink').value.trim();
+    const status = document.getElementById('trendStatus');
+    if (!title || !link) { status.style.display='block'; status.style.color='#FF3D00'; status.textContent='Title and link are required.'; return; }
+    const res = await fetch('/admin/trending/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, image, link, password: pw() }) });
+    const data = await res.json();
+    status.style.display = 'block';
+    if (data.success) {
+      status.style.color = '#CCFF00';
+      status.textContent = 'Story added!';
+      document.getElementById('trendTitle').value = '';
+      document.getElementById('trendImage').value = '';
+      document.getElementById('trendLink').value = '';
+      loadTrending();
+    } else {
+      status.style.color = '#FF3D00';
+      status.textContent = 'Error: ' + (data.error || 'Failed');
+    }
+  }
+
+  async function removeTrending(id) {
+    const res = await fetch('/admin/trending/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, password: pw() }) });
+    const data = await res.json();
+    if (data.success) loadTrending();
+    else alert('Error: ' + (data.error || 'Failed'));
+  }
 
   async function unfeature(url) {
     const res = await fetch('/admin/unfeature', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url, password: pw() }) });
