@@ -448,7 +448,13 @@
       max-height: 360px;
       overflow-y: auto;
       display: none;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
+    .search-results-dropdown::-webkit-scrollbar { width: 4px; }
+    .search-results-dropdown::-webkit-scrollbar-track { background: transparent; }
+    .search-results-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .search-results-dropdown::-webkit-scrollbar-thumb:hover { background: var(--muted); }
     .search-results-dropdown.open { display: block; }
     .search-result-item {
       display: flex;
@@ -1330,6 +1336,13 @@
     }
     if (!e.target.closest('.mobile-menu-wrap')) {
       document.getElementById('mobileDropdown')?.classList.remove('open');
+    }
+  });
+
+  document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      document.getElementById('searchDropdown').classList.remove('open');
+      document.getElementById('searchInput').blur();
     }
   });
 
