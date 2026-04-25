@@ -1101,23 +1101,19 @@
       padding-left: 1.5rem;
     }
     .trending-track-wrap {
-      overflow-x: auto;
-      overflow-y: hidden;
-      cursor: grab;
-      user-select: none;
-      scrollbar-width: none;
+      overflow: hidden;
       padding-left: 1.5rem;
+      padding-right: 1.5rem;
     }
-    .trending-track-wrap::-webkit-scrollbar { display: none; }
-    .trending-track-wrap.dragging { cursor: grabbing; }
     .trending-track {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
       gap: 1rem;
     }
     .trending-card {
-      flex: 0 0 300px;
       text-decoration: none;
       display: block;
+      min-width: 0;
     }
     .trending-card-img {
       width: 100%;
@@ -1141,7 +1137,18 @@
     .trending-card:hover .trending-card-title { color: var(--accent); }
     @media (max-width: 768px) {
       .trending-section { padding: 0; }
-      .trending-card { flex: 0 0 200px; }
+      .trending-track-wrap {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        padding-right: 0;
+      }
+      .trending-track-wrap::-webkit-scrollbar { display: none; }
+      .trending-track {
+        display: flex;
+        grid-template-columns: none;
+      }
+      .trending-card { flex: 0 0 200px; min-width: 200px; }
     }
   </style>
 
@@ -1904,7 +1911,7 @@
       const track = document.getElementById('trendingTrack');
       if (!stories.length) { section.style.display = 'none'; return; }
       section.style.display = 'block';
-      track.innerHTML = stories.map(s => `
+      track.innerHTML = stories.slice(0, 5).map(s => `
         <a class="trending-card" href="${s.link}" target="_blank" rel="noopener">
           ${s.image ? `<img class="trending-card-img" src="${s.image}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<div class="trending-card-img"></div>`}
           <div class="trending-card-title">${toTitleCase(s.title)}</div>
@@ -1915,23 +1922,7 @@
 
   function initTrendingDrag() {
     const wrap = document.getElementById('trendingWrap');
-    const track = document.getElementById('trendingTrack');
-    let isDown = false, startX, scrollLeft;
-    wrap.addEventListener('mousedown', e => {
-      isDown = true;
-      wrap.classList.add('dragging');
-      startX = e.pageX - wrap.offsetLeft;
-      scrollLeft = wrap.scrollLeft;
-    });
-    wrap.addEventListener('mouseleave', () => { isDown = false; wrap.classList.remove('dragging'); });
-    wrap.addEventListener('mouseup', () => { isDown = false; wrap.classList.remove('dragging'); });
-    wrap.addEventListener('mousemove', e => {
-      if (!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - wrap.offsetLeft;
-      wrap.scrollLeft = scrollLeft - (x - startX);
-    });
-    // Touch support
+    let startX, scrollLeft;
     wrap.addEventListener('touchstart', e => { startX = e.touches[0].pageX; scrollLeft = wrap.scrollLeft; }, { passive: true });
     wrap.addEventListener('touchmove', e => { wrap.scrollLeft = scrollLeft - (e.touches[0].pageX - startX); }, { passive: true });
   }
