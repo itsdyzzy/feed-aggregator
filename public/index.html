@@ -538,7 +538,6 @@
       padding: 0.75rem 0;
       margin-bottom: 1rem;
       border-bottom: 1px solid var(--border);
-      grid-column: 1 / -1;
     }
     #searchStateBar.visible { display: flex; }
     #searchStateBar span {
@@ -1240,11 +1239,12 @@
 </div>
 <div id="errorBanner" style="display:none" class="error-banner"></div>
 
+<div id="searchStateBar">
+  <span>Results for <em id="searchStateQuery"></em></span>
+  <button id="searchClearBtn" onclick="clearSearch()">&#x2715; Clear</button>
+</div>
+
 <!-- SSR_GRID_START --><div class="grid" id="grid">
-  <div id="searchStateBar">
-    <span>Results for <em id="searchStateQuery"></em></span>
-    <button id="searchClearBtn" onclick="clearSearch()">&#x2715; Clear</button>
-  </div>
   <div class="loader">
     <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
     <div class="loader-text">Fetching latest articles</div>
