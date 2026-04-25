@@ -354,6 +354,12 @@
       font-size: 1.2rem;
       letter-spacing: 0.2em;
     }
+    .card-img-placeholder img {
+      width: 60%;
+      height: 60%;
+      object-fit: contain;
+      opacity: 0.9;
+    }
 
     .card-title {
       font-family: 'DM Sans', sans-serif;
@@ -1452,6 +1458,19 @@
     }, 300);
   }
 
+  function getBrandLogo(article) {
+    const text = ((article.title || '') + ' ' + (article.description || '') + ' ' + (article.sourceName || '')).toLowerCase();
+    if (/\bnike\b/.test(text))                        return '/nike logo.png';
+    if (/\bjordan\b/.test(text))                      return '/jordan logo.png';
+    if (/\badidas\b/.test(text))                      return '/adidas logo.png';
+    if (/\bnew balance\b/.test(text))                 return '/new balance logo.png';
+    if (/\breebok\b/.test(text))                      return '/reebok logo.png';
+    if (/\bpuma\b/.test(text))                        return '/puma logo.png';
+    if (/\bconverse\b/.test(text))                    return '/converse logo.png';
+    if (/\bvans\b/.test(text))                        return '/vans logo.png';
+    return null;
+  }
+
   function toTitleCase(str) {
     const small = new Set(['a','an','the','and','but','or','nor','for','so','yet','at','by','in','of','on','to','up','as','is','it']);
     return str.toLowerCase().replace(/\S+/g, (word, offset) => {
@@ -1546,7 +1565,7 @@
           </div>
           ${a.image
             ? `<img class="card-img" src="${a.image}" alt="${a.title.replace(/"/g,'')}" loading="${isAboveFold ? 'eager' : 'lazy'}" fetchpriority="${isAboveFold ? 'high' : 'low'}" onerror="this.style.display='none'">`
-            : `<div class="card-img-placeholder">${a.sourceName}</div>`
+            : (() => { const logo = getBrandLogo(a); return logo ? `<div class="card-img-placeholder"><img src="${logo}" alt=""></div>` : `<div class="card-img-placeholder">${a.sourceName}</div>`; })()
           }
           <div class="card-title">${toTitleCase(a.title)}</div>
           ${a.description ? `<div class="card-desc">${a.description}</div>` : ''}
