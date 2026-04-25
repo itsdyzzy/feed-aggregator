@@ -1091,15 +1091,23 @@
     .trending-section {
       padding: 0 0 1rem;
       margin-bottom: 0;
-      border-bottom: 1px solid var(--border);
     }
-    .trending-header {
+    .section-label {
+      display: inline-block;
       font-family: 'Bebas Neue', sans-serif;
       font-size: 1.5rem;
       letter-spacing: 0.05em;
-      color: var(--text);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.15rem 0.75rem;
       margin-bottom: 1rem;
-      padding-left: 1.5rem;
+      margin-left: 1.5rem;
+      transition: border-color 0.2s, color 0.2s;
+      cursor: default;
+    }
+    .section-label:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
     .trending-track-wrap {
       overflow: hidden;
@@ -1311,7 +1319,7 @@
 
 <div id="trendingSection" style="display:none;">
   <div class="trending-section">
-    <div class="trending-header">Trending Stories</div>
+    <div class="section-label">Trending Stories</div>
     <div class="trending-track-wrap" id="trendingWrap">
       <div class="trending-track" id="trendingTrack"></div>
     </div>
@@ -1328,8 +1336,8 @@
   <button id="searchClearBtn" onclick="clearSearch()">&#x2715; Clear</button>
 </div>
 
-<div id="latestNewsHeader" style="padding: 1.5rem 0 1rem 1.5rem;">
-  <span style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:0.05em;color:var(--text);">Latest News</span>
+<div id="latestNewsHeader" style="padding: 1.5rem 0 1rem 0;">
+  <span class="section-label">Latest News</span>
 </div>
 
 <!-- SSR_GRID_START --><div class="grid" id="grid">
