@@ -1091,6 +1091,7 @@
     .trending-section {
       padding: 0 0 1rem;
       margin-bottom: 0;
+      border-bottom: 1px solid var(--border);
     }
     .trending-header {
       font-family: 'Bebas Neue', sans-serif;
@@ -1327,6 +1328,10 @@
   <button id="searchClearBtn" onclick="clearSearch()">&#x2715; Clear</button>
 </div>
 
+<div id="latestNewsHeader" style="padding: 1.5rem 0 1rem 1.5rem;">
+  <span style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:0.05em;color:var(--text);">Latest News</span>
+</div>
+
 <!-- SSR_GRID_START --><div class="grid" id="grid">
   <div class="loader">
     <div class="loader-bars"><span></span><span></span><span></span><span></span><span></span></div>
@@ -1503,6 +1508,8 @@
     document.getElementById('searchStateBar').classList.remove('visible');
     const hero = document.getElementById('heroSection');
     if (hero) hero.style.display = '';
+    const lnh = document.getElementById('latestNewsHeader');
+    if (lnh) lnh.style.display = '';
     allArticles = window.__LIVE_ARTICLES__ || allArticles;
     visibleCount = PAGE_SIZE;
     filteredArticles = [];
@@ -1520,6 +1527,8 @@
       bar.classList.remove('visible');
       const hero = document.getElementById('heroSection');
       if (hero) hero.style.display = '';
+      const lnh = document.getElementById('latestNewsHeader');
+      if (lnh) lnh.style.display = '';
       allArticles = window.__LIVE_ARTICLES__ || allArticles;
       renderArticles();
       return;
@@ -1528,6 +1537,8 @@
     bar.classList.add('visible');
     const hero = document.getElementById('heroSection');
     if (hero) hero.style.display = 'none';
+    const lnh = document.getElementById('latestNewsHeader');
+    if (lnh) lnh.style.display = 'none';
     searchTimeout = setTimeout(async () => {
       try {
         const res = await fetch('/api/search?q=' + encodeURIComponent(q));
