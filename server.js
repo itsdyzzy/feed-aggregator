@@ -1845,6 +1845,28 @@ app.post('/admin/trending/remove', express.json(), (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/admin/trending/reorder', express.json(), (req, res) => {
+  const { ids, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids required' });
+  const map = Object.fromEntries(trendingStories.map(s => [s.id, s]));
+  trendingStories = ids.map(id => map[id]).filter(Boolean);
+  saveTrending();
+  res.json({ success: true });
+});
+
+app.post('/admin/trending/edit', express.json(), (req, res) => {
+  const { id, title, image, link, password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  const story = trendingStories.find(s => s.id === id);
+  if (!story) return res.status(404).json({ error: 'Story not found' });
+  if (title) story.title = title;
+  if (image !== undefined) story.image = image;
+  if (link) story.link = link;
+  saveTrending();
+  res.json({ success: true });
+});
+
 app.post('/admin/update-ticker', (req, res) => {
   const { text, password } = req.body;
   if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
@@ -2084,13 +2106,15 @@ app.get('/admin', (req, res) => {
   <!-- Trending Stories -->
   <div class="box">
     <div class="box-title">Trending Stories</div>
+    <input type="hidden" id="trendEditId"/>
     <label>Title</label>
     <input type="text" id="trendTitle" placeholder="Article title..."/>
     <label>Image URL</label>
     <input type="url" id="trendImage" placeholder="https://...image.jpg"/>
     <label>Link URL</label>
     <input type="url" id="trendLink" placeholder="https://..."/>
-    <button class="btn btn-primary" onclick="addTrending()">Add Trending Story</button>
+    <button class="btn btn-primary" id="trendSubmitBtn" onclick="submitTrending()">Add Trending Story</button>
+    <button class="btn btn-secondary" id="trendCancelBtn" onclick="cancelTrendingEdit()" style="display:none;">Cancel Edit</button>
     <div id="trendStatus" style="display:none;padding:0.5rem;font-size:0.8rem;margin-top:0.5rem;"></div>
     <div style="margin-top:1rem;border-top:1px solid #2a2a2a;padding-top:1rem;">
       <div class="box-title" style="margin-bottom:0.75rem;">Current Trending Stories</div>
@@ -2215,37 +2239,91 @@ app.get('/admin', (req, res) => {
       return;
     }
     list.innerHTML = data.stories.map(s => \`
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;">
+      <div class="trend-item" data-id="\${s.id}" style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #2a2a2a;cursor:default;">
+        <span class="drag-handle" title="Drag to reorder" style="color:#444;cursor:grab;font-size:1.2rem;padding:0 4px;flex-shrink:0;user-select:none;">&#9776;</span>
         \${s.image ? \`<img src="\${s.image}" style="width:60px;height:40px;object-fit:cover;border:1px solid #2a2a2a;flex-shrink:0;" onerror="this.style.display='none'">\` : '<div style="width:60px;height:40px;background:#222;flex-shrink:0;"></div>'}
         <div style="flex:1;min-width:0;">
           <div style="font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.title}</div>
           <div style="font-size:0.7rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">\${s.link}</div>
         </div>
+        <button class="btn btn-secondary" style="width:auto;padding:0.4rem 0.75rem;font-size:0.75rem;margin:0 0.25rem 0 0;" onclick="editTrending(\${JSON.stringify(s).replace(/'/g, '&#39;')})">Edit</button>
         <button class="btn btn-danger" onclick="removeTrending('\${s.id}')">Remove</button>
       </div>\`).join('');
+    initTrendingDragSort(list);
   }
   loadTrending();
 
-  async function addTrending() {
+  function initTrendingDragSort(list) {
+    let dragging = null;
+    list.querySelectorAll('.trend-item').forEach(item => {
+      item.querySelector('.drag-handle').addEventListener('mousedown', e => {
+        dragging = item;
+        item.style.opacity = '0.5';
+        e.preventDefault();
+      });
+    });
+    list.addEventListener('mouseover', e => {
+      const target = e.target.closest('.trend-item');
+      if (!dragging || !target || target === dragging) return;
+      const items = [...list.querySelectorAll('.trend-item')];
+      const fromIdx = items.indexOf(dragging);
+      const toIdx = items.indexOf(target);
+      if (fromIdx < toIdx) target.after(dragging);
+      else target.before(dragging);
+    });
+    document.addEventListener('mouseup', async () => {
+      if (!dragging) return;
+      dragging.style.opacity = '';
+      dragging = null;
+      const ids = [...list.querySelectorAll('.trend-item')].map(el => el.dataset.id);
+      await fetch('/admin/trending/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids, password: pw() }) });
+    }, { once: true });
+  }
+
+  async function submitTrending() {
+    const id = document.getElementById('trendEditId').value;
     const title = document.getElementById('trendTitle').value.trim();
     const image = document.getElementById('trendImage').value.trim();
     const link = document.getElementById('trendLink').value.trim();
     const status = document.getElementById('trendStatus');
     if (!title || !link) { status.style.display='block'; status.style.color='#FF3D00'; status.textContent='Title and link are required.'; return; }
-    const res = await fetch('/admin/trending/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, image, link, password: pw() }) });
+    const isEdit = !!id;
+    const url = isEdit ? '/admin/trending/edit' : '/admin/trending/add';
+    const body = isEdit ? { id, title, image, link, password: pw() } : { title, image, link, password: pw() };
+    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     const data = await res.json();
     status.style.display = 'block';
     if (data.success) {
       status.style.color = '#CCFF00';
-      status.textContent = 'Story added!';
-      document.getElementById('trendTitle').value = '';
-      document.getElementById('trendImage').value = '';
-      document.getElementById('trendLink').value = '';
+      status.textContent = isEdit ? 'Story updated!' : 'Story added!';
+      cancelTrendingEdit();
       loadTrending();
     } else {
       status.style.color = '#FF3D00';
       status.textContent = 'Error: ' + (data.error || 'Failed');
     }
+  }
+
+  function editTrending(s) {
+    document.getElementById('trendEditId').value = s.id;
+    document.getElementById('trendTitle').value = s.title;
+    document.getElementById('trendImage').value = s.image || '';
+    document.getElementById('trendLink').value = s.link;
+    document.getElementById('trendSubmitBtn').textContent = 'Save Changes';
+    document.getElementById('trendCancelBtn').style.display = 'block';
+    document.getElementById('trendStatus').style.display = 'none';
+    document.getElementById('trendTitle').focus();
+    document.getElementById('trendTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelTrendingEdit() {
+    document.getElementById('trendEditId').value = '';
+    document.getElementById('trendTitle').value = '';
+    document.getElementById('trendImage').value = '';
+    document.getElementById('trendLink').value = '';
+    document.getElementById('trendSubmitBtn').textContent = 'Add Trending Story';
+    document.getElementById('trendCancelBtn').style.display = 'none';
+    document.getElementById('trendStatus').style.display = 'none';
   }
 
   async function removeTrending(id) {
