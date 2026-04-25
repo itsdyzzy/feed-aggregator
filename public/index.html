@@ -1415,7 +1415,8 @@
     return str.toLowerCase().replace(/\S+/g, (word, offset) => {
       const clean = word.replace(/[^a-zA-Z]/g, '');
       if (offset !== 0 && small.has(clean)) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1);
+      // Capitalize first letter even if word starts with quote or punctuation
+      return word.replace(/(['""\u2018\u2019\u201c\u201d]*)([a-z])/, (m, pre, letter) => pre + letter.toUpperCase());
     });
   }
 
