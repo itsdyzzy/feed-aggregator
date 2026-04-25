@@ -1428,6 +1428,8 @@
   function clearSearch() {
     document.getElementById('searchInput').value = '';
     document.getElementById('searchStateBar').classList.remove('visible');
+    const hero = document.getElementById('heroSection');
+    if (hero) hero.style.display = '';
     allArticles = window.__LIVE_ARTICLES__ || allArticles;
     visibleCount = PAGE_SIZE;
     filteredArticles = [];
@@ -1443,12 +1445,16 @@
     clearTimeout(searchTimeout);
     if (!q) {
       bar.classList.remove('visible');
+      const hero = document.getElementById('heroSection');
+      if (hero) hero.style.display = '';
       allArticles = window.__LIVE_ARTICLES__ || allArticles;
       renderArticles();
       return;
     }
     barQuery.textContent = '\u201c' + q + '\u201d';
     bar.classList.add('visible');
+    const hero = document.getElementById('heroSection');
+    if (hero) hero.style.display = 'none';
     searchTimeout = setTimeout(async () => {
       try {
         const res = await fetch('/api/search?q=' + encodeURIComponent(q));
@@ -1763,6 +1769,8 @@
     if (bar && barQuery) {
       barQuery.textContent = '\u201c' + urlQ + '\u201d';
       bar.classList.add('visible');
+      const hero = document.getElementById('heroSection');
+      if (hero) hero.style.display = 'none';
     }
   }
 
