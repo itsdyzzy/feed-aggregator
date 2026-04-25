@@ -549,6 +549,32 @@
       align-items: center;
       gap: 1rem;
     }
+
+    .header-brands {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+    }
+    .header-brands a {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 0.3rem 0.55rem;
+      border-radius: 3px;
+      transition: color 0.2s, background 0.2s;
+      white-space: nowrap;
+    }
+    .header-brands a:hover {
+      color: var(--text);
+      background: var(--surface);
+    }
+    @media (max-width: 768px) {
+      .header-brands { display: none; }
+    }
     .state-msg {
       grid-column: 1/-1;
       padding: 5rem 2rem;
@@ -1082,6 +1108,15 @@
       <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;">streetwear.news — Sneaker Drops &amp; Streetwear News Aggregator</span>
     </h1>
   </a>
+  <nav class="header-brands">
+    <a href="/?q=nike">Nike</a>
+    <a href="/?q=adidas">Adidas</a>
+    <a href="/?q=jordan">Jordan</a>
+    <a href="/?q=new+balance">New Balance</a>
+    <a href="/?q=reebok">Reebok</a>
+    <a href="/?q=puma">Puma</a>
+    <a href="/?q=vans">Vans</a>
+  </nav>
   <div class="header-right">
     <div class="social-icons">
       <!-- Instagram -->
@@ -1686,6 +1721,13 @@
     }).catch(()=>{});
   } else {
     loadArticles();
+  }
+
+  // Pre-fill search from URL ?q= param (used by brand links in header)
+  const urlQ = new URLSearchParams(window.location.search).get('q');
+  if (urlQ) {
+    const si = document.getElementById('searchInput');
+    if (si) { si.value = urlQ; }
   }
 
   // Auto-refresh every 15 minutes (homepage only)
